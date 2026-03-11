@@ -1,0 +1,4 @@
+Yang harus Anda lakukan sekarang:
+1) Segera REVOKE/rotate token itu di tempat asalnya (builder.kiloapps.io / app-builder).
+2) Kalau token tidak bisa di-revoke manual, buat token baru dan hapus yang lama / regenerate credentials project.
+3) Jangan commit atau simpan token itu di file (.env, README, dll).

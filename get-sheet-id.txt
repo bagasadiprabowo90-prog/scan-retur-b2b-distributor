@@ -1,0 +1,3 @@
+Dari URL:
+https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit#gid=...
+Ambil bagian SPREADSHEET_ID.

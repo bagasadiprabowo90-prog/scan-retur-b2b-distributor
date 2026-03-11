@@ -1,0 +1,78 @@
+export type MasterLookupResponse =
+  | { ok: true; sku: string; barcode: string; product: string }
+  | { ok: false; error: string };
+
+export type BatchItem = {
+  lot: string;
+  expDate: string;
+};
+
+export type BatchesResponse =
+  | { ok: true; batches: BatchItem[] }
+  | { ok: false; error: string };
+
+export type CreateReturnPayload = {
+  receiveDate: string;
+  distriEvent: string;
+  product: string;
+  barcode: string;
+  batch: string;
+  expDate: string;
+  qty: number;
+  keterangan: string;
+  pic: string;
+};
+
+export type CreateReturnResponse =
+  | { ok: true; appendedRow: number }
+  | { ok: false; error: string };
+
+function getBaseUrl(): string {
+  const url = import.meta.env.VITE_APPS_SCRIPT_URL;
+  if (!url) {
+    throw new Error(
+      "Missing VITE_APPS_SCRIPT_URL. Buat file .env dan isi URL Apps Script Web App."
+    );
+  }
+  return url as string;
+}
+
+export async function fetchMasterByBarcode(barcode: string): Promise<MasterLookupResponse> {
+  try {
+    const base = getBaseUrl();
+    const url = `${base}?action=master&barcode=${encodeURIComponent(barcode)}`;
+    const res = await fetch(url);
+    return await res.json();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Gagal fetch master data";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function fetchBatches(): Promise<BatchesResponse> {
+  try {
+    const base = getBaseUrl();
+    const url = `${base}?action=batches`;
+    const res = await fetch(url);
+    return await res.json();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Gagal fetch batches";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function createReturn(payload: CreateReturnPayload): Promise<CreateReturnResponse> {
+  try {
+    const base = getBaseUrl();
+    const res = await fetch(base, {
+      method: "POST",
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ action: "returns", payload }),
+    });
+    return await res.json();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Gagal submit retur";
+    return { ok: false, error: msg };
+  }
+}

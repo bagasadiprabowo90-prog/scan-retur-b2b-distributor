@@ -1,0 +1,314 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import BatchPickerModal from "../components/BatchPickerModal";
+import {
+  createReturn,
+  fetchBatches,
+  fetchMasterByBarcode,
+  type BatchItem,
+} from "../lib/api";
+
+function todayISO() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export default function ReturnFormPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const barcode = searchParams.get("barcode") ?? "";
+
+  const [loadingMaster, setLoadingMaster] = useState(false);
+  const [loadingBatches, setLoadingBatches] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [sku, setSku] = useState("");
+  const [product, setProduct] = useState("");
+
+  const [batches, setBatches] = useState<BatchItem[]>([]);
+  const [batch, setBatch] = useState("");
+  const [expDate, setExpDate] = useState("");
+
+  const [receiveDate, setReceiveDate] = useState(todayISO());
+  const [distriEvent, setDistriEvent] = useState("");
+  const [qty, setQty] = useState("");
+  const [keterangan, setKeterangan] = useState("");
+  const [pic, setPic] = useState("");
+
+  const [batchModal, setBatchModal] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  // Fetch master data
+  useEffect(() => {
+    if (!barcode) return;
+    let alive = true;
+    (async () => {
+      setLoadingMaster(true);
+      const res = await fetchMasterByBarcode(barcode);
+      if (!alive) return;
+      setLoadingMaster(false);
+      if (!res.ok) {
+        setToast({ type: "error", msg: res.error });
+        return;
+      }
+      setSku(res.sku);
+      setProduct(res.product);
+    })();
+    return () => { alive = false; };
+  }, [barcode]);
+
+  // Fetch batches
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoadingBatches(true);
+      const res = await fetchBatches();
+      if (!alive) return;
+      setLoadingBatches(false);
+      if (!res.ok) {
+        setToast({ type: "error", msg: res.error });
+        return;
+      }
+      setBatches(res.batches);
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const canSubmit = useMemo(() => {
+    const q = Number(qty);
+    return (
+      barcode.trim() &&
+      product.trim() &&
+      batch.trim() &&
+      expDate.trim() &&
+      receiveDate.trim() &&
+      distriEvent.trim() &&
+      Number.isFinite(q) &&
+      q > 0
+    );
+  }, [barcode, product, batch, expDate, receiveDate, distriEvent, qty]);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (submitting || !canSubmit) return;
+    setSubmitting(true);
+    setToast(null);
+
+    try {
+      const res = await createReturn({
+        receiveDate,
+        distriEvent,
+        product,
+        barcode,
+        batch,
+        expDate,
+        qty: Number(qty),
+        keterangan,
+        pic,
+      });
+
+      if (!res.ok) {
+        setToast({ type: "error", msg: res.error });
+        return;
+      }
+
+      setToast({ type: "success", msg: `Tersimpan di row ${res.appendedRow}` });
+      setTimeout(() => navigate("/"), 1500);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (!barcode) {
+    return (
+      <div className="bg-white rounded-2xl shadow-md p-6 text-center space-y-3">
+        <p className="text-gray-500">Barcode tidak ditemukan.</p>
+        <button
+          onClick={() => navigate("/")}
+          className="bg-gray-900 text-white px-6 py-2 rounded-xl font-semibold text-sm"
+        >
+          Kembali ke Scan
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 pb-8">
+      {/* Toast */}
+      {toast && (
+        <div
+          className={`rounded-xl px-4 py-3 text-sm font-medium ${
+            toast.type === "success"
+              ? "bg-green-50 text-green-700 border border-green-200"
+              : "bg-red-50 text-red-700 border border-red-200"
+          }`}
+        >
+          {toast.type === "success" ? "✅" : "❌"} {toast.msg}
+        </div>
+      )}
+
+      {/* Form Card */}
+      <form onSubmit={onSubmit} className="bg-white rounded-2xl shadow-md overflow-hidden">
+        <div className="bg-gray-900 text-white px-4 py-3">
+          <h2 className="font-semibold flex items-center gap-2">
+            <span>📋</span> Input Retur
+          </h2>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Barcode (readonly) */}
+          <Field label="Barcode">
+            <input
+              value={barcode}
+              readOnly
+              className="input-field bg-gray-100 cursor-not-allowed font-mono"
+            />
+          </Field>
+
+          {/* SKU (readonly) */}
+          <Field label="SKU">
+            <input
+              value={loadingMaster ? "Loading..." : sku}
+              readOnly
+              className="input-field bg-gray-100 cursor-not-allowed"
+            />
+          </Field>
+
+          {/* Product (readonly) */}
+          <Field label="Product">
+            <input
+              value={loadingMaster ? "Loading..." : product}
+              readOnly
+              className="input-field bg-gray-100 cursor-not-allowed"
+            />
+          </Field>
+
+          {/* Batch (picker) */}
+          <Field label="Batch">
+            <button
+              type="button"
+              onClick={() => setBatchModal(true)}
+              className="input-field text-left flex items-center justify-between"
+            >
+              <span className={batch ? "text-gray-900 font-medium" : "text-gray-400"}>
+                {batch || "Pilih / Buat batch"}
+              </span>
+              <span className="text-gray-400">▼</span>
+            </button>
+          </Field>
+
+          {/* Exp Date */}
+          <Field label="Exp Date">
+            <input
+              value={expDate}
+              onChange={(e) => setExpDate(e.target.value)}
+              placeholder="Mis: Jun-2027"
+              className="input-field"
+            />
+          </Field>
+
+          {/* Receive Date */}
+          <Field label="Receive Date">
+            <input
+              type="date"
+              value={receiveDate}
+              onChange={(e) => setReceiveDate(e.target.value)}
+              className="input-field"
+            />
+          </Field>
+
+          {/* Distri/Event */}
+          <Field label="Distri/Event">
+            <input
+              value={distriEvent}
+              onChange={(e) => setDistriEvent(e.target.value)}
+              placeholder="Mis: Event BFF"
+              className="input-field"
+            />
+          </Field>
+
+          {/* Qty */}
+          <Field label="Qty">
+            <input
+              type="number"
+              inputMode="numeric"
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+              placeholder="Mis: 119"
+              min="1"
+              className="input-field"
+            />
+          </Field>
+
+          {/* Keterangan */}
+          <Field label="Keterangan">
+            <input
+              value={keterangan}
+              onChange={(e) => setKeterangan(e.target.value)}
+              placeholder="Opsional"
+              className="input-field"
+            />
+          </Field>
+
+          {/* PIC */}
+          <Field label="PIC">
+            <input
+              value={pic}
+              onChange={(e) => setPic(e.target.value)}
+              placeholder="Opsional"
+              className="input-field"
+            />
+          </Field>
+
+          {/* Buttons */}
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="flex-1 border border-gray-300 text-gray-700 py-3 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors"
+            >
+              ← Scan Lagi
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit || submitting || loadingMaster || loadingBatches}
+              className="flex-1 bg-gray-900 text-white py-3 rounded-xl font-semibold text-sm hover:bg-gray-800 disabled:opacity-40 transition-colors"
+            >
+              {submitting ? "Menyimpan..." : "💾 Simpan"}
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {/* Batch Picker Modal */}
+      <BatchPickerModal
+        open={batchModal}
+        onClose={() => setBatchModal(false)}
+        batches={batches}
+        onPickExisting={(item) => {
+          setBatch(item.lot);
+          setExpDate(item.expDate || "");
+          setBatchModal(false);
+        }}
+        onCreateNew={(lot, exp) => {
+          setBatch(lot);
+          setExpDate(exp);
+          setBatchModal(false);
+        }}
+      />
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-gray-600 mb-1">{label}</label>
+      {children}
+    </div>
+  );
+}

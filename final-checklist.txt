@@ -1,0 +1,14 @@
+1) apps-script/Code.js
+   - SPREADSHEET_ID sudah diisi (ambil dari URL Google Sheet)
+   - MASTER_SHEET_NAME = "Master Product & Lots"
+   - RETURNS_SHEET_NAME = "Bagas retur"
+
+2) Deploy Apps Script sebagai Web App:
+   - Execute as: Me
+   - Who has access: Anyone
+
+3) .env
+   - EXPO_PUBLIC_APPS_SCRIPT_URL = (Web App URL dari Apps Script)
+
+4) Jalankan:
+   npx expo start
