@@ -375,12 +375,19 @@ export default function ReturnFormPage() {
 
           {/* Keterangan */}
           <Field label="Keterangan">
-            <input
+            <select
               value={keterangan}
               onChange={(e) => setKeterangan(e.target.value)}
-              placeholder="Opsional"
               className="input-field"
-            />
+            >
+              <option value="">— Pilih Keterangan —</option>
+              <option value="Packaging Rusak, Penyok, Sobek, Kotor">Packaging Rusak, Penyok, Sobek, Kotor</option>
+              <option value="Pudar Hilang (IB, Batch & Exp Date)">Pudar Hilang (IB, Batch &amp; Exp Date)</option>
+              <option value="Tidak ada seal / Seal lepas">Tidak ada seal / Seal lepas</option>
+              <option value="Ada sticker harga">Ada sticker harga</option>
+              <option value="Ada Sticker Barcode">Ada Sticker Barcode</option>
+              <option value="Defect (Pecah, Rusak)">Defect (Pecah, Rusak)</option>
+            </select>
           </Field>
 
           {/* PIC */}
