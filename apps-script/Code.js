@@ -119,6 +119,43 @@ function listBatches_() {
   });
 }
 
+function listProducts_() {
+  const sh = getSheet(MASTER_SHEET_NAME);
+  const map = getHeaderMap(sh);
+  const colBarcode = map["barcode"];
+  const colSku = map["sku"];
+  const colProduct = map["product"];
+
+  if (!colBarcode || !colSku || !colProduct) {
+    throw new Error("MASTER sheet must have headers: barcode, SKU, Product");
+  }
+
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return [];
+
+  const values = sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).getValues();
+  const seen = {};
+  const results = [];
+
+  for (var i = 0; i < values.length; i++) {
+    var row = values[i];
+    var bc = String(row[colBarcode - 1] || "").trim();
+    if (!bc || seen[bc]) continue;
+    seen[bc] = true;
+    results.push({
+      barcode: bc,
+      sku: String(row[colSku - 1] || "").trim(),
+      product: String(row[colProduct - 1] || "").trim(),
+    });
+  }
+
+  results.sort(function (a, b) {
+    return a.product.localeCompare(b.product);
+  });
+
+  return results;
+}
+
 function appendReturn_(payload, sheetName) {
   // Validasi nama sheet
   if (!ALLOWED_RETURN_SHEETS.includes(sheetName)) {
@@ -215,6 +252,12 @@ function doGet(e) {
     // Kembalikan daftar sheet yang tersedia
     if (action === "sheets") {
       return jsonOut({ ok: true, sheets: ALLOWED_RETURN_SHEETS });
+    }
+
+    // Kembalikan semua produk unik (barcode + sku + product) dari Master
+    if (action === "products") {
+      const products = listProducts_();
+      return jsonOut({ ok: true, products });
     }
 
     return jsonOut({ ok: false, error: "Unknown action" });

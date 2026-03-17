@@ -11,6 +11,16 @@ export type BatchesResponse =
   | { ok: true; batches: BatchItem[] }
   | { ok: false; error: string };
 
+export type ProductItem = {
+  barcode: string;
+  sku: string;
+  product: string;
+};
+
+export type ProductsResponse =
+  | { ok: true; products: ProductItem[] }
+  | { ok: false; error: string };
+
 export type CreateReturnPayload = {
   receiveDate: string;
   distriEvent: string;
@@ -58,6 +68,18 @@ export async function fetchBatches(): Promise<BatchesResponse> {
     return await res.json();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal fetch batches";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function fetchProducts(): Promise<ProductsResponse> {
+  try {
+    const base = getBaseUrl();
+    const url = `${base}?action=products`;
+    const res = await fetch(url);
+    return await res.json();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Gagal fetch products";
     return { ok: false, error: msg };
   }
 }
