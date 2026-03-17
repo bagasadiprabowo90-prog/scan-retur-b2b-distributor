@@ -8,12 +8,14 @@ import {
   type BatchItem,
 } from "../lib/api";
 
+const MONTH_ABBR = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+
 function todayFormatted() {
   const d = new Date();
   const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const mon = MONTH_ABBR[d.getMonth()];
   const yyyy = d.getFullYear();
-  return `${dd}-${mm}-${yyyy}`;
+  return `${dd}-${mon}-${yyyy}`;
 }
 
 const DISTRI_STORAGE_KEY = "scan-retur-distri-history";
@@ -270,26 +272,26 @@ export default function ReturnFormPage() {
             </button>
           </Field>
 
-          {/* Exp Date — format Mmm-YYYY */}
+          {/* Exp Date — format Mon YYYY */}
           <Field label="Exp Date">
             <input
               value={expDate}
               onChange={(e) => setExpDate(e.target.value)}
-              placeholder="Mis: Jun-2027"
+              placeholder="Mis: Sep 2027"
               className="input-field"
             />
-            <p className="text-xs text-gray-400 mt-1">Format: Bln-Tahun (contoh: Jun-2027, Agu-2025)</p>
+            <p className="text-xs text-gray-400 mt-1">Format: Bln Tahun (contoh: Sep 2027, Agu 2025)</p>
           </Field>
 
-          {/* Receive Date — format DD-MM-YYYY */}
+          {/* Receive Date — format DD-Mon-YYYY */}
           <Field label="Receive Date">
             <input
               value={receiveDate}
               onChange={(e) => setReceiveDate(e.target.value)}
-              placeholder="DD-MM-YYYY"
+              placeholder="DD-Mon-YYYY"
               className="input-field"
             />
-            <p className="text-xs text-gray-400 mt-1">Format: DD-MM-YYYY (contoh: 17-03-2026)</p>
+            <p className="text-xs text-gray-400 mt-1">Format: DD-Bln-YYYY (contoh: 12-Mar-2026)</p>
           </Field>
 
           {/* Distri/Event — dropdown + input baru */}
