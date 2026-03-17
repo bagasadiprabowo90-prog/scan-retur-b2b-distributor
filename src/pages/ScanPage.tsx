@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Html5Qrcode } from "html5-qrcode";
 
@@ -6,16 +6,15 @@ export default function ScanPage() {
   const navigate = useNavigate();
   const [manualBarcode, setManualBarcode] = useState("");
   const [scanning, setScanning] = useState(false);
+  const [started, setStarted] = useState(false);
   const [error, setError] = useState("");
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleScanResult = useCallback(
     (decodedText: string) => {
       const barcode = decodedText.trim();
       if (!barcode) return;
 
-      // Stop scanner before navigating
       if (scannerRef.current?.isScanning) {
         scannerRef.current.stop().catch(() => {});
       }
@@ -26,8 +25,11 @@ export default function ScanPage() {
   );
 
   const startScanner = useCallback(async () => {
-    if (!containerRef.current) return;
     setError("");
+    setStarted(true);
+
+    // Wait a tick for the #qr-reader div to render
+    await new Promise((r) => setTimeout(r, 100));
 
     try {
       const scanner = new Html5Qrcode("qr-reader");
@@ -41,7 +43,7 @@ export default function ScanPage() {
           aspectRatio: 1.0,
         },
         handleScanResult,
-        () => {} // ignore errors during scanning
+        () => {}
       );
 
       setScanning(true);
@@ -61,20 +63,14 @@ export default function ScanPage() {
     }
     scannerRef.current = null;
     setScanning(false);
+    setStarted(false);
   }, []);
-
-  useEffect(() => {
-    startScanner();
-    return () => {
-      stopScanner();
-    };
-  }, [startScanner, stopScanner]);
 
   function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault();
     const code = manualBarcode.trim();
     if (!code) return;
-    stopScanner();
+    if (scanning) stopScanner();
     navigate(`/return-form?barcode=${encodeURIComponent(code)}`);
   }
 
@@ -94,10 +90,23 @@ export default function ScanPage() {
           )}
         </div>
 
-        {/* Camera view */}
-        <div ref={containerRef} className="bg-black">
-          <div id="qr-reader" className="w-full" />
-        </div>
+        {/* Camera area */}
+        {started ? (
+          <div className="bg-black">
+            <div id="qr-reader" className="w-full" />
+          </div>
+        ) : (
+          <div className="bg-gray-100 flex flex-col items-center justify-center py-16 gap-4">
+            <span className="text-5xl">📷</span>
+            <p className="text-sm text-gray-500">Kamera belum aktif</p>
+            <button
+              onClick={startScanner}
+              className="bg-gray-900 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-gray-800 transition-colors"
+            >
+              🔍 Mulai Scan
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="px-4 py-3 bg-red-50 text-red-700 text-sm">
@@ -105,9 +114,17 @@ export default function ScanPage() {
           </div>
         )}
 
-        <div className="p-4 text-center text-sm text-gray-500">
-          Arahkan kamera ke barcode produk
-        </div>
+        {scanning && (
+          <div className="p-3 flex items-center justify-between">
+            <span className="text-sm text-gray-500">Arahkan kamera ke barcode</span>
+            <button
+              onClick={stopScanner}
+              className="text-sm text-red-600 font-semibold hover:text-red-800"
+            >
+              Stop Kamera
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Manual Input */}

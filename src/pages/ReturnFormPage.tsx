@@ -8,12 +8,32 @@ import {
   type BatchItem,
 } from "../lib/api";
 
-function todayISO() {
+function todayFormatted() {
   const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
+
+const DISTRI_STORAGE_KEY = "scan-retur-distri-history";
+
+function getDistriHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(DISTRI_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveDistriHistory(value: string) {
+  const list = getDistriHistory();
+  const trimmed = value.trim();
+  if (!trimmed) return;
+  const filtered = list.filter((v) => v !== trimmed);
+  filtered.unshift(trimmed);
+  localStorage.setItem(DISTRI_STORAGE_KEY, JSON.stringify(filtered.slice(0, 20)));
 }
 
 export default function ReturnFormPage() {
@@ -32,8 +52,10 @@ export default function ReturnFormPage() {
   const [batch, setBatch] = useState("");
   const [expDate, setExpDate] = useState("");
 
-  const [receiveDate, setReceiveDate] = useState(todayISO());
+  const [receiveDate, setReceiveDate] = useState(todayFormatted());
   const [distriEvent, setDistriEvent] = useState("");
+  const [distriHistory] = useState<string[]>(getDistriHistory);
+  const [showDistriDropdown, setShowDistriDropdown] = useState(false);
   const [qty, setQty] = useState("");
   const [keterangan, setKeterangan] = useState("");
   const [pic, setPic] = useState("");
@@ -111,6 +133,9 @@ export default function ReturnFormPage() {
     setToast(null);
 
     try {
+      // Simpan distri/event ke history untuk dropdown berikutnya
+      saveDistriHistory(distriEvent);
+
       const res = await createReturn({
         receiveDate,
         distriEvent,
@@ -245,7 +270,7 @@ export default function ReturnFormPage() {
             </button>
           </Field>
 
-          {/* Exp Date */}
+          {/* Exp Date — format Mmm-YYYY */}
           <Field label="Exp Date">
             <input
               value={expDate}
@@ -253,26 +278,86 @@ export default function ReturnFormPage() {
               placeholder="Mis: Jun-2027"
               className="input-field"
             />
+            <p className="text-xs text-gray-400 mt-1">Format: Bln-Tahun (contoh: Jun-2027, Agu-2025)</p>
           </Field>
 
-          {/* Receive Date */}
+          {/* Receive Date — format DD-MM-YYYY */}
           <Field label="Receive Date">
             <input
-              type="date"
               value={receiveDate}
               onChange={(e) => setReceiveDate(e.target.value)}
+              placeholder="DD-MM-YYYY"
               className="input-field"
             />
+            <p className="text-xs text-gray-400 mt-1">Format: DD-MM-YYYY (contoh: 17-03-2026)</p>
           </Field>
 
-          {/* Distri/Event */}
+          {/* Distri/Event — dropdown + input baru */}
           <Field label="Distri/Event">
-            <input
-              value={distriEvent}
-              onChange={(e) => setDistriEvent(e.target.value)}
-              placeholder="Mis: Event BFF"
-              className="input-field"
-            />
+            <div className="relative">
+              {distriHistory.length > 0 && !distriEvent ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowDistriDropdown(!showDistriDropdown)}
+                    className="input-field text-left flex items-center justify-between"
+                  >
+                    <span className="text-gray-400">Pilih atau ketik baru...</span>
+                    <span className="text-gray-400">▼</span>
+                  </button>
+                  {showDistriDropdown && (
+                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                      {distriHistory.map((item, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setDistriEvent(item);
+                            setShowDistriDropdown(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                        >
+                          {item}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDistriEvent(" ");
+                          setShowDistriDropdown(false);
+                          setTimeout(() => setDistriEvent(""), 0);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-blue-600 font-semibold hover:bg-blue-50"
+                      >
+                        + Ketik baru...
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    value={distriEvent}
+                    onChange={(e) => setDistriEvent(e.target.value)}
+                    placeholder="Mis: Event BFF"
+                    className="input-field flex-1"
+                    autoFocus={distriHistory.length > 0}
+                  />
+                  {distriHistory.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDistriEvent("");
+                        setShowDistriDropdown(false);
+                      }}
+                      className="text-xs text-gray-500 hover:text-gray-700 px-2"
+                    >
+                      Pilih ▼
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </Field>
 
           {/* Qty */}
