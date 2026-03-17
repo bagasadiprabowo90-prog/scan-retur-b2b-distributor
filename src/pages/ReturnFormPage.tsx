@@ -18,6 +18,15 @@ function todayFormatted() {
   return `${dd}-${mon}-${yyyy}`;
 }
 
+const KETERANGAN_OPTIONS = [
+  "Packaging Rusak, Penyok, Sobek, Kotor",
+  "Pudar Hilang (IB, Batch & Exp Date)",
+  "Tidak ada seal / Seal lepas",
+  "Ada sticker harga",
+  "Ada Sticker Barcode",
+  "Defect (Pecah, Rusak)",
+];
+
 const DISTRI_STORAGE_KEY = "scan-retur-distri-history";
 
 function getDistriHistory(): string[] {
@@ -57,9 +66,8 @@ export default function ReturnFormPage() {
   const [receiveDate, setReceiveDate] = useState(todayFormatted());
   const [distriEvent, setDistriEvent] = useState("");
   const [distriHistory] = useState<string[]>(getDistriHistory);
-  const [showDistriDropdown, setShowDistriDropdown] = useState(false);
   const [qty, setQty] = useState("");
-  const [keterangan, setKeterangan] = useState("");
+  const [keteranganList, setKeteranganList] = useState<string[]>([]);
   const [pic, setPic] = useState("");
   const [targetSheet, setTargetSheet] = useState<"Bagas" | "Dimas">("Bagas");
 
@@ -146,7 +154,7 @@ export default function ReturnFormPage() {
         batch,
         expDate,
         qty: Number(qty),
-        keterangan,
+        keterangan: keteranganList.join("; "),
         pic,
       }, targetSheet);
 
@@ -294,72 +302,20 @@ export default function ReturnFormPage() {
             <p className="text-xs text-gray-400 mt-1">Format: DD-Bln-YYYY (contoh: 12-Mar-2026)</p>
           </Field>
 
-          {/* Distri/Event — dropdown + input baru */}
+          {/* Distri/Event */}
           <Field label="Distri/Event">
-            <div className="relative">
-              {distriHistory.length > 0 && !distriEvent ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setShowDistriDropdown(!showDistriDropdown)}
-                    className="input-field text-left flex items-center justify-between"
-                  >
-                    <span className="text-gray-400">Pilih atau ketik baru...</span>
-                    <span className="text-gray-400">▼</span>
-                  </button>
-                  {showDistriDropdown && (
-                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                      {distriHistory.map((item, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            setDistriEvent(item);
-                            setShowDistriDropdown(false);
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0"
-                        >
-                          {item}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDistriEvent(" ");
-                          setShowDistriDropdown(false);
-                          setTimeout(() => setDistriEvent(""), 0);
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-blue-600 font-semibold hover:bg-blue-50"
-                      >
-                        + Ketik baru...
-                      </button>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    value={distriEvent}
-                    onChange={(e) => setDistriEvent(e.target.value)}
-                    placeholder="Mis: Event BFF"
-                    className="input-field flex-1"
-                    autoFocus={distriHistory.length > 0}
-                  />
-                  {distriHistory.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDistriEvent("");
-                        setShowDistriDropdown(false);
-                      }}
-                      className="text-xs text-gray-500 hover:text-gray-700 px-2"
-                    >
-                      Pilih ▼
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+            <input
+              list="distri-history-list"
+              value={distriEvent}
+              onChange={(e) => setDistriEvent(e.target.value)}
+              placeholder="Ketik atau pilih dari riwayat..."
+              className="input-field"
+            />
+            <datalist id="distri-history-list">
+              {distriHistory.map((item, idx) => (
+                <option key={idx} value={item} />
+              ))}
+            </datalist>
           </Field>
 
           {/* Qty */}
@@ -375,21 +331,30 @@ export default function ReturnFormPage() {
             />
           </Field>
 
-          {/* Keterangan */}
-          <Field label="Keterangan">
-            <select
-              value={keterangan}
-              onChange={(e) => setKeterangan(e.target.value)}
-              className="input-field"
-            >
-              <option value="">— Pilih Keterangan —</option>
-              <option value="Packaging Rusak, Penyok, Sobek, Kotor">Packaging Rusak, Penyok, Sobek, Kotor</option>
-              <option value="Pudar Hilang (IB, Batch & Exp Date)">Pudar Hilang (IB, Batch &amp; Exp Date)</option>
-              <option value="Tidak ada seal / Seal lepas">Tidak ada seal / Seal lepas</option>
-              <option value="Ada sticker harga">Ada sticker harga</option>
-              <option value="Ada Sticker Barcode">Ada Sticker Barcode</option>
-              <option value="Defect (Pecah, Rusak)">Defect (Pecah, Rusak)</option>
-            </select>
+          {/* Keterangan — multi-select */}
+          <Field label="Keterangan (bisa pilih lebih dari 1)">
+            <div className="space-y-2 border border-gray-300 rounded-xl p-3">
+              {KETERANGAN_OPTIONS.map((opt) => (
+                <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={keteranganList.includes(opt)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setKeteranganList((prev) => [...prev, opt]);
+                      } else {
+                        setKeteranganList((prev) => prev.filter((v) => v !== opt));
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                  />
+                  <span className="text-sm text-gray-700">{opt}</span>
+                </label>
+              ))}
+            </div>
+            {keteranganList.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">Terpilih: {keteranganList.join("; ")}</p>
+            )}
           </Field>
 
           {/* PIC */}
@@ -453,7 +418,7 @@ export default function ReturnFormPage() {
               <p><span className="font-semibold text-gray-800">Distri/Event:</span> {distriEvent}</p>
               <p><span className="font-semibold text-gray-800">Qty:</span> {qty}</p>
               {pic && <p><span className="font-semibold text-gray-800">PIC:</span> {pic}</p>}
-              {keterangan && <p><span className="font-semibold text-gray-800">Keterangan:</span> {keterangan}</p>}
+              {keteranganList.length > 0 && <p><span className="font-semibold text-gray-800">Keterangan:</span> {keteranganList.join("; ")}</p>}
             </div>
             <p className="text-sm text-gray-500">Yakin ingin menyimpan data retur ini?</p>
             <div className="flex gap-3">

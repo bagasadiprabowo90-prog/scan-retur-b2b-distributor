@@ -60,24 +60,34 @@ export async function fetchMasterByBarcode(barcode: string): Promise<MasterLooku
   }
 }
 
-export async function fetchBatches(): Promise<BatchesResponse> {
+// In-memory cache for batches & products (cleared on page reload)
+let batchesCache: BatchesResponse | null = null;
+let productsCache: ProductsResponse | null = null;
+
+export async function fetchBatches(force = false): Promise<BatchesResponse> {
+  if (!force && batchesCache) return batchesCache;
   try {
     const base = getBaseUrl();
     const url = `${base}?action=batches`;
     const res = await fetch(url);
-    return await res.json();
+    const data: BatchesResponse = await res.json();
+    if (data.ok) batchesCache = data;
+    return data;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal fetch batches";
     return { ok: false, error: msg };
   }
 }
 
-export async function fetchProducts(): Promise<ProductsResponse> {
+export async function fetchProducts(force = false): Promise<ProductsResponse> {
+  if (!force && productsCache) return productsCache;
   try {
     const base = getBaseUrl();
     const url = `${base}?action=products`;
     const res = await fetch(url);
-    return await res.json();
+    const data: ProductsResponse = await res.json();
+    if (data.ok) productsCache = data;
+    return data;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal fetch products";
     return { ok: false, error: msg };
