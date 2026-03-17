@@ -89,6 +89,26 @@ function parseExpDate_(exp) {
   return Infinity;
 }
 
+// Format raw exp date value (Date object or string) to "Mon YYYY"
+var MONTH_NAMES_ = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+
+function formatExpDate_(raw) {
+  if (!raw) return "";
+  // If it's a Date object from Google Sheets
+  if (raw instanceof Date && !isNaN(raw.getTime())) {
+    return MONTH_NAMES_[raw.getMonth()] + " " + raw.getFullYear();
+  }
+  var s = String(raw).trim();
+  if (!s) return "";
+  // Try parsing as date string in case it's a serialized Date
+  var d = new Date(s);
+  if (!isNaN(d.getTime()) && s.length > 10) {
+    return MONTH_NAMES_[d.getMonth()] + " " + d.getFullYear();
+  }
+  // Already a short string like "Sep 2027" or "Sep-2027", return as-is
+  return s;
+}
+
 function listBatches_() {
   const sh = getSheet(MASTER_SHEET_NAME);
   const map = getHeaderMap(sh);
@@ -107,7 +127,8 @@ function listBatches_() {
     const row = values[i];
     const lot = String(row[colLot - 1] || "").trim();
     if (!lot) continue;
-    const exp = String(row[colExp - 1] || "").trim();
+    const rawExp = row[colExp - 1];
+    const exp = formatExpDate_(rawExp);
     if (!uniq[lot] || (!uniq[lot].expDate && exp)) {
       uniq[lot] = { lot, expDate: exp };
     }
