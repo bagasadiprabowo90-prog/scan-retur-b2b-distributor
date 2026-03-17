@@ -37,9 +37,16 @@ export default function ReturnFormPage() {
   const [qty, setQty] = useState("");
   const [keterangan, setKeterangan] = useState("");
   const [pic, setPic] = useState("");
+  const [targetSheet, setTargetSheet] = useState<"Bagas" | "Dimas">("Bagas");
 
   const [batchModal, setBatchModal] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [envError] = useState<string | null>(() => {
+    const url = import.meta.env.VITE_APPS_SCRIPT_URL;
+    if (!url) return "VITE_APPS_SCRIPT_URL belum diisi di file .env. Aplikasi tidak bisa terhubung ke Google Sheet.";
+    return null;
+  });
 
   // Fetch master data
   useEffect(() => {
@@ -94,6 +101,12 @@ export default function ReturnFormPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting || !canSubmit) return;
+    // Tampilkan dialog konfirmasi dulu
+    setConfirmOpen(true);
+  }
+
+  async function doSubmit() {
+    setConfirmOpen(false);
     setSubmitting(true);
     setToast(null);
 
@@ -108,15 +121,15 @@ export default function ReturnFormPage() {
         qty: Number(qty),
         keterangan,
         pic,
-      });
+      }, targetSheet);
 
       if (!res.ok) {
         setToast({ type: "error", msg: res.error });
         return;
       }
 
-      setToast({ type: "success", msg: `Tersimpan di row ${res.appendedRow}` });
-      setTimeout(() => navigate("/"), 1500);
+      setToast({ type: "success", msg: `✅ Tersimpan di sheet "${res.sheet}" row ${res.appendedRow}` });
+      setTimeout(() => navigate("/"), 1800);
     } finally {
       setSubmitting(false);
     }
@@ -138,14 +151,20 @@ export default function ReturnFormPage() {
 
   return (
     <div className="space-y-4 pb-8">
+      {/* ENV Error Banner */}
+      {envError && (
+        <div className="rounded-xl px-4 py-3 text-sm font-medium bg-amber-50 text-amber-800 border border-amber-300">
+          ⚙️ <strong>Setup diperlukan:</strong> {envError}
+        </div>
+      )}
+
       {/* Toast */}
       {toast && (
         <div
-          className={`rounded-xl px-4 py-3 text-sm font-medium ${
-            toast.type === "success"
-              ? "bg-green-50 text-green-700 border border-green-200"
-              : "bg-red-50 text-red-700 border border-red-200"
-          }`}
+          className={`rounded-xl px-4 py-3 text-sm font-medium ${toast.type === "success"
+            ? "bg-green-50 text-green-700 border border-green-200"
+            : "bg-red-50 text-red-700 border border-red-200"
+            }`}
         >
           {toast.type === "success" ? "✅" : "❌"} {toast.msg}
         </div>
@@ -153,13 +172,38 @@ export default function ReturnFormPage() {
 
       {/* Form Card */}
       <form onSubmit={onSubmit} className="bg-white rounded-2xl shadow-md overflow-hidden">
-        <div className="bg-gray-900 text-white px-4 py-3">
+        <div className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between">
           <h2 className="font-semibold flex items-center gap-2">
             <span>📋</span> Input Retur
           </h2>
+          {(loadingMaster || loadingBatches) && (
+            <span className="text-xs flex items-center gap-1 bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full animate-pulse">
+              ⏳ Memuat data...
+            </span>
+          )}
         </div>
 
         <div className="p-4 space-y-4">
+          {/* Sheet Selector */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-600 mb-1">🎯 Sheet Tujuan</label>
+            <div className="flex gap-2">
+              {(["Bagas", "Dimas"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setTargetSheet(s)}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors ${targetSheet === s
+                    ? "bg-gray-900 text-white shadow-md"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Barcode (readonly) */}
           <Field label="Barcode">
             <input
@@ -300,6 +344,41 @@ export default function ReturnFormPage() {
           setBatchModal(false);
         }}
       />
+
+      {/* Confirm Dialog */}
+      {confirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmOpen(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl p-6 mx-4 max-w-sm w-full space-y-4">
+            <h3 className="font-bold text-lg text-gray-900">Konfirmasi Simpan</h3>
+            <div className="text-sm text-gray-600 space-y-1">
+              <p><span className="font-semibold text-gray-800">🎯 Sheet:</span> <span className="font-bold text-gray-900">{targetSheet}</span></p>
+              <p><span className="font-semibold text-gray-800">Produk:</span> {product}</p>
+              <p><span className="font-semibold text-gray-800">Barcode:</span> {barcode}</p>
+              <p><span className="font-semibold text-gray-800">Batch:</span> {batch} — Exp: {expDate}</p>
+              <p><span className="font-semibold text-gray-800">Distri/Event:</span> {distriEvent}</p>
+              <p><span className="font-semibold text-gray-800">Qty:</span> {qty}</p>
+              {pic && <p><span className="font-semibold text-gray-800">PIC:</span> {pic}</p>}
+              {keterangan && <p><span className="font-semibold text-gray-800">Keterangan:</span> {keterangan}</p>}
+            </div>
+            <p className="text-sm text-gray-500">Yakin ingin menyimpan data retur ini?</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmOpen(false)}
+                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={doSubmit}
+                className="flex-1 bg-gray-900 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-800 transition-colors"
+              >
+                Ya, Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

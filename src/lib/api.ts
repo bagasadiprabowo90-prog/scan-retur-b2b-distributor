@@ -23,8 +23,9 @@ export type CreateReturnPayload = {
   pic: string;
 };
 
+// sheet: nama sheet tujuan, mis "Bagas" atau "Dimas"
 export type CreateReturnResponse =
-  | { ok: true; appendedRow: number }
+  | { ok: true; appendedRow: number; sheet: string }
   | { ok: false; error: string };
 
 function getBaseUrl(): string {
@@ -61,14 +62,17 @@ export async function fetchBatches(): Promise<BatchesResponse> {
   }
 }
 
-export async function createReturn(payload: CreateReturnPayload): Promise<CreateReturnResponse> {
+export async function createReturn(
+  payload: CreateReturnPayload,
+  sheet: string
+): Promise<CreateReturnResponse> {
   try {
     const base = getBaseUrl();
     const res = await fetch(base, {
       method: "POST",
       redirect: "follow",
       headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ action: "returns", payload }),
+      body: JSON.stringify({ action: "returns", sheet, payload }),
     });
     return await res.json();
   } catch (e: unknown) {

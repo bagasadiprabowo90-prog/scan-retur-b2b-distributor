@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BatchItem } from "../lib/api";
 
 type Props = {
@@ -20,6 +20,16 @@ export default function BatchPickerModal({
   const [newLot, setNewLot] = useState("");
   const [newExp, setNewExp] = useState("");
   const [mode, setMode] = useState<"pick" | "new">("pick");
+
+  // Reset state setiap kali modal ditutup
+  useEffect(() => {
+    if (!open) {
+      setQ("");
+      setNewLot("");
+      setNewExp("");
+      setMode("pick");
+    }
+  }, [open]);
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -51,21 +61,19 @@ export default function BatchPickerModal({
         <div className="flex gap-2 px-4 pt-3">
           <button
             onClick={() => setMode("pick")}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
-              mode === "pick"
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${mode === "pick"
                 ? "bg-gray-900 text-white"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
+              }`}
           >
             Pilih
           </button>
           <button
             onClick={() => setMode("new")}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
-              mode === "new"
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${mode === "new"
                 ? "bg-gray-900 text-white"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
+              }`}
           >
             Buat Baru
           </button>

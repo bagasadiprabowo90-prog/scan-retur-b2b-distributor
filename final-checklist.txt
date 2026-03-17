@@ -1,14 +1,43 @@
+============================
+SETUP CHECKLIST - SCAN RETUR
+============================
+
 1) apps-script/Code.js
    - SPREADSHEET_ID sudah diisi (ambil dari URL Google Sheet)
-   - MASTER_SHEET_NAME = "Master Product & Lots"
-   - RETURNS_SHEET_NAME = "Bagas retur"
+     Contoh URL: https://docs.google.com/spreadsheets/d/INI_SHEET_ID/edit
+   - MASTER_SHEET_NAME = "Master Product & Lots"  <- nama sheet harus PERSIS sama
+   - RETURNS_SHEET_NAME = "Bagas retur"           <- nama sheet harus PERSIS sama
 
 2) Deploy Apps Script sebagai Web App:
+   - Buka Apps Script (Extensions > Apps Script atau script.google.com)
+   - Paste isi Code.js
+   - Klik Deploy > New deployment > Web App
    - Execute as: Me
    - Who has access: Anyone
+   - Klik Deploy, copy URL yang muncul
 
-3) .env
-   - EXPO_PUBLIC_APPS_SCRIPT_URL = (Web App URL dari Apps Script)
+3) Buat file .env di root project (bukan .env.example):
+   VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/PASTE_URL_DISINI/exec
 
-4) Jalankan:
-   npx expo start
+4) Jalankan aplikasi:
+   npm run dev        <- untuk development
+   npm run build      <- untuk build production (deploy ke Vercel)
+
+5) Deploy ke Vercel:
+   - Pastikan sudah set VITE_APPS_SCRIPT_URL di Vercel > Settings > Environment Variables
+   - Push ke GitHub / drag-drop folder dist ke vercel.com
+
+6) Install sebagai PWA di HP:
+   - Buka URL aplikasi di Chrome (Android) atau Safari (iOS)
+   - Android: menu titik tiga > "Add to Home screen"
+   - iOS: tombol Share > "Add to Home Screen"
+
+===========================
+STRUKTUR KOLOM GOOGLE SHEET
+===========================
+
+Sheet "Master Product & Lots" - wajib ada kolom:
+  barcode | SKU | Product | Lots | Exp Date
+
+Sheet "Bagas retur" - wajib ada kolom:
+  Receive Date | Distri/Event | Product | Barcode | Batch | Exp Date | Qty | Keterangan | PIC

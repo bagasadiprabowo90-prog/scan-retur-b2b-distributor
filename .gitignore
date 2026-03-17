@@ -9,3 +9,4 @@ dist/
 *.orig.*
 web-build/
 .env
+.vercel

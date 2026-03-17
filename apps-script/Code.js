@@ -1,9 +1,11 @@
 // ⚠️  WAJIB DIGANTI: Paste Google Sheet ID kamu di sini
 // Cara mendapatkan ID: buka spreadsheet, URL-nya seperti
 // https://docs.google.com/spreadsheets/d/SHEET_ID_DISINI/edit
-const SPREADSHEET_ID = "1DGtAi1dxpwqGJ8YH6C7rM5h82WV85RZfrlj33PDL9GU";
+const SPREADSHEET_ID = "1Ppz3hQrVBMjYTo0qDpQfylGKAdxDG98sVPdD6TRqEiU";
 const MASTER_SHEET_NAME = "Master Product & Lots";
-const RETURNS_SHEET_NAME = "Bagas retur";
+
+// Sheet retur yang tersedia (nama harus PERSIS sama dengan tab di Google Sheet)
+const ALLOWED_RETURN_SHEETS = ["Bagas", "Dimas"];
 
 function jsonOut(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
@@ -60,6 +62,33 @@ function findMasterByBarcode_(barcode) {
   return null;
 }
 
+// Parse Exp Date — support bulan Indonesia & Inggris
+// Contoh: "Jun-2027", "Agu-2027", "Des-2025", "2027-06", "2027-06-15"
+function parseExpDate_(exp) {
+  if (!exp) return Infinity;
+  var s = String(exp).trim();
+
+  // Map bulan Indonesia + Inggris -> index (0-based)
+  var monthMap = {
+    jan: 0, feb: 1, mar: 2, apr: 3, mei: 4, may: 4,
+    jun: 5, jul: 6, agu: 7, aug: 7, sep: 8, okt: 9, oct: 9,
+    nov: 10, des: 11, dec: 11
+  };
+
+  // Format: "Agu-2027" atau "Agu 2027"
+  var m1 = s.match(/^([A-Za-z]{3})[\-\s](\d{4})$/);
+  if (m1) {
+    var mon = monthMap[m1[1].toLowerCase()];
+    if (mon !== undefined) return new Date(parseInt(m1[2]), mon, 1).getTime();
+  }
+
+  // Format ISO: "2027-08" atau "2027-08-15"
+  var d = new Date(s);
+  if (!isNaN(d.getTime())) return d.getTime();
+
+  return Infinity;
+}
+
 function listBatches_() {
   const sh = getSheet(MASTER_SHEET_NAME);
   const map = getHeaderMap(sh);
@@ -84,12 +113,18 @@ function listBatches_() {
     }
   }
 
-  return Object.keys(uniq)
-    .sort()
-    .map((k) => uniq[k]);
+  // FEFO: batch paling dekat expired muncul paling atas
+  return Object.values(uniq).sort(function (a, b) {
+    return parseExpDate_(a.expDate) - parseExpDate_(b.expDate);
+  });
 }
 
-function appendReturn_(payload) {
+function appendReturn_(payload, sheetName) {
+  // Validasi nama sheet
+  if (!ALLOWED_RETURN_SHEETS.includes(sheetName)) {
+    throw new Error("Sheet tidak diizinkan: " + sheetName + ". Pilihan: " + ALLOWED_RETURN_SHEETS.join(", "));
+  }
+
   // Server-side validation
   var requiredFields = ["receiveDate", "distriEvent", "product", "barcode", "batch", "expDate", "qty"];
   for (var i = 0; i < requiredFields.length; i++) {
@@ -104,7 +139,7 @@ function appendReturn_(payload) {
     throw new Error("Qty harus angka positif");
   }
 
-  var sh = getSheet(RETURNS_SHEET_NAME);
+  var sh = getSheet(sheetName);
   var map = getHeaderMap(sh);
 
   var required = [
@@ -118,8 +153,8 @@ function appendReturn_(payload) {
     "keterangan",
     "pic",
   ];
-  required.forEach(function(h) {
-    if (!map[h]) throw new Error("RETURNS sheet missing header: " + h);
+  required.forEach(function (h) {
+    if (!map[h]) throw new Error("Sheet '" + sheetName + "' missing header: " + h);
   });
 
   // Duplicate check: same barcode + batch + receiveDate
@@ -177,6 +212,11 @@ function doGet(e) {
       return jsonOut({ ok: true, batches });
     }
 
+    // Kembalikan daftar sheet yang tersedia
+    if (action === "sheets") {
+      return jsonOut({ ok: true, sheets: ALLOWED_RETURN_SHEETS });
+    }
+
     return jsonOut({ ok: false, error: "Unknown action" });
   } catch (err) {
     return jsonOut({ ok: false, error: String(err && err.message ? err.message : err) });
@@ -190,8 +230,10 @@ function doPost(e) {
     if (action !== "returns") return jsonOut({ ok: false, error: "Unknown action" });
 
     const payload = body.payload || {};
-    const appendedRow = appendReturn_(payload);
-    return jsonOut({ ok: true, appendedRow });
+    // sheet dari payload, default ke sheet pertama
+    const sheetName = String(body.sheet || ALLOWED_RETURN_SHEETS[0]).trim();
+    const appendedRow = appendReturn_(payload, sheetName);
+    return jsonOut({ ok: true, appendedRow, sheet: sheetName });
   } catch (err) {
     return jsonOut({ ok: false, error: String(err && err.message ? err.message : err) });
   }
