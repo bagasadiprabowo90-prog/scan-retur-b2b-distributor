@@ -6,6 +6,7 @@ export default function HistoryPage() {
   const [history, setHistory] = useState<ReturnHistoryItem[]>([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   async function loadHistory() {
     setLoading(true);
@@ -17,6 +18,7 @@ export default function HistoryPage() {
       return;
     }
     setHistory(res.history);
+    setWarnings(res.warnings || []);
   }
 
   useEffect(() => {
@@ -80,6 +82,14 @@ export default function HistoryPage() {
           {error && (
             <div className="rounded-xl px-4 py-3 text-sm font-medium bg-red-50 text-red-700 border border-red-200">
               ❌ {error}
+            </div>
+          )}
+
+          {!error && warnings.length > 0 && (
+            <div className="rounded-xl px-4 py-3 text-sm font-medium bg-amber-50 text-amber-800 border border-amber-200 space-y-1">
+              {warnings.map((warning, index) => (
+                <p key={index}>⚠️ {warning}</p>
+              ))}
             </div>
           )}
 

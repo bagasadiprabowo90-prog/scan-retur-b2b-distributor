@@ -230,6 +230,7 @@ function listReturnHistory_(limit) {
   }
 
   var results = [];
+  var warnings = [];
 
   for (var s = 0; s < ALLOWED_RETURN_SHEETS.length; s++) {
     var sheetName = ALLOWED_RETURN_SHEETS[s];
@@ -245,9 +246,15 @@ function listReturnHistory_(limit) {
       "exp date",
       "qty",
     ];
-    required.forEach(function (h) {
-      if (!map[h]) throw new Error("Sheet '" + sheetName + "' missing header: " + h);
+    var missingHeaders = required.filter(function (h) {
+      return !map[h];
     });
+    if (missingHeaders.length > 0) {
+      warnings.push(
+        "Sheet '" + sheetName + "' dilewati karena header belum lengkap: " + missingHeaders.join(", ")
+      );
+      continue;
+    }
 
     var lastRow = sh.getLastRow();
     if (lastRow < 2) continue;
@@ -284,21 +291,24 @@ function listReturnHistory_(limit) {
     return a.sheet.localeCompare(b.sheet);
   });
 
-  return results.slice(0, maxItems).map(function (item) {
-    return {
-      sheet: item.sheet,
-      rowNumber: item.rowNumber,
-      receiveDate: item.receiveDate,
-      distriEvent: item.distriEvent,
-      product: item.product,
-      barcode: item.barcode,
-      batch: item.batch,
-      expDate: item.expDate,
-      qty: item.qty,
-      keterangan: item.keterangan,
-      pic: item.pic,
-    };
-  });
+  return {
+    history: results.slice(0, maxItems).map(function (item) {
+      return {
+        sheet: item.sheet,
+        rowNumber: item.rowNumber,
+        receiveDate: item.receiveDate,
+        distriEvent: item.distriEvent,
+        product: item.product,
+        barcode: item.barcode,
+        batch: item.batch,
+        expDate: item.expDate,
+        qty: item.qty,
+        keterangan: item.keterangan,
+        pic: item.pic,
+      };
+    }),
+    warnings: warnings,
+  };
 }
 
 function appendReturn_(payload, sheetName) {
@@ -406,8 +416,8 @@ function doGet(e) {
     }
 
     if (action === "history") {
-      const history = listReturnHistory_(e.parameter.limit);
-      return jsonOut({ ok: true, history });
+      const result = listReturnHistory_(e.parameter.limit);
+      return jsonOut({ ok: true, history: result.history, warnings: result.warnings });
     }
 
     return jsonOut({ ok: false, error: "Unknown action" });

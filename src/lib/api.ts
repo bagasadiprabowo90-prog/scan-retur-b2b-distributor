@@ -36,7 +36,7 @@ export type ReturnHistoryItem = {
 };
 
 export type ReturnHistoryResponse =
-  | { ok: true; history: ReturnHistoryItem[] }
+  | { ok: true; history: ReturnHistoryItem[]; warnings?: string[] }
   | { ok: false; error: string };
 
 export type CreateReturnPayload = {
