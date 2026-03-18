@@ -3,7 +3,7 @@
 // https://docs.google.com/spreadsheets/d/SHEET_ID_DISINI/edit
 const SPREADSHEET_ID = "1Ppz3hQrVBMjYTo0qDpQfylGKAdxDG98sVPdD6TRqEiU";
 const MASTER_SHEET_NAME = "Master Product & Lots";
-const DEFAULT_HISTORY_LIMIT = 100;
+const DEFAULT_HISTORY_LIMIT = 500;
 
 // Sheet retur yang tersedia (nama harus PERSIS sama dengan tab di Google Sheet)
 const ALLOWED_RETURN_SHEETS = ["Bagas", "Dimas"];

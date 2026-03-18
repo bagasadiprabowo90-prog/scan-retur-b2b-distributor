@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchReturnHistory, type ReturnHistoryItem } from "../lib/api";
 
+const HISTORY_LIMIT = 500;
+
 export default function HistoryPage() {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<ReturnHistoryItem[]>([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   async function loadHistory() {
     setLoading(true);
     setError("");
-    const res = await fetchReturnHistory(100);
+    setExpandedKey(null);
+    const res = await fetchReturnHistory(HISTORY_LIMIT);
     setLoading(false);
     if (!res.ok) {
       setError(res.error);
@@ -46,14 +50,13 @@ export default function HistoryPage() {
   const totalQty = filteredHistory.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
 
   return (
-    <div className="space-y-4 pb-8">
+    <div className="space-y-3 pb-8">
+      {/* Header summary */}
       <div className="bg-white rounded-2xl shadow-md overflow-hidden">
         <div className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between gap-3">
           <div>
-            <h2 className="font-semibold flex items-center gap-2">
-              <span>🕘</span> Riwayat Retur
-            </h2>
-            <p className="text-xs text-gray-300 mt-1">Menampilkan 100 data retur terbaru dari semua sheet.</p>
+            <h2 className="font-semibold flex items-center gap-2"><span>🕘</span> Riwayat Retur</h2>
+            <p className="text-xs text-gray-300 mt-0.5">Maks. {HISTORY_LIMIT} data terbaru · semua sheet</p>
           </div>
           <button
             type="button"
@@ -61,94 +64,100 @@ export default function HistoryPage() {
             disabled={loading}
             className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-semibold disabled:opacity-50 transition-colors"
           >
-            {loading ? "Memuat..." : "Muat Ulang"}
+            {loading ? "Memuat..." : "↺ Muat"}
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <SummaryCard label="Total Baris" value={String(filteredHistory.length)} />
-            <SummaryCard label="Total Qty" value={String(totalQty)} />
+        <div className="px-4 py-3 flex gap-4 border-b border-gray-100">
+          <div className="text-center">
+            <p className="text-xl font-bold text-gray-900">{filteredHistory.length}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Baris</p>
           </div>
-
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari produk, barcode, batch, PIC, atau sheet..."
-            className="input-field"
-          />
-
-          {error && (
-            <div className="rounded-xl px-4 py-3 text-sm font-medium bg-red-50 text-red-700 border border-red-200">
-              ❌ {error}
-            </div>
-          )}
-
-          {!error && warnings.length > 0 && (
-            <div className="rounded-xl px-4 py-3 text-sm font-medium bg-amber-50 text-amber-800 border border-amber-200 space-y-1">
-              {warnings.map((warning, index) => (
-                <p key={index}>⚠️ {warning}</p>
-              ))}
-            </div>
-          )}
-
-          {!loading && !error && filteredHistory.length === 0 && (
-            <div className="rounded-xl border border-dashed border-gray-300 px-4 py-10 text-center text-sm text-gray-500">
-              Belum ada data riwayat yang cocok.
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {filteredHistory.map((item) => (
-              <div key={`${item.sheet}-${item.rowNumber}`} className="rounded-2xl border border-gray-200 p-4 bg-gray-50">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">{item.product}</p>
-                    <p className="text-xs text-gray-500 mt-1">{item.barcode} • Batch {item.batch} • Exp {item.expDate || "-"}</p>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-gray-900 text-white text-xs font-semibold px-3 py-1">
-                    {item.sheet}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 text-sm mt-4 text-gray-700">
-                  <InfoItem label="Receive Date" value={item.receiveDate || "-"} />
-                  <InfoItem label="Qty" value={String(item.qty)} />
-                  <InfoItem label="Distri/Event" value={item.distriEvent || "-"} />
-                  <InfoItem label="PIC" value={item.pic || "-"} />
-                </div>
-
-                {item.keterangan && (
-                  <div className="mt-3 rounded-xl bg-white border border-gray-200 px-3 py-2 text-sm text-gray-600">
-                    <span className="font-semibold text-gray-700">Keterangan:</span> {item.keterangan}
-                  </div>
-                )}
-
-                <p className="text-[11px] text-gray-400 mt-3">Row {item.rowNumber} di sheet {item.sheet}</p>
-              </div>
-            ))}
+          <div className="w-px bg-gray-200" />
+          <div className="text-center">
+            <p className="text-xl font-bold text-gray-900">{totalQty.toLocaleString()}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Total Qty</p>
+          </div>
+          <div className="flex-1" />
+          <div className="flex items-center">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari..."
+              className="border border-gray-300 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 w-36"
+            />
           </div>
         </div>
+
+        {error && (
+          <div className="px-4 py-3 text-sm bg-red-50 text-red-700 border-b border-red-100">❌ {error}</div>
+        )}
+
+        {!error && warnings.length > 0 && (
+          <div className="px-4 py-3 text-sm bg-amber-50 text-amber-800 border-b border-amber-100 space-y-0.5">
+            {warnings.map((w, i) => <p key={i}>⚠️ {w}</p>)}
+          </div>
+        )}
+
+        {/* Compact list */}
+        {loading ? (
+          <div className="px-4 py-10 text-center text-sm text-gray-400 animate-pulse">Memuat riwayat...</div>
+        ) : !error && filteredHistory.length === 0 ? (
+          <div className="px-4 py-10 text-center text-sm text-gray-400">Belum ada data riwayat yang cocok.</div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {/* Table header */}
+            <div className="grid grid-cols-[72px_1fr_56px_48px] gap-x-2 px-4 py-2 bg-gray-50">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Tanggal</span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Produk / Batch</span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 text-right">Qty</span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 text-center">Sheet</span>
+            </div>
+
+            {filteredHistory.map((item) => {
+              const key = `${item.sheet}-${item.rowNumber}`;
+              const expanded = expandedKey === key;
+              return (
+                <div key={key}>
+                  {/* Compact row */}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedKey(expanded ? null : key)}
+                    className="w-full grid grid-cols-[72px_1fr_56px_48px] gap-x-2 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="text-xs text-gray-500 leading-tight self-center">{item.receiveDate || "-"}</span>
+                    <div className="min-w-0 self-center">
+                      <p className="text-sm font-medium text-gray-900 truncate leading-tight">{item.product}</p>
+                      <p className="text-[11px] text-gray-400 leading-tight truncate">{item.batch}{item.expDate ? ` · ${item.expDate}` : ""}</p>
+                    </div>
+                    <span className="text-sm font-bold text-gray-900 text-right self-center">{item.qty}</span>
+                    <span className={`text-[11px] font-bold text-center self-center rounded-full px-1.5 py-0.5 ${
+                      item.sheet === "Bagas" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
+                    }`}>{item.sheet}</span>
+                  </button>
+
+                  {/* Expanded detail */}
+                  {expanded && (
+                    <div className="px-4 pb-3 pt-1 bg-gray-50 border-t border-gray-100 text-xs text-gray-600 space-y-1">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <p><span className="font-semibold text-gray-500">Barcode:</span> {item.barcode}</p>
+                        <p><span className="font-semibold text-gray-500">Distri/Event:</span> {item.distriEvent || "-"}</p>
+                        <p><span className="font-semibold text-gray-500">PIC:</span> {item.pic || "-"}</p>
+                        <p><span className="font-semibold text-gray-500">Row:</span> {item.rowNumber}</p>
+                      </div>
+                      {item.keterangan && (
+                        <p className="mt-1"><span className="font-semibold text-gray-500">Keterangan:</span> {item.keterangan}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="text-2xl font-bold text-gray-900 mt-2">{value}</p>
-    </div>
-  );
-}
-
-function InfoItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="mt-1 text-sm text-gray-700">{value}</p>
-    </div>
-  );
-}
