@@ -5,7 +5,6 @@ import { fetchProducts, type ProductItem } from "../lib/api";
 
 export default function ScanPage() {
   const navigate = useNavigate();
-  const [manualBarcode, setManualBarcode] = useState("");
   const [scanning, setScanning] = useState(false);
   const [started, setStarted] = useState(false);
   const [error, setError] = useState("");
@@ -97,14 +96,6 @@ export default function ScanPage() {
     setStarted(false);
   }, []);
 
-  function handleManualSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const code = manualBarcode.trim();
-    if (!code) return;
-    if (scanning) stopScanner();
-    navigate(`/return-form?barcode=${encodeURIComponent(code)}`);
-  }
-
   return (
     <div className="space-y-4">
       {/* Scanner Card */}
@@ -158,30 +149,9 @@ export default function ScanPage() {
         )}
       </div>
 
-      {/* Manual Input */}
-      <div className="bg-white rounded-2xl shadow-md p-4">
-        <p className="text-sm font-semibold text-gray-700 mb-2">✏️ Atau ketik barcode manual:</p>
-        <form onSubmit={handleManualSubmit} className="flex gap-2">
-          <input
-            type="text"
-            value={manualBarcode}
-            onChange={(e) => setManualBarcode(e.target.value)}
-            placeholder="Ketik barcode lalu Enter..."
-            className="flex-1 border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-          />
-          <button
-            type="submit"
-            disabled={!manualBarcode.trim()}
-            className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-800 disabled:opacity-40 transition-colors"
-          >
-            Cari
-          </button>
-        </form>
-      </div>
-
       {/* Product Search / Picker */}
       <div className="bg-white rounded-2xl shadow-md p-4">
-        <p className="text-sm font-semibold text-gray-700 mb-2">📦 Atau cari & pilih produk dari master:</p>
+        <p className="text-sm font-semibold text-gray-700 mb-2">📦 Cari & pilih produk dari master data:</p>
         <div className="relative">
           <input
             type="text"
@@ -233,7 +203,7 @@ export default function ScanPage() {
 
       {/* Info */}
       <div className="text-center text-xs text-gray-400 py-2">
-        Scan barcode, ketik manual, atau pilih produk dari daftar
+        Scan barcode atau pilih produk langsung dari master data
       </div>
     </div>
   );

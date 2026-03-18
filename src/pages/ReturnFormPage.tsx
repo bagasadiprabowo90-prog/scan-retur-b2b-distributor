@@ -4,8 +4,9 @@ import BatchPickerModal from "../components/BatchPickerModal";
 import {
   createReturn,
   fetchBatches,
-  fetchMasterByBarcode,
+  fetchProducts,
   type BatchItem,
+  type ProductItem,
 } from "../lib/api";
 
 const MONTH_ABBR = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
@@ -50,14 +51,16 @@ function saveDistriHistory(value: string) {
 export default function ReturnFormPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const barcode = searchParams.get("barcode") ?? "";
+  const initialBarcode = searchParams.get("barcode") ?? "";
 
-  const [loadingMaster, setLoadingMaster] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [loadingBatches, setLoadingBatches] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const [sku, setSku] = useState("");
-  const [product, setProduct] = useState("");
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [selectedBarcode, setSelectedBarcode] = useState(initialBarcode);
+  const [productSearch, setProductSearch] = useState("");
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
 
   const [batches, setBatches] = useState<BatchItem[]>([]);
   const [batch, setBatch] = useState("");
@@ -80,24 +83,51 @@ export default function ReturnFormPage() {
     return null;
   });
 
-  // Fetch master data
+  // Fetch products
   useEffect(() => {
-    if (!barcode) return;
     let alive = true;
     (async () => {
-      setLoadingMaster(true);
-      const res = await fetchMasterByBarcode(barcode);
+      setLoadingProducts(true);
+      const res = await fetchProducts();
       if (!alive) return;
-      setLoadingMaster(false);
+      setLoadingProducts(false);
       if (!res.ok) {
         setToast({ type: "error", msg: res.error });
         return;
       }
-      setSku(res.sku);
-      setProduct(res.product);
+      setProducts(res.products);
     })();
     return () => { alive = false; };
-  }, [barcode]);
+  }, []);
+
+  const selectedProduct = useMemo(
+    () => products.find((item) => item.barcode === selectedBarcode) ?? null,
+    [products, selectedBarcode]
+  );
+
+  const filteredProducts = useMemo(() => {
+    const q = productSearch.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((item) =>
+      item.product.toLowerCase().includes(q) ||
+      item.barcode.toLowerCase().includes(q) ||
+      item.sku.toLowerCase().includes(q)
+    );
+  }, [products, productSearch]);
+
+  useEffect(() => {
+    if (!selectedProduct && selectedBarcode && products.length > 0) {
+      setToast({ type: "error", msg: `Barcode ${selectedBarcode} tidak ditemukan di master data.` });
+    }
+  }, [products, selectedBarcode, selectedProduct]);
+
+  useEffect(() => {
+    if (selectedProduct) {
+      setProductSearch(selectedProduct.product);
+    } else if (!selectedBarcode) {
+      setProductSearch("");
+    }
+  }, [selectedBarcode, selectedProduct]);
 
   // Fetch batches
   useEffect(() => {
@@ -119,8 +149,7 @@ export default function ReturnFormPage() {
   const canSubmit = useMemo(() => {
     const q = Number(qty);
     return (
-      barcode.trim() &&
-      product.trim() &&
+      !!selectedProduct &&
       batch.trim() &&
       expDate.trim() &&
       receiveDate.trim() &&
@@ -128,7 +157,7 @@ export default function ReturnFormPage() {
       Number.isFinite(q) &&
       q > 0
     );
-  }, [barcode, product, batch, expDate, receiveDate, distriEvent, qty]);
+  }, [selectedProduct, batch, expDate, receiveDate, distriEvent, qty]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -149,8 +178,8 @@ export default function ReturnFormPage() {
       const res = await createReturn({
         receiveDate,
         distriEvent,
-        product,
-        barcode,
+        product: selectedProduct?.product || "",
+        barcode: selectedProduct?.barcode || "",
         batch,
         expDate,
         qty: Number(qty),
@@ -168,20 +197,6 @@ export default function ReturnFormPage() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  if (!barcode) {
-    return (
-      <div className="bg-white rounded-2xl shadow-md p-6 text-center space-y-3">
-        <p className="text-gray-500">Barcode tidak ditemukan.</p>
-        <button
-          onClick={() => navigate("/")}
-          className="bg-gray-900 text-white px-6 py-2 rounded-xl font-semibold text-sm"
-        >
-          Kembali ke Scan
-        </button>
-      </div>
-    );
   }
 
   return (
@@ -211,7 +226,7 @@ export default function ReturnFormPage() {
           <h2 className="font-semibold flex items-center gap-2">
             <span>📋</span> Input Retur
           </h2>
-          {(loadingMaster || loadingBatches) && (
+          {(loadingProducts || loadingBatches) && (
             <span className="text-xs flex items-center gap-1 bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full animate-pulse">
               ⏳ Memuat data...
             </span>
@@ -239,30 +254,84 @@ export default function ReturnFormPage() {
             </div>
           </div>
 
+          {/* Product Picker */}
+          <Field label="Product Master">
+            <div className="relative">
+              <input
+                type="text"
+                value={productSearch}
+                onChange={(e) => {
+                  setProductSearch(e.target.value);
+                  setSelectedBarcode("");
+                  setShowProductDropdown(true);
+                }}
+                onFocus={() => setShowProductDropdown(true)}
+                placeholder={loadingProducts ? "Memuat produk master..." : "Cari nama produk / barcode / SKU..."}
+                disabled={loadingProducts}
+                className="input-field disabled:bg-gray-100"
+              />
+              {showProductDropdown && filteredProducts.length > 0 && (
+                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                  {filteredProducts.slice(0, 50).map((item) => (
+                    <button
+                      key={item.barcode}
+                      type="button"
+                      onClick={() => {
+                        setSelectedBarcode(item.barcode);
+                        setProductSearch(item.product);
+                        setShowProductDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                    >
+                      <span className="text-sm font-medium text-gray-900">{item.product}</span>
+                      <span className="block text-xs text-gray-400">{item.barcode} · {item.sku}</span>
+                    </button>
+                  ))}
+                  {filteredProducts.length > 50 && (
+                    <div className="px-4 py-2 text-xs text-gray-400 text-center">
+                      + {filteredProducts.length - 50} produk lagi, ketik lebih spesifik...
+                    </div>
+                  )}
+                </div>
+              )}
+              {showProductDropdown && productSearch.trim() && filteredProducts.length === 0 && !loadingProducts && (
+                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 text-sm text-gray-500 text-center">
+                  Produk tidak ditemukan
+                </div>
+              )}
+            </div>
+            {!selectedProduct && (
+              <p className="text-xs text-gray-400 mt-1">Pilih produk dari master data untuk mengisi barcode dan SKU otomatis.</p>
+            )}
+          </Field>
+
           {/* Barcode (readonly) */}
           <Field label="Barcode">
             <input
-              value={barcode}
+              value={selectedProduct?.barcode || ""}
               readOnly
               className="input-field bg-gray-100 cursor-not-allowed font-mono"
+              placeholder="Otomatis dari master data"
             />
           </Field>
 
           {/* SKU (readonly) */}
           <Field label="SKU">
             <input
-              value={loadingMaster ? "Loading..." : sku}
+              value={selectedProduct?.sku || ""}
               readOnly
               className="input-field bg-gray-100 cursor-not-allowed"
+              placeholder="Otomatis dari master data"
             />
           </Field>
 
           {/* Product (readonly) */}
           <Field label="Product">
             <input
-              value={loadingMaster ? "Loading..." : product}
+              value={selectedProduct?.product || ""}
               readOnly
               className="input-field bg-gray-100 cursor-not-allowed"
+              placeholder="Otomatis dari master data"
             />
           </Field>
 
@@ -378,7 +447,7 @@ export default function ReturnFormPage() {
             </button>
             <button
               type="submit"
-              disabled={!canSubmit || submitting || loadingMaster || loadingBatches}
+              disabled={!canSubmit || submitting || loadingProducts || loadingBatches}
               className="flex-1 bg-gray-900 text-white py-3 rounded-xl font-semibold text-sm hover:bg-gray-800 disabled:opacity-40 transition-colors"
             >
               {submitting ? "Menyimpan..." : "💾 Simpan"}
@@ -412,8 +481,8 @@ export default function ReturnFormPage() {
             <h3 className="font-bold text-lg text-gray-900">Konfirmasi Simpan</h3>
             <div className="text-sm text-gray-600 space-y-1">
               <p><span className="font-semibold text-gray-800">🎯 Sheet:</span> <span className="font-bold text-gray-900">{targetSheet}</span></p>
-              <p><span className="font-semibold text-gray-800">Produk:</span> {product}</p>
-              <p><span className="font-semibold text-gray-800">Barcode:</span> {barcode}</p>
+              <p><span className="font-semibold text-gray-800">Produk:</span> {selectedProduct?.product || "-"}</p>
+              <p><span className="font-semibold text-gray-800">Barcode:</span> {selectedProduct?.barcode || "-"}</p>
               <p><span className="font-semibold text-gray-800">Batch:</span> {batch} — Exp: {expDate}</p>
               <p><span className="font-semibold text-gray-800">Distri/Event:</span> {distriEvent}</p>
               <p><span className="font-semibold text-gray-800">Qty:</span> {qty}</p>

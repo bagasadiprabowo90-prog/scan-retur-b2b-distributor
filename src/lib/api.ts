@@ -21,6 +21,24 @@ export type ProductsResponse =
   | { ok: true; products: ProductItem[] }
   | { ok: false; error: string };
 
+export type ReturnHistoryItem = {
+  sheet: string;
+  rowNumber: number;
+  receiveDate: string;
+  distriEvent: string;
+  product: string;
+  barcode: string;
+  batch: string;
+  expDate: string;
+  qty: number;
+  keterangan: string;
+  pic: string;
+};
+
+export type ReturnHistoryResponse =
+  | { ok: true; history: ReturnHistoryItem[] }
+  | { ok: false; error: string };
+
 export type CreateReturnPayload = {
   receiveDate: string;
   distriEvent: string;
@@ -90,6 +108,18 @@ export async function fetchProducts(force = false): Promise<ProductsResponse> {
     return data;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal fetch products";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function fetchReturnHistory(limit = 100): Promise<ReturnHistoryResponse> {
+  try {
+    const base = getBaseUrl();
+    const url = `${base}?action=history&limit=${encodeURIComponent(String(limit))}`;
+    const res = await fetch(url);
+    return await res.json();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Gagal fetch riwayat retur";
     return { ok: false, error: msg };
   }
 }

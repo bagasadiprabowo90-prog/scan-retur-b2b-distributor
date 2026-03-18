@@ -1,11 +1,13 @@
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import ScanPage from "./pages/ScanPage";
 import ReturnFormPage from "./pages/ReturnFormPage";
+import HistoryPage from "./pages/HistoryPage";
 
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const isHome = location.pathname === "/" || location.pathname === "";
+  const isHistory = location.pathname === "/history";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -31,14 +33,24 @@ export default function App() {
           </div>
 
           {/* Scan button — hanya muncul di halaman selain home */}
-          {!isHome && (
-            <button
-              onClick={() => navigate("/")}
-              className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors"
-            >
-              <span>📷</span> Scan
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {!isHistory && (
+              <button
+                onClick={() => navigate("/history")}
+                className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors"
+              >
+                <span>🕘</span> Riwayat
+              </button>
+            )}
+            {!isHome && (
+              <button
+                onClick={() => navigate("/")}
+                className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors"
+              >
+                <span>📷</span> Scan
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -47,6 +59,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<ScanPage />} />
           <Route path="/return-form" element={<ReturnFormPage />} />
+          <Route path="/history" element={<HistoryPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

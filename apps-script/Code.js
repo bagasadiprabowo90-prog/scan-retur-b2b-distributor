@@ -3,6 +3,7 @@
 // https://docs.google.com/spreadsheets/d/SHEET_ID_DISINI/edit
 const SPREADSHEET_ID = "1Ppz3hQrVBMjYTo0qDpQfylGKAdxDG98sVPdD6TRqEiU";
 const MASTER_SHEET_NAME = "Master Product & Lots";
+const DEFAULT_HISTORY_LIMIT = 100;
 
 // Sheet retur yang tersedia (nama harus PERSIS sama dengan tab di Google Sheet)
 const ALLOWED_RETURN_SHEETS = ["Bagas", "Dimas"];
@@ -22,6 +23,10 @@ function getSheet(name) {
 
 function normalizeHeader(h) {
   return String(h || "").trim().toLowerCase();
+}
+
+function toText_(value) {
+  return String(value == null ? "" : value).trim();
 }
 
 function getHeaderMap(sheet) {
@@ -89,6 +94,38 @@ function parseExpDate_(exp) {
   return Infinity;
 }
 
+function parseReceiveDate_(value) {
+  if (!value) return 0;
+
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return value.getTime();
+  }
+
+  var s = String(value).trim();
+  if (!s) return 0;
+
+  var monthMap = {
+    jan: 0, feb: 1, mar: 2, apr: 3, mei: 4, may: 4,
+    jun: 5, jul: 6, agu: 7, aug: 7, sep: 8, okt: 9, oct: 9,
+    nov: 10, des: 11, dec: 11,
+  };
+
+  var m = s.match(/^(\d{1,2})[-\s]([A-Za-z]{3})[-\s](\d{4})$/);
+  if (m) {
+    var day = parseInt(m[1], 10);
+    var mon = monthMap[m[2].toLowerCase()];
+    var year = parseInt(m[3], 10);
+    if (mon !== undefined) {
+      return new Date(year, mon, day).getTime();
+    }
+  }
+
+  var d = new Date(s);
+  if (!isNaN(d.getTime())) return d.getTime();
+
+  return 0;
+}
+
 // Format raw exp date value (Date object or string) to "Mon YYYY"
 var MONTH_NAMES_ = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
 
@@ -107,6 +144,15 @@ function formatExpDate_(raw) {
   }
   // Already a short string like "Sep 2027" or "Sep-2027", return as-is
   return s;
+}
+
+function formatReceiveDate_(raw) {
+  if (!raw) return "";
+  if (raw instanceof Date && !isNaN(raw.getTime())) {
+    var dd = String(raw.getDate()).padStart(2, "0");
+    return dd + "-" + MONTH_NAMES_[raw.getMonth()] + "-" + raw.getFullYear();
+  }
+  return String(raw).trim();
 }
 
 function listBatches_() {
@@ -175,6 +221,84 @@ function listProducts_() {
   });
 
   return results;
+}
+
+function listReturnHistory_(limit) {
+  var maxItems = Number(limit);
+  if (!isFinite(maxItems) || maxItems <= 0) {
+    maxItems = DEFAULT_HISTORY_LIMIT;
+  }
+
+  var results = [];
+
+  for (var s = 0; s < ALLOWED_RETURN_SHEETS.length; s++) {
+    var sheetName = ALLOWED_RETURN_SHEETS[s];
+    var sh = getSheet(sheetName);
+    var map = getHeaderMap(sh);
+
+    var required = [
+      "receive date",
+      "distri/event",
+      "product",
+      "barcode",
+      "batch",
+      "exp date",
+      "qty",
+    ];
+    required.forEach(function (h) {
+      if (!map[h]) throw new Error("Sheet '" + sheetName + "' missing header: " + h);
+    });
+
+    var lastRow = sh.getLastRow();
+    if (lastRow < 2) continue;
+
+    var data = sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).getValues();
+    for (var r = 0; r < data.length; r++) {
+      var row = data[r];
+      var product = toText_(row[map["product"] - 1]);
+      var barcode = toText_(row[map["barcode"] - 1]);
+      var batch = toText_(row[map["batch"] - 1]);
+      if (!product && !barcode && !batch) continue;
+
+      var receiveRaw = row[map["receive date"] - 1];
+      results.push({
+        sheet: sheetName,
+        rowNumber: r + 2,
+        receiveDate: formatReceiveDate_(receiveRaw),
+        distriEvent: toText_(row[map["distri/event"] - 1]),
+        product: product,
+        barcode: barcode,
+        batch: batch,
+        expDate: formatExpDate_(row[map["exp date"] - 1]),
+        qty: Number(row[map["qty"] - 1] || 0),
+        keterangan: map["keterangan"] ? toText_(row[map["keterangan"] - 1]) : "",
+        pic: map["pic"] ? toText_(row[map["pic"] - 1]) : "",
+        _sortTime: parseReceiveDate_(receiveRaw),
+      });
+    }
+  }
+
+  results.sort(function (a, b) {
+    if (b._sortTime !== a._sortTime) return b._sortTime - a._sortTime;
+    if (a.sheet === b.sheet) return b.rowNumber - a.rowNumber;
+    return a.sheet.localeCompare(b.sheet);
+  });
+
+  return results.slice(0, maxItems).map(function (item) {
+    return {
+      sheet: item.sheet,
+      rowNumber: item.rowNumber,
+      receiveDate: item.receiveDate,
+      distriEvent: item.distriEvent,
+      product: item.product,
+      barcode: item.barcode,
+      batch: item.batch,
+      expDate: item.expDate,
+      qty: item.qty,
+      keterangan: item.keterangan,
+      pic: item.pic,
+    };
+  });
 }
 
 function appendReturn_(payload, sheetName) {
@@ -279,6 +403,11 @@ function doGet(e) {
     if (action === "products") {
       const products = listProducts_();
       return jsonOut({ ok: true, products });
+    }
+
+    if (action === "history") {
+      const history = listReturnHistory_(e.parameter.limit);
+      return jsonOut({ ok: true, history });
     }
 
     return jsonOut({ ok: false, error: "Unknown action" });
