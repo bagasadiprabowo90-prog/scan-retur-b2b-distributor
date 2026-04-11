@@ -29,6 +29,19 @@ const KETERANGAN_OPTIONS = [
 ];
 
 const DISTRI_STORAGE_KEY = "scan-retur-distri-history";
+const SHEET_STORAGE_KEY = "scan-retur-target-sheet";
+
+function getSavedSheet(): "Bagas" | "Dimas" {
+  try {
+    const raw = localStorage.getItem(SHEET_STORAGE_KEY);
+    if (raw === "Bagas" || raw === "Dimas") return raw;
+  } catch {}
+  return "Bagas";
+}
+
+function saveSheet(sheet: "Bagas" | "Dimas") {
+  try { localStorage.setItem(SHEET_STORAGE_KEY, sheet); } catch {}
+}
 
 function getDistriHistory(): string[] {
   try {
@@ -72,7 +85,7 @@ export default function ReturnFormPage() {
   const [qty, setQty] = useState("");
   const [keteranganList, setKeteranganList] = useState<string[]>([]);
   const [pic, setPic] = useState("");
-  const [targetSheet, setTargetSheet] = useState<"Bagas" | "Dimas">("Bagas");
+  const [targetSheet, setTargetSheet] = useState<"Bagas" | "Dimas">(getSavedSheet);
 
   const [batchModal, setBatchModal] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -251,7 +264,7 @@ export default function ReturnFormPage() {
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setTargetSheet(s)}
+                  onClick={() => { setTargetSheet(s); saveSheet(s); }}
                   className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors ${targetSheet === s
                     ? "bg-gray-900 text-white shadow-md"
                     : "bg-gray-100 text-gray-500 hover:bg-gray-200"
