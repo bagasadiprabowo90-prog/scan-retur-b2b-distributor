@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { BatchItem } from "../lib/api";
+import { addBatch, type BatchItem } from "../lib/api";
 
 type Props = {
   open: boolean;
@@ -20,6 +20,9 @@ export default function BatchPickerModal({
   const [newLot, setNewLot] = useState("");
   const [newExp, setNewExp] = useState("");
   const [mode, setMode] = useState<"pick" | "new">("pick");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Reset state setiap kali modal ditutup
   useEffect(() => {
@@ -28,6 +31,9 @@ export default function BatchPickerModal({
       setNewLot("");
       setNewExp("");
       setMode("pick");
+      setSaving(false);
+      setSaveError("");
+      setConfirmOpen(false);
     }
   }, [open]);
 
@@ -125,17 +131,62 @@ export default function BatchPickerModal({
                 placeholder="Exp Date (mis: Jun-2027)"
                 className="input-field"
               />
+              {saveError && (
+                <div className="rounded-xl px-3 py-2 text-sm bg-red-50 text-red-700 border border-red-200">
+                  ❌ {saveError}
+                </div>
+              )}
               <button
-                disabled={!newLot.trim() || !newExp.trim()}
-                onClick={() => onCreateNew(newLot.trim(), newExp.trim())}
+                disabled={!newLot.trim() || !newExp.trim() || saving}
+                onClick={() => { setSaveError(""); setConfirmOpen(true); }}
                 className="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold text-sm hover:bg-gray-800 disabled:opacity-40 transition-colors"
               >
-                Simpan Batch Baru
+                {saving ? "Menyimpan..." : "Simpan Batch Baru"}
               </button>
             </div>
           )}
         </div>
       </div>
+
+      {/* Confirm Dialog */}
+      {confirmOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmOpen(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl p-6 mx-4 max-w-sm w-full space-y-4">
+            <h3 className="font-bold text-lg text-gray-900">Simpan Batch Baru?</h3>
+            <div className="text-sm text-gray-600 space-y-1">
+              <p><span className="font-semibold text-gray-800">Batch/Lot:</span> {newLot.trim().toUpperCase()}</p>
+              <p><span className="font-semibold text-gray-800">Exp Date:</span> {newExp.trim()}</p>
+            </div>
+            <p className="text-sm text-gray-500">Batch ini akan disimpan ke sheet <strong>Master Product &amp; Lots</strong>.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmOpen(false)}
+                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={async () => {
+                  setConfirmOpen(false);
+                  setSaving(true);
+                  setSaveError("");
+                  const res = await addBatch(newLot.trim(), newExp.trim());
+                  setSaving(false);
+                  if (!res.ok) {
+                    setSaveError(res.error);
+                    return;
+                  }
+                  onCreateNew(res.lot, res.expDate);
+                }}
+                className="flex-1 bg-gray-900 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-800 transition-colors"
+              >
+                Ya, Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -311,6 +311,42 @@ function listReturnHistory_(limit) {
   };
 }
 
+function appendBatch_(lot, expDate) {
+  var sh = getSheet(MASTER_SHEET_NAME);
+  var map = getHeaderMap(sh);
+
+  var colLot = map["lots"];
+  var colExp = map["exp date"];
+  if (!colLot) throw new Error("MASTER sheet must have header: Lots");
+  if (!colExp) throw new Error("MASTER sheet must have header: Exp Date");
+
+  var lotTrimmed = String(lot || "").trim().toUpperCase();
+  var expTrimmed = String(expDate || "").trim();
+  if (!lotTrimmed) throw new Error("Lot tidak boleh kosong");
+  if (!expTrimmed) throw new Error("Exp Date tidak boleh kosong");
+
+  // Cek duplikat lot
+  var lastRow = sh.getLastRow();
+  if (lastRow >= 2) {
+    var data = sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).getValues();
+    for (var r = 0; r < data.length; r++) {
+      var existLot = String(data[r][colLot - 1] || "").trim().toUpperCase();
+      if (existLot === lotTrimmed) {
+        throw new Error("Batch/Lot '" + lotTrimmed + "' sudah ada di Master.");
+      }
+    }
+  }
+
+  var newRow = [];
+  var lastCol = sh.getLastColumn();
+  for (var c = 1; c <= lastCol; c++) newRow.push("");
+  newRow[colLot - 1] = lotTrimmed;
+  newRow[colExp - 1] = expTrimmed;
+
+  sh.appendRow(newRow);
+  return sh.getLastRow();
+}
+
 function appendReturn_(payload, sheetName) {
   // Validasi nama sheet
   if (!ALLOWED_RETURN_SHEETS.includes(sheetName)) {
@@ -430,6 +466,13 @@ function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || "{}");
     const action = body.action || "";
+    if (action === "addbatch") {
+      var lot = String(body.lot || "").trim();
+      var expDate = String(body.expDate || "").trim();
+      var appendedRow = appendBatch_(lot, expDate);
+      return jsonOut({ ok: true, appendedRow: appendedRow, lot: lot.toUpperCase(), expDate: expDate });
+    }
+
     if (action !== "returns") return jsonOut({ ok: false, error: "Unknown action" });
 
     const payload = body.payload || {};

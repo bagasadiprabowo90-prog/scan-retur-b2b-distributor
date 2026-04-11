@@ -56,6 +56,10 @@ export type CreateReturnResponse =
   | { ok: true; appendedRow: number; sheet: string }
   | { ok: false; error: string };
 
+export type AddBatchResponse =
+  | { ok: true; appendedRow: number; lot: string; expDate: string }
+  | { ok: false; error: string };
+
 function getBaseUrl(): string {
   const url = import.meta.env.VITE_APPS_SCRIPT_URL;
   if (!url) {
@@ -139,6 +143,25 @@ export async function createReturn(
     return await res.json();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal submit retur";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function addBatch(lot: string, expDate: string): Promise<AddBatchResponse> {
+  try {
+    const base = getBaseUrl();
+    const res = await fetch(base, {
+      method: "POST",
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ action: "addbatch", lot, expDate }),
+    });
+    const data: AddBatchResponse = await res.json();
+    // Invalidate cache supaya batch baru muncul di list
+    if (data.ok) batchesCache = null;
+    return data;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Gagal menyimpan batch baru";
     return { ok: false, error: msg };
   }
 }
