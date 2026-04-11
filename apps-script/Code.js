@@ -469,8 +469,8 @@ function doPost(e) {
     if (action === "addbatch") {
       var lot = String(body.lot || "").trim();
       var expDate = String(body.expDate || "").trim();
-      var appendedRow = appendBatch_(lot, expDate);
-      return jsonOut({ ok: true, appendedRow: appendedRow, lot: lot.toUpperCase(), expDate: expDate });
+      var batchRow = appendBatch_(lot, expDate);
+      return jsonOut({ ok: true, appendedRow: batchRow, lot: lot.toUpperCase(), expDate: expDate });
     }
 
     if (action !== "returns") return jsonOut({ ok: false, error: "Unknown action" });
