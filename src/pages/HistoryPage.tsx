@@ -108,12 +108,10 @@ export default function HistoryPage() {
         ) : (
           <div className="divide-y divide-gray-100">
             {/* Table header */}
-            <div className="grid grid-cols-[80px_1.4fr_1fr_56px_52px] gap-x-2 px-4 py-2 bg-gray-50 sticky top-0 z-10">
+            <div className="grid grid-cols-[74px_1fr_72px] gap-x-2 px-4 py-2 bg-gray-50 sticky top-0 z-10">
               <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Tanggal</span>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Produk / Batch</span>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Distri/Event</span>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 text-right">Qty</span>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 text-center">Sheet</span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Produk / Info</span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 text-right">Qty / Sheet</span>
             </div>
 
             {filteredHistory.map((item, idx) => {
@@ -125,24 +123,28 @@ export default function HistoryPage() {
                   <button
                     type="button"
                     onClick={() => setExpandedKey(expanded ? null : key)}
-                    className="w-full grid grid-cols-[80px_1.4fr_1fr_56px_52px] gap-x-2 px-4 py-2.5 text-left hover:bg-yellow-50 transition-colors"
+                    className="w-full grid grid-cols-[74px_1fr_72px] gap-x-2 px-4 py-2.5 text-left hover:bg-yellow-50 transition-colors"
                   >
-                    <span className="text-xs text-gray-500 leading-tight self-start break-words">{item.receiveDate || "-"}</span>
+                    <span className="text-xs text-gray-500 leading-tight self-start">{item.receiveDate || "-"}</span>
                     <div className="min-w-0 self-start">
-                      <p className="text-sm font-medium text-gray-900 leading-tight break-words">{item.product || "-"}</p>
-                      <p className="text-[11px] text-gray-500 leading-tight break-words mt-0.5">{item.batch || "-"}{item.expDate ? ` · ${item.expDate}` : ""}</p>
+                      <p className="text-sm font-medium text-gray-900 leading-tight truncate">{item.product || "-"}</p>
+                      <p className="text-[11px] text-gray-500 leading-tight truncate mt-0.5">
+                        {(item.batch || "-") + (item.expDate ? ` · ${item.expDate}` : "")}
+                      </p>
+                      <p className="text-[11px] text-gray-400 leading-tight truncate mt-0.5">{item.distriEvent || "-"}</p>
                     </div>
-                    <span className="text-xs text-gray-700 leading-tight self-start break-words">{item.distriEvent || "-"}</span>
-                    <span className="text-sm font-bold text-gray-900 text-right self-start">{item.qty}</span>
-                    <span className={`text-[11px] font-bold text-center self-start rounded-full px-1.5 py-0.5 ${
-                      item.sheet === "Bagas" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
-                    }`}>{item.sheet}</span>
+                    <div className="self-start text-right">
+                      <p className="text-sm font-bold text-gray-900 leading-tight">{item.qty}</p>
+                      <span className={`inline-block mt-1 text-[11px] font-bold text-center rounded-full px-1.5 py-0.5 ${
+                        item.sheet === "Bagas" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
+                      }`}>{item.sheet}</span>
+                    </div>
                   </button>
 
                   {/* Expanded detail */}
                   {expanded && (
                     <div className="px-4 pb-3 pt-2 bg-yellow-50 border-t border-yellow-100 text-xs text-gray-700 space-y-1.5">
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                         <p className="break-words"><span className="font-semibold text-gray-600">Barcode:</span> {item.barcode || "-"}</p>
                         <p className="break-words"><span className="font-semibold text-gray-600">Distri/Event:</span> {item.distriEvent || "-"}</p>
                         <p className="break-words"><span className="font-semibold text-gray-600">PIC:</span> {item.pic || "-"}</p>
