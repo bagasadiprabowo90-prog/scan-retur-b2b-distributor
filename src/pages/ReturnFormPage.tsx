@@ -205,17 +205,12 @@ export default function ReturnFormPage() {
         return;
       }
 
-      setToast({ type: "success", msg: `✅ Tersimpan di sheet "${res.sheet}" row ${res.appendedRow}` });
-
-      // Reset field entri, tapi tetap di sheet yang sama
-      setSelectedBarcode("");
-      setProductSearch("");
-      setShowProductDropdown(false);
-      setBatch("");
-      setExpDate("");
-      setQty("");
-      setKeteranganList([]);
-      // targetSheet, receiveDate, distriEvent, pic tetap
+      navigate("/", {
+        replace: true,
+        state: {
+          successMessage: `Data berhasil disimpan di sheet ${res.sheet} (row ${res.appendedRow}).`,
+        },
+      });
     } finally {
       setSubmitting(false);
     }

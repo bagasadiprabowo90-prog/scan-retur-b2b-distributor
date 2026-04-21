@@ -1,13 +1,15 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Html5Qrcode } from "html5-qrcode";
 import { fetchProducts, type ProductItem } from "../lib/api";
 
 export default function ScanPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [scanning, setScanning] = useState(false);
   const [started, setStarted] = useState(false);
   const [error, setError] = useState("");
+  const [successToast, setSuccessToast] = useState("");
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
   // Product search state
@@ -28,6 +30,21 @@ export default function ScanPage() {
     })();
     return () => { alive = false; };
   }, []);
+
+  useEffect(() => {
+    const routeState = location.state as { successMessage?: string } | null;
+    const message = routeState?.successMessage?.trim();
+    if (!message) return;
+
+    setSuccessToast(message);
+    navigate(location.pathname, { replace: true, state: null });
+
+    const timer = window.setTimeout(() => {
+      setSuccessToast("");
+    }, 3500);
+
+    return () => window.clearTimeout(timer);
+  }, [location.pathname, location.state, navigate]);
 
   const filteredProducts = productSearch.trim()
     ? products.filter((p) => {
@@ -98,6 +115,12 @@ export default function ScanPage() {
 
   return (
     <div className="space-y-4">
+      {successToast && (
+        <div className="rounded-xl px-4 py-3 text-sm font-medium bg-green-50 text-green-700 border border-green-200">
+          ✅ {successToast}
+        </div>
+      )}
+
       {/* Scanner Card */}
       <div className="bg-white rounded-2xl shadow-md overflow-hidden">
         <div className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between">
