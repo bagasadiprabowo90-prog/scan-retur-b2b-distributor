@@ -9,12 +9,10 @@ export default function HistoryPage() {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   async function loadHistory() {
     setLoading(true);
     setError("");
-    setExpandedKey(null);
     const res = await fetchReturnHistory(HISTORY_LIMIT);
     setLoading(false);
     if (!res.ok) {
@@ -100,59 +98,79 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {/* Compact list */}
+        {/* Card list */}
         {loading ? (
           <div className="px-4 py-10 text-center text-sm text-gray-400 animate-pulse">Memuat riwayat...</div>
         ) : !error && filteredHistory.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-gray-400">Belum ada data riwayat yang cocok.</div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {/* Table header */}
-            <div className="grid grid-cols-[74px_1fr_72px] gap-x-2 px-4 py-2 bg-gray-50 sticky top-0 z-10">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Tanggal</span>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Produk / Info</span>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 text-right">Qty / Sheet</span>
-            </div>
-
             {filteredHistory.map((item, idx) => {
               const key = `${item.sheet}-${item.rowNumber}`;
-              const expanded = expandedKey === key;
               return (
-                <div key={key} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50/70"}>
-                  {/* Compact row */}
-                  <button
-                    type="button"
-                    onClick={() => setExpandedKey(expanded ? null : key)}
-                    className="w-full grid grid-cols-[74px_1fr_72px] gap-x-2 px-4 py-2.5 text-left hover:bg-yellow-50 transition-colors"
-                  >
-                    <span className="text-xs text-gray-500 leading-tight self-start">{item.receiveDate || "-"}</span>
-                    <div className="min-w-0 self-start">
-                      <p className="text-sm font-medium text-gray-900 leading-tight truncate">{item.product || "-"}</p>
-                      <p className="text-[11px] text-gray-500 leading-tight truncate mt-0.5">
-                        {(item.batch || "-") + (item.expDate ? ` · ${item.expDate}` : "")}
-                      </p>
-                      <p className="text-[11px] text-gray-400 leading-tight truncate mt-0.5">{item.distriEvent || "-"}</p>
+                <div
+                  key={key}
+                  className={`px-4 py-3 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/70"}`}
+                >
+                  {/* Top row: Date + Sheet badge + Qty */}
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="inline-flex items-center justify-center bg-gray-100 text-gray-600 text-[11px] font-bold px-2 py-0.5 rounded-lg whitespace-nowrap">
+                        {item.receiveDate || "-"}
+                      </span>
+                      <span
+                        className={`inline-block text-[11px] font-bold rounded-full px-2 py-0.5 whitespace-nowrap ${
+                          item.sheet === "Bagas"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-purple-100 text-purple-700"
+                        }`}
+                      >
+                        {item.sheet}
+                      </span>
                     </div>
-                    <div className="self-start text-right">
-                      <p className="text-sm font-bold text-gray-900 leading-tight">{item.qty}</p>
-                      <span className={`inline-block mt-1 text-[11px] font-bold text-center rounded-full px-1.5 py-0.5 ${
-                        item.sheet === "Bagas" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
-                      }`}>{item.sheet}</span>
-                    </div>
-                  </button>
+                    <span className="text-base font-bold text-gray-900 whitespace-nowrap">
+                      {item.qty.toLocaleString()}
+                    </span>
+                  </div>
 
-                  {/* Expanded detail */}
-                  {expanded && (
-                    <div className="px-4 pb-3 pt-2 bg-yellow-50 border-t border-yellow-100 text-xs text-gray-700 space-y-1.5">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                        <p className="break-words"><span className="font-semibold text-gray-600">Barcode:</span> {item.barcode || "-"}</p>
-                        <p className="break-words"><span className="font-semibold text-gray-600">Distri/Event:</span> {item.distriEvent || "-"}</p>
-                        <p className="break-words"><span className="font-semibold text-gray-600">PIC:</span> {item.pic || "-"}</p>
-                        <p className="break-words"><span className="font-semibold text-gray-600">Row:</span> {item.rowNumber}</p>
-                      </div>
-                      {item.keterangan && (
-                        <p className="break-words"><span className="font-semibold text-gray-600">Keterangan:</span> {item.keterangan}</p>
-                      )}
+                  {/* Product name */}
+                  <p className="text-sm font-semibold text-gray-900 leading-snug mb-1.5">
+                    {item.product || "-"}
+                  </p>
+
+                  {/* Info grid */}
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-600">
+                    <div className="flex items-start gap-1 min-w-0">
+                      <span className="text-gray-400 shrink-0">Barcode</span>
+                      <span className="font-medium text-gray-700 truncate">{item.barcode || "-"}</span>
+                    </div>
+                    <div className="flex items-start gap-1 min-w-0">
+                      <span className="text-gray-400 shrink-0">Batch</span>
+                      <span className="font-medium text-gray-700 truncate">{item.batch || "-"}</span>
+                    </div>
+                    <div className="flex items-start gap-1 min-w-0">
+                      <span className="text-gray-400 shrink-0">Exp</span>
+                      <span className="font-medium text-gray-700 truncate">{item.expDate || "-"}</span>
+                    </div>
+                    <div className="flex items-start gap-1 min-w-0">
+                      <span className="text-gray-400 shrink-0">Distri/Event</span>
+                      <span className="font-medium text-gray-700 truncate">{item.distriEvent || "-"}</span>
+                    </div>
+                    <div className="flex items-start gap-1 min-w-0">
+                      <span className="text-gray-400 shrink-0">PIC</span>
+                      <span className="font-medium text-gray-700 truncate">{item.pic || "-"}</span>
+                    </div>
+                    <div className="flex items-start gap-1 min-w-0">
+                      <span className="text-gray-400 shrink-0">Row</span>
+                      <span className="font-medium text-gray-700">{item.rowNumber}</span>
+                    </div>
+                  </div>
+
+                  {/* Keterangan */}
+                  {item.keterangan && (
+                    <div className="mt-1.5 text-[11px] text-gray-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5">
+                      <span className="text-amber-700 font-semibold">Keterangan: </span>
+                      <span className="text-gray-700">{item.keterangan}</span>
                     </div>
                   )}
                 </div>
