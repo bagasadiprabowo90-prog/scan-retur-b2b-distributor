@@ -1,16 +1,25 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Html5Qrcode } from "html5-qrcode";
+import Quagga from "@ericblade/quagga2";
 import { fetchProducts, type ProductItem } from "../lib/api";
 
 export default function ScanPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const trackRef = useRef<MediaStreamTrack | null>(null);
+
+  // Scanner state
   const [scanning, setScanning] = useState(false);
   const [started, setStarted] = useState(false);
   const [error, setError] = useState("");
   const [successToast, setSuccessToast] = useState("");
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [torch, setTorch] = useState(false);
+  const [detectedCode, setDetectedCode] = useState("");
+  const [manualInput, setManualInput] = useState("");
 
   // Product search state
   const [products, setProducts] = useState<ProductItem[]>([]);
@@ -58,60 +67,187 @@ export default function ScanPage() {
     : products;
 
   const handleScanResult = useCallback(
-    (decodedText: string) => {
-      const barcode = decodedText.trim();
-      if (!barcode) return;
-
-      if (scannerRef.current?.isScanning) {
-        scannerRef.current.stop().catch(() => {});
-      }
+    (barcode: string) => {
+      if (!barcode.trim()) return;
 
       navigate(`/return-form?barcode=${encodeURIComponent(barcode)}`);
     },
     [navigate]
   );
 
+  const handleManualSubmit = useCallback(() => {
+    const barcode = manualInput.trim();
+    if (!barcode) return;
+    setManualInput("");
+    handleScanResult(barcode);
+  }, [manualInput, handleScanResult]);
+
   const startScanner = useCallback(async () => {
     setError("");
     setStarted(true);
+    setZoom(1);
 
-    // Wait a tick for the #qr-reader div to render
     await new Promise((r) => setTimeout(r, 100));
 
     try {
-      const scanner = new Html5Qrcode("qr-reader");
-      scannerRef.current = scanner;
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Browser tidak support camera access");
+      }
 
-      await scanner.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 280, height: 150 },
-          aspectRatio: 1.0,
+      // Request camera dengan constraints yang lebih baik
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         },
-        handleScanResult,
-        () => {}
-      );
+        audio: false,
+      } as any);
 
-      setScanning(true);
+      streamRef.current = stream;
+      trackRef.current = stream.getVideoTracks()[0];
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play();
+          setScanning(true);
+
+          // Start Quagga untuk barcode detection
+          initQuagga();
+        };
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("Permission")) {
-        setError("Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser.");
+        setError(
+          "❌ Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser."
+        );
+      } else if (msg.includes("NotFound")) {
+        setError("❌ Tidak ada perangkat kamera yang ditemukan.");
       } else {
-        setError("Tidak bisa membuka kamera: " + msg);
+        setError("❌ Error membuka kamera: " + msg);
       }
+      setStarted(false);
     }
-  }, [handleScanResult]);
+  }, []);
+
+  const initQuagga = () => {
+    Quagga.init(
+      {
+        inputStream: {
+          type: "LiveStream",
+          constraints: {
+            width: { min: 640 },
+            height: { min: 480 },
+            facingMode: "environment",
+            aspectRatio: { min: 4 / 3, max: 16 / 9 },
+          },
+          target: videoRef.current!,
+        },
+        locator: {
+          patchSize: "medium",
+          halfSample: true,
+        },
+        numOfWorkers: navigator.hardwareConcurrency || 4,
+        frequency: 10,
+        decoder: {
+          readers: [
+            "code_128_reader",
+            "ean_reader",
+            "ean_8_reader",
+            "code_39_reader",
+            "code_39_vin_reader",
+            "codabar_reader",
+            "upc_reader",
+            "upc_e_reader",
+          ],
+          debug: {
+            drawBoundingBox: false,
+            showFrequency: false,
+            drawScanline: false,
+            showPattern: false,
+          },
+        },
+      } as any,
+      (err) => {
+        if (err) {
+          console.error("Quagga initialization error:", err);
+          setError("❌ Error initializing barcode scanner");
+          return;
+        }
+
+        Quagga.onDetected((data) => {
+          if (data.codeResult?.code) {
+            const code = data.codeResult.code.trim();
+            if (code && code !== detectedCode) {
+              setDetectedCode(code);
+              handleScanResult(code);
+            }
+          }
+        });
+
+        Quagga.start();
+      }
+    );
+  };
 
   const stopScanner = useCallback(async () => {
-    if (scannerRef.current?.isScanning) {
-      await scannerRef.current.stop();
-    }
-    scannerRef.current = null;
     setScanning(false);
     setStarted(false);
+    setZoom(1);
+    setDetectedCode("");
+
+    // Stop Quagga
+    try {
+      Quagga.stop();
+    } catch (e) {
+      console.error("Error stopping Quagga:", e);
+    }
+
+    // Stop MediaStream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    trackRef.current = null;
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
   }, []);
+
+  const toggleTorch = async () => {
+    if (!trackRef.current) return;
+
+    try {
+      const capabilities = (trackRef.current as any).getCapabilities?.();
+      if (!capabilities?.torch) {
+        setError("⚠️ Device tidak support torch/flash");
+        return;
+      }
+
+      await (trackRef.current as any).applyConstraints({
+        advanced: [{ torch: !torch }],
+      });
+      setTorch(!torch);
+    } catch (err) {
+      console.error("Torch error:", err);
+    }
+  };
+
+  const handleZoomChange = async (newZoom: number) => {
+    setZoom(newZoom);
+    if (!trackRef.current) return;
+
+    try {
+      await (trackRef.current as any).applyConstraints({
+        advanced: [{ zoom: newZoom }],
+      });
+    } catch (err) {
+      console.error("Zoom error:", err);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -137,8 +273,74 @@ export default function ScanPage() {
 
         {/* Camera area */}
         {started ? (
-          <div className="bg-black">
-            <div id="qr-reader" className="w-full" />
+          <div className="relative bg-black overflow-hidden" style={{ aspectRatio: "4/3" }}>
+            <video
+              ref={videoRef}
+              className="w-full h-full object-cover"
+              playsInline
+              autoPlay
+              muted
+            />
+            <canvas
+              ref={canvasRef}
+              style={{
+                display: "none",
+              }}
+            />
+
+            {/* Scanning frame overlay */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute inset-0 border-2 border-green-500 opacity-50" />
+              <div className="absolute inset-1/4 border-4 border-green-500"></div>
+            </div>
+
+            {/* Detected code display */}
+            {detectedCode && (
+              <div className="absolute top-4 left-4 right-4 bg-green-500 text-white px-3 py-2 rounded-lg text-sm font-semibold text-center animate-pulse">
+                ✅ Barcode terdeteksi: {detectedCode}
+              </div>
+            )}
+
+            {/* Controls overlay */}
+            <div className="absolute bottom-4 left-4 right-4 space-y-3">
+              {/* Zoom slider */}
+              <div className="bg-black/70 rounded-lg p-3 backdrop-blur-sm">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-white text-xs">🔍 Zoom</span>
+                  <span className="text-white text-xs font-mono">{zoom.toFixed(1)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  step="0.5"
+                  value={zoom}
+                  onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+                  className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-green-500"
+                />
+              </div>
+
+              {/* Torch & Manual Input buttons */}
+              <div className="flex gap-2">
+                <button
+                  onClick={toggleTorch}
+                  className={`flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                    torch
+                      ? "bg-yellow-500 text-black hover:bg-yellow-400"
+                      : "bg-gray-700 text-white hover:bg-gray-600"
+                  }`}
+                >
+                  {torch ? "💡 Flash ON" : "💡 Flash OFF"}
+                </button>
+
+                <button
+                  onClick={stopScanner}
+                  className="flex-1 px-3 py-2 rounded-lg font-semibold text-sm bg-red-600 text-white hover:bg-red-700 transition-colors"
+                >
+                  Stop
+                </button>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="bg-gray-100 flex flex-col items-center justify-center py-16 gap-4">
@@ -155,26 +357,50 @@ export default function ScanPage() {
 
         {error && (
           <div className="px-4 py-3 bg-red-50 text-red-700 text-sm">
-            ⚠️ {error}
+            {error}
           </div>
         )}
 
         {scanning && (
-          <div className="p-3 flex items-center justify-between">
-            <span className="text-sm text-gray-500">Arahkan kamera ke barcode</span>
-            <button
-              onClick={stopScanner}
-              className="text-sm text-red-600 font-semibold hover:text-red-800"
-            >
-              Stop Kamera
-            </button>
+          <div className="p-3 text-center">
+            <p className="text-sm text-gray-500">Arahkan kamera ke barcode</p>
           </div>
         )}
       </div>
 
+      {/* Manual Input */}
+      {started && (
+        <div className="bg-white rounded-2xl shadow-md p-4">
+          <label className="text-xs font-semibold text-gray-700 block mb-2">
+            📝 Input Manual Barcode (jika scan gagal):
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={manualInput}
+              onChange={(e) => setManualInput(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleManualSubmit();
+              }}
+              placeholder="Ketik barcode & Enter..."
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+            />
+            <button
+              onClick={handleManualSubmit}
+              disabled={!manualInput.trim()}
+              className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-semibold hover:bg-gray-800 disabled:bg-gray-300 transition-colors"
+            >
+              ✓
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Product Search / Picker */}
       <div className="bg-white rounded-2xl shadow-md p-4">
-        <p className="text-sm font-semibold text-gray-700 mb-2">📦 Cari & pilih produk dari master data:</p>
+        <p className="text-sm font-semibold text-gray-700 mb-2">
+          📦 Cari & pilih produk dari master data:
+        </p>
         <div className="relative">
           <input
             type="text"
@@ -184,7 +410,11 @@ export default function ScanPage() {
               setShowProductDropdown(true);
             }}
             onFocus={() => setShowProductDropdown(true)}
-            placeholder={loadingProducts ? "Memuat data produk..." : "Ketik nama produk / barcode / SKU..."}
+            placeholder={
+              loadingProducts
+                ? "Memuat data produk..."
+                : "Ketik nama produk / barcode / SKU..."
+            }
             disabled={loadingProducts}
             className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:bg-gray-100"
           />
@@ -198,35 +428,47 @@ export default function ScanPage() {
                     setShowProductDropdown(false);
                     setProductSearch("");
                     if (scanning) stopScanner();
-                    navigate(`/return-form?barcode=${encodeURIComponent(p.barcode)}`);
+                    navigate(
+                      `/return-form?barcode=${encodeURIComponent(p.barcode)}`
+                    );
                   }}
                   className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0"
                 >
-                  <span className="text-sm font-medium text-gray-900">{p.product}</span>
-                  <span className="block text-xs text-gray-400">{p.barcode} · {p.sku}</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {p.product}
+                  </span>
+                  <span className="block text-xs text-gray-400">
+                    {p.barcode} · {p.sku}
+                  </span>
                 </button>
               ))}
               {filteredProducts.length > 50 && (
                 <div className="px-4 py-2 text-xs text-gray-400 text-center">
-                  + {filteredProducts.length - 50} produk lagi, ketik lebih spesifik...
+                  + {filteredProducts.length - 50} produk lagi, ketik lebih
+                  spesifik...
                 </div>
               )}
             </div>
           )}
-          {showProductDropdown && productSearch.trim() && filteredProducts.length === 0 && !loadingProducts && (
-            <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 text-sm text-gray-500 text-center">
-              Produk tidak ditemukan
-            </div>
-          )}
+          {showProductDropdown &&
+            productSearch.trim() &&
+            filteredProducts.length === 0 &&
+            !loadingProducts && (
+              <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 text-sm text-gray-500 text-center">
+                Produk tidak ditemukan
+              </div>
+            )}
         </div>
         {!loadingProducts && (
-          <p className="text-xs text-gray-400 mt-2">Total {products.length} produk di master data</p>
+          <p className="text-xs text-gray-400 mt-2">
+            Total {products.length} produk di master data
+          </p>
         )}
       </div>
 
       {/* Info */}
       <div className="text-center text-xs text-gray-400 py-2">
-        Scan barcode atau pilih produk langsung dari master data
+        📱 Scanner support: barcode 1D (Code128, EAN, UPC, dll)
       </div>
     </div>
   );
