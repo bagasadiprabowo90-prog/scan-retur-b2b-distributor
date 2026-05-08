@@ -115,15 +115,13 @@ export default function ScanPage() {
     const container = scannerContainerRef.current;
     if (!container) {
       // Container not yet mounted, retry shortly
-      if (retryCountRef.current < 10) {
-        retryCountRef.current += 1;
-        window.setTimeout(() => initQuaggaWithRetry(), 200);
-      }
+      window.setTimeout(() => initQuaggaWithRetry(), 200);
       return;
     }
 
-    // Clear any leftover elements from previous Quagga sessions
-    container.innerHTML = "";
+    // Ensure clean state - stop any previous Quagga instance
+    try { Quagga.stop(); } catch { /* ignore */ }
+    try { Quagga.offDetected(); } catch { /* ignore */ }
 
     const workers =
       typeof Worker !== "undefined"
@@ -135,23 +133,22 @@ export default function ScanPage() {
         type: "LiveStream",
         target: container,
         constraints: {
-          width: { min: 1280, ideal: 1920 },
-          height: { min: 720, ideal: 1080 },
+          width: { min: 640, ideal: 1280 },
+          height: { min: 480, ideal: 720 },
           facingMode: "environment",
         },
       },
       locator: {
-        patchSize: "small",
+        patchSize: "medium",
         halfSample: false,
       },
       numOfWorkers: workers,
-      frequency: 20,
+      frequency: 15,
       decoder: {
         readers: [
           "ean_reader",
           "ean_8_reader",
           "code_128_reader",
-          "code_39_reader",
           "upc_reader",
           "upc_e_reader",
         ],
@@ -263,14 +260,14 @@ export default function ScanPage() {
       const code = d?.codeResult?.code?.trim();
       if (!code || code.length < 3) return;
 
-      // Filter out low-confidence detections by average error level
+      // Filter out very low-confidence detections
       const decodedCodes = d.codeResult?.decodedCodes ?? [];
       const errors = decodedCodes
         .map((c) => (typeof c.error === "number" ? c.error : null))
         .filter((e): e is number => e !== null);
       if (errors.length > 0) {
         const avg = errors.reduce((a, b) => a + b, 0) / errors.length;
-        if (avg > 0.25) return; // Relaxed threshold for small cosmetic barcodes
+        if (avg > 0.35) return; // Only reject very bad reads
       }
 
       const now = Date.now();
@@ -322,7 +319,7 @@ export default function ScanPage() {
       quaggaStartedRef.current = false;
     }
 
-    // Also stop any media streams Quagga may have created
+    // Stop media stream tracks to release camera
     const container = scannerContainerRef.current;
     if (container) {
       const video = container.querySelector("video");
@@ -333,7 +330,6 @@ export default function ScanPage() {
         });
         video.srcObject = null;
       }
-      container.innerHTML = "";
     }
 
     trackRef.current = null;
