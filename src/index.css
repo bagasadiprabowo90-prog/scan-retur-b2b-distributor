@@ -18,21 +18,32 @@ body {
   inset: 0;
   z-index: 50;
   background-color: #000;
-  display: flex;
-  flex-direction: column;
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
   overflow: hidden;
 }
 
-.scanner-video {
-  position: absolute;
-  inset: 0;
+/* html5-qrcode container - make video fill screen */
+#scanner-container {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+}
+
+#scanner-container video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  position: absolute !important;
+  inset: 0 !important;
+}
+
+/* Hide html5-qrcode's built-in scan region border */
+#scanner-container #qr-shaded-region {
+  display: none !important;
+}
+
+/* Hide the internal canvas/img elements html5-qrcode creates */
+#scanner-container > img,
+#scanner-container > canvas {
+  display: none !important;
 }
 
 .scanner-guide {
@@ -40,9 +51,10 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(80vw, 320px);
-  height: min(50vh, 200px);
+  width: min(80vw, 300px);
+  height: min(40vh, 180px);
   pointer-events: none;
+  z-index: 5;
 }
 
 .scanner-guide-corner {

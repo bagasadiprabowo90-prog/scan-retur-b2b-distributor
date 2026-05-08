@@ -1,18 +1,13 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import Quagga from "@ericblade/quagga2";
+import { Html5Qrcode } from "html5-qrcode";
 import { fetchProducts, type ProductItem } from "../lib/api";
 
 export default function ScanPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const scannerContainerRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<MediaStreamTrack | null>(null);
-  const lastDetectionTimeRef = useRef<number>(0);
-  const quaggaStartedRef = useRef<boolean>(false);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
   const detectedRef = useRef<boolean>(false);
-  const retryCountRef = useRef<number>(0);
-  const retryTimerRef = useRef<number | null>(null);
 
   // Scanner state
   const [scanning, setScanning] = useState(false);
@@ -20,8 +15,6 @@ export default function ScanPage() {
   const [started, setStarted] = useState(false);
   const [error, setError] = useState("");
   const [successToast, setSuccessToast] = useState("");
-  const [torch, setTorch] = useState(false);
-  const [torchSupported, setTorchSupported] = useState(false);
   const [successFlash, setSuccessFlash] = useState(false);
   const [manualInput, setManualInput] = useState("");
 
@@ -64,7 +57,7 @@ export default function ScanPage() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      cleanupScanner();
+      stopScanner();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -101,282 +94,102 @@ export default function ScanPage() {
     setStarting(true);
     setStarted(true);
     detectedRef.current = false;
-    retryCountRef.current = 0;
-    lastDetectionTimeRef.current = 0;
 
-    // Small delay to let the container div render in DOM
-    await new Promise((r) => setTimeout(r, 200));
-
-    initQuaggaWithRetry();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const initQuaggaWithRetry = () => {
-    const container = scannerContainerRef.current;
-    if (!container) {
-      // Container not yet mounted, retry shortly
-      window.setTimeout(() => initQuaggaWithRetry(), 200);
-      return;
-    }
-
-    // Ensure clean state - stop any previous Quagga instance
-    try { Quagga.stop(); } catch { /* ignore */ }
-    try { Quagga.offDetected(); } catch { /* ignore */ }
-
-    const workers =
-      typeof Worker !== "undefined"
-        ? Math.min(navigator.hardwareConcurrency || 2, 4)
-        : 0;
-
-    const quaggaConfig = {
-      inputStream: {
-        type: "LiveStream",
-        target: container,
-        constraints: {
-          width: { min: 640, ideal: 1280 },
-          height: { min: 480, ideal: 720 },
-          facingMode: "environment",
-        },
-      },
-      locator: {
-        patchSize: "medium",
-        halfSample: false,
-      },
-      numOfWorkers: workers,
-      frequency: 15,
-      decoder: {
-        readers: [
-          "ean_reader",
-          "ean_8_reader",
-          "code_128_reader",
-          "upc_reader",
-          "upc_e_reader",
-        ],
-        multiple: false,
-      },
-      locate: true,
-    };
-
-    Quagga.init(
-      quaggaConfig as unknown as Parameters<typeof Quagga.init>[0],
-      (err) => {
-        if (err) {
-          console.error("Quagga init error:", err);
-          if (retryCountRef.current < 3) {
-            const delay = 1000 * Math.pow(2, retryCountRef.current);
-            retryCountRef.current += 1;
-            if (retryTimerRef.current) {
-              window.clearTimeout(retryTimerRef.current);
-            }
-            retryTimerRef.current = window.setTimeout(() => {
-              initQuaggaWithRetry();
-            }, delay);
-            return;
-          }
-
-          const msg = err instanceof Error ? err.message : String(err);
-          if (/permission|notallowed/i.test(msg)) {
-            setError(
-              "❌ Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser."
-            );
-          } else if (/notfound|devicesnotfound/i.test(msg)) {
-            setError("❌ Tidak ada perangkat kamera yang ditemukan.");
-          } else {
-            setError("❌ Gagal memulai barcode scanner: " + msg);
-          }
-          setStarting(false);
-          setStarted(false);
-          return;
-        }
-
-        // Grab the video track for torch support detection
-        try {
-          const video = container.querySelector("video");
-          if (video && video.srcObject) {
-            const stream = video.srcObject as MediaStream;
-            const track = stream.getVideoTracks()[0];
-            if (track) {
-              trackRef.current = track;
-              const caps = (
-                track as unknown as {
-                  getCapabilities?: () => Record<string, unknown>;
-                }
-              ).getCapabilities?.();
-              setTorchSupported(Boolean(caps && caps.torch));
-            }
-          }
-        } catch {
-          setTorchSupported(false);
-        }
-
-        // Style the Quagga-created video to fill the container
-        try {
-          const video = container.querySelector("video");
-          if (video) {
-            video.style.position = "absolute";
-            video.style.inset = "0";
-            video.style.width = "100%";
-            video.style.height = "100%";
-            video.style.objectFit = "cover";
-          }
-          // Hide the canvas overlay Quagga creates (we have our own guide)
-          const canvas = container.querySelector("canvas");
-          if (canvas) {
-            canvas.style.display = "none";
-          }
-        } catch {
-          // ignore styling errors
-        }
-
-        // Set up onDetected handler
-        Quagga.offDetected();
-        Quagga.onDetected(handleQuaggaDetection);
-
-        try {
-          Quagga.start();
-          quaggaStartedRef.current = true;
-          setScanning(true);
-          setStarting(false);
-        } catch (e) {
-          console.error("Quagga start error:", e);
-          setError("❌ Gagal memulai scanner.");
-          setStarting(false);
-        }
-      }
-    );
-  };
-
-  const handleQuaggaDetection = useCallback(
-    (data: unknown) => {
-      if (detectedRef.current) return;
-
-      const d = data as {
-        codeResult?: {
-          code?: string;
-          decodedCodes?: Array<{ error?: number }>;
-        };
-      };
-
-      const code = d?.codeResult?.code?.trim();
-      if (!code || code.length < 3) return;
-
-      // Filter out very low-confidence detections
-      const decodedCodes = d.codeResult?.decodedCodes ?? [];
-      const errors = decodedCodes
-        .map((c) => (typeof c.error === "number" ? c.error : null))
-        .filter((e): e is number => e !== null);
-      if (errors.length > 0) {
-        const avg = errors.reduce((a, b) => a + b, 0) / errors.length;
-        if (avg > 0.35) return; // Only reject very bad reads
-      }
-
-      const now = Date.now();
-      if (now - lastDetectionTimeRef.current < 1500) return;
-      lastDetectionTimeRef.current = now;
-
-      detectedRef.current = true;
-
-      // Haptic feedback
-      try {
-        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-          navigator.vibrate(100);
-        }
-      } catch {
-        // ignore
-      }
-
-      // Success flash
-      setSuccessFlash(true);
-      window.setTimeout(() => setSuccessFlash(false), 250);
-
-      // Stop camera then navigate (small delay so flash is visible)
-      window.setTimeout(() => {
-        cleanupScanner();
-        handleScanResult(code);
-      }, 200);
-    },
-    [handleScanResult]
-  );
-
-  const cleanupScanner = () => {
-    if (retryTimerRef.current) {
-      window.clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
+    // Wait for the container to render
+    await new Promise((r) => setTimeout(r, 100));
 
     try {
-      Quagga.offDetected();
-    } catch {
-      // ignore
-    }
+      const scanner = new Html5Qrcode("scanner-container");
+      scannerRef.current = scanner;
 
-    if (quaggaStartedRef.current) {
-      try {
-        Quagga.stop();
-      } catch (e) {
-        console.error("Error stopping Quagga:", e);
+      await scanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 15,
+          qrbox: { width: 280, height: 150 },
+          aspectRatio: 1.0,
+          disableFlip: false,
+        },
+        // Success callback
+        (decodedText) => {
+          if (detectedRef.current) return;
+          if (!decodedText || decodedText.trim().length < 3) return;
+
+          detectedRef.current = true;
+
+          // Haptic feedback
+          try {
+            if ("vibrate" in navigator) {
+              navigator.vibrate(100);
+            }
+          } catch {
+            // ignore
+          }
+
+          // Success flash
+          setSuccessFlash(true);
+
+          // Stop scanner and navigate
+          setTimeout(async () => {
+            setSuccessFlash(false);
+            await stopScanner();
+            handleScanResult(decodedText.trim());
+          }, 200);
+        },
+        // Error callback (called on every frame without detection - ignore)
+        () => {}
+      );
+
+      setScanning(true);
+      setStarting(false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Scanner start error:", msg);
+
+      if (/permission|notallowed/i.test(msg)) {
+        setError(
+          "❌ Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser."
+        );
+      } else if (/notfound|requested/i.test(msg)) {
+        setError("❌ Tidak ada perangkat kamera yang ditemukan.");
+      } else {
+        setError("❌ Error membuka kamera: " + msg);
       }
-      quaggaStartedRef.current = false;
+      setStarted(false);
+      setStarting(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleScanResult]);
 
-    // Stop media stream tracks to release camera
-    const container = scannerContainerRef.current;
-    if (container) {
-      const video = container.querySelector("video");
-      if (video && video.srcObject) {
-        const stream = video.srcObject as MediaStream;
-        stream.getTracks().forEach((track) => {
-          try { track.stop(); } catch { /* ignore */ }
-        });
-        video.srcObject = null;
+  const stopScanner = useCallback(async () => {
+    try {
+      if (scannerRef.current) {
+        const state = scannerRef.current.getState();
+        // State 2 = scanning, need to stop first
+        if (state === 2) {
+          await scannerRef.current.stop();
+        }
+        scannerRef.current.clear();
+        scannerRef.current = null;
       }
+    } catch (e) {
+      console.error("Error stopping scanner:", e);
     }
 
-    trackRef.current = null;
-  };
-
-  const stopScanner = useCallback(() => {
-    cleanupScanner();
     setScanning(false);
     setStarted(false);
     setStarting(false);
-    setTorch(false);
-    setTorchSupported(false);
     detectedRef.current = false;
-    retryCountRef.current = 0;
   }, []);
-
-  const toggleTorch = async () => {
-    if (!trackRef.current) return;
-    try {
-      await (
-        trackRef.current as unknown as {
-          applyConstraints: (c: unknown) => Promise<void>;
-        }
-      ).applyConstraints({
-        advanced: [{ torch: !torch }],
-      });
-      setTorch((prev) => !prev);
-    } catch (err) {
-      console.error("Torch error:", err);
-      setTorchSupported(false);
-    }
-  };
 
   // ---------- FULLSCREEN SCANNER RENDER ----------
   if (started) {
     return (
       <div className="scanner-fullscreen">
-        {/* Quagga2 injects its own <video> and <canvas> into this container */}
-        <div
-          ref={scannerContainerRef}
-          className="absolute inset-0 overflow-hidden bg-black"
-        />
+        {/* html5-qrcode renders into this div */}
+        <div id="scanner-container" className="absolute inset-0 overflow-hidden" />
 
-        {/* Dim overlay */}
-        <div className="absolute inset-0 bg-black/20 pointer-events-none" />
-
-        {/* Scanning guide with corner frame and scan line */}
+        {/* Scanning guide overlay */}
         <div className="scanner-guide">
           <div className="scanner-guide-corner tl" />
           <div className="scanner-guide-corner tr" />
@@ -387,7 +200,7 @@ export default function ScanPage() {
 
         {/* Top hint */}
         <div
-          className="absolute top-0 left-0 right-0 flex justify-center pointer-events-none"
+          className="absolute top-0 left-0 right-0 flex justify-center pointer-events-none z-10"
           style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}
         >
           <div className="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm">
@@ -399,7 +212,7 @@ export default function ScanPage() {
         <button
           onClick={stopScanner}
           aria-label="Tutup scanner"
-          className="absolute h-11 w-11 flex items-center justify-center rounded-full bg-black/60 text-white text-2xl hover:bg-black/80 backdrop-blur-sm"
+          className="absolute z-10 h-11 w-11 flex items-center justify-center rounded-full bg-black/60 text-white text-2xl hover:bg-black/80 backdrop-blur-sm"
           style={{
             top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
             right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
@@ -408,26 +221,9 @@ export default function ScanPage() {
           ×
         </button>
 
-        {/* Torch toggle bottom-right (only when supported) */}
-        {torchSupported && (
-          <button
-            onClick={toggleTorch}
-            aria-label="Toggle flash"
-            className={`absolute h-12 w-12 flex items-center justify-center rounded-full backdrop-blur-sm text-xl ${
-              torch ? "bg-yellow-400 text-black" : "bg-black/60 text-white"
-            }`}
-            style={{
-              bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
-              right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
-            }}
-          >
-            💡
-          </button>
-        )}
-
         {/* Loading spinner */}
         {starting && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none z-10">
             <div className="h-10 w-10 border-4 border-white/30 border-t-white rounded-full animate-spin" />
             <p className="text-white text-sm font-medium drop-shadow">
               Memulai kamera...
@@ -436,12 +232,12 @@ export default function ScanPage() {
         )}
 
         {/* Success flash */}
-        {successFlash && <div className="scanner-success-flash" />}
+        {successFlash && <div className="scanner-success-flash z-10" />}
 
         {/* Error overlay */}
         {error && (
           <div
-            className="absolute left-0 right-0 mx-4 bg-red-600 text-white text-sm px-4 py-3 rounded-xl shadow-lg"
+            className="absolute left-0 right-0 mx-4 bg-red-600 text-white text-sm px-4 py-3 rounded-xl shadow-lg z-10"
             style={{
               bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)",
             }}
