@@ -6,10 +6,8 @@ import { fetchProducts, type ProductItem } from "../lib/api";
 export default function ScanPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const scannerContainerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<MediaStreamTrack | null>(null);
-  const selectedDeviceIdRef = useRef<string | null>(null);
   const lastDetectionTimeRef = useRef<number>(0);
   const quaggaStartedRef = useRef<boolean>(false);
   const detectedRef = useRef<boolean>(false);
@@ -98,90 +96,6 @@ export default function ScanPage() {
     handleScanResult(barcode);
   }, [manualInput, handleScanResult]);
 
-  // Pick the best back-facing camera via enumerateDevices fallback
-  const pickBackCameraDeviceId = async (): Promise<string | null> => {
-    try {
-      if (!navigator.mediaDevices?.enumerateDevices) return null;
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoInputs = devices.filter((d) => d.kind === "videoinput");
-      if (videoInputs.length === 0) return null;
-
-      // Prefer labels containing "back" or "rear"
-      const backCam = videoInputs.find((d) =>
-        /back|rear|environment/i.test(d.label)
-      );
-      if (backCam) return backCam.deviceId;
-
-      // Fallback: last device tends to be back camera on mobile
-      return videoInputs[videoInputs.length - 1].deviceId;
-    } catch {
-      return null;
-    }
-  };
-
-  const acquireCameraStream = async (): Promise<MediaStream> => {
-    const baseConstraints: MediaStreamConstraints = {
-      audio: false,
-      video: {
-        facingMode: { ideal: "environment" },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
-      },
-    };
-
-    // Attempt 1: facingMode environment
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia(baseConstraints);
-      return stream;
-    } catch (err) {
-      // Attempt 2: pick back camera explicitly via deviceId
-      const deviceId = await pickBackCameraDeviceId();
-      if (deviceId) {
-        selectedDeviceIdRef.current = deviceId;
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: {
-              deviceId: { exact: deviceId },
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-            },
-          });
-          return stream;
-        } catch {
-          // continue to fallback
-        }
-      }
-
-      // Attempt 3: any camera
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: true,
-        });
-        return stream;
-      } catch {
-        throw err;
-      }
-    }
-  };
-
-  const waitForVideoReady = (video: HTMLVideoElement): Promise<void> => {
-    return new Promise((resolve) => {
-      if (video.readyState >= 3) {
-        resolve();
-        return;
-      }
-      const onReady = () => {
-        video.removeEventListener("canplay", onReady);
-        video.removeEventListener("loadeddata", onReady);
-        resolve();
-      };
-      video.addEventListener("canplay", onReady, { once: true });
-      video.addEventListener("loadeddata", onReady, { once: true });
-    });
-  };
-
   const startScanner = useCallback(async () => {
     setError("");
     setStarting(true);
@@ -189,85 +103,37 @@ export default function ScanPage() {
     detectedRef.current = false;
     retryCountRef.current = 0;
 
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error("Browser tidak support camera access");
-      }
+    // Small delay to let the container div render in DOM
+    await new Promise((r) => setTimeout(r, 200));
 
-      const stream = await acquireCameraStream();
-      streamRef.current = stream;
-      const track = stream.getVideoTracks()[0];
-      trackRef.current = track;
-
-      // Detect torch support early; hide torch UI if unsupported
-      try {
-        const caps = (track as unknown as { getCapabilities?: () => MediaTrackCapabilities }).getCapabilities?.();
-        const supportsTorch = Boolean(
-          caps && (caps as unknown as { torch?: boolean }).torch
-        );
-        setTorchSupported(supportsTorch);
-      } catch {
-        setTorchSupported(false);
-      }
-
-      const video = videoRef.current;
-      if (!video) throw new Error("Video element tidak tersedia");
-
-      video.srcObject = stream;
-      video.setAttribute("playsinline", "true");
-      video.muted = true;
-
-      // iOS: play() returns a Promise that may reject if autoplay is blocked
-      try {
-        await video.play();
-      } catch (e) {
-        // Retry play once - user gesture should have been captured on the start button
-        await new Promise((r) => setTimeout(r, 100));
-        await video.play().catch(() => {
-          throw e;
-        });
-      }
-
-      // Wait until the video element has enough data to feed Quagga
-      await waitForVideoReady(video);
-
-      // Kick off Quagga with retry-on-failure
-      initQuaggaWithRetry();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/permission|notallowed/i.test(msg)) {
-        setError(
-          "❌ Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser."
-        );
-      } else if (/notfound|devicesnotfound/i.test(msg)) {
-        setError("❌ Tidak ada perangkat kamera yang ditemukan.");
-      } else {
-        setError("❌ Error membuka kamera: " + msg);
-      }
-      setStarted(false);
-      setStarting(false);
-      await cleanupScanner();
-    }
+    initQuaggaWithRetry();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const initQuaggaWithRetry = useCallback(() => {
-    const video = videoRef.current;
-    if (!video) return;
+  const initQuaggaWithRetry = () => {
+    const container = scannerContainerRef.current;
+    if (!container) {
+      // Container not yet mounted, retry shortly
+      if (retryCountRef.current < 10) {
+        retryCountRef.current += 1;
+        window.setTimeout(() => initQuaggaWithRetry(), 200);
+      }
+      return;
+    }
 
-    const workers = typeof Worker !== "undefined"
-      ? Math.min(navigator.hardwareConcurrency || 2, 4)
-      : 0;
+    const workers =
+      typeof Worker !== "undefined"
+        ? Math.min(navigator.hardwareConcurrency || 2, 4)
+        : 0;
 
     const quaggaConfig = {
       inputStream: {
         type: "LiveStream",
-        target: video,
+        target: container,
         constraints: {
           width: { min: 1280, ideal: 1920 },
           height: { min: 720, ideal: 1080 },
           facingMode: "environment",
-          aspectRatio: { min: 1, max: 2 },
         },
       },
       locator: {
@@ -290,42 +156,94 @@ export default function ScanPage() {
       locate: true,
     };
 
-    Quagga.init(quaggaConfig as unknown as Parameters<typeof Quagga.init>[0], (err) => {
-      if (err) {
-        console.error("Quagga init error:", err);
-        if (retryCountRef.current < 3) {
-          const delay = 1000 * Math.pow(2, retryCountRef.current);
-          retryCountRef.current += 1;
-          if (retryTimerRef.current) {
-            window.clearTimeout(retryTimerRef.current);
+    Quagga.init(
+      quaggaConfig as unknown as Parameters<typeof Quagga.init>[0],
+      (err) => {
+        if (err) {
+          console.error("Quagga init error:", err);
+          if (retryCountRef.current < 3) {
+            const delay = 1000 * Math.pow(2, retryCountRef.current);
+            retryCountRef.current += 1;
+            if (retryTimerRef.current) {
+              window.clearTimeout(retryTimerRef.current);
+            }
+            retryTimerRef.current = window.setTimeout(() => {
+              initQuaggaWithRetry();
+            }, delay);
+            return;
           }
-          retryTimerRef.current = window.setTimeout(() => {
-            initQuaggaWithRetry();
-          }, delay);
+
+          const msg = err instanceof Error ? err.message : String(err);
+          if (/permission|notallowed/i.test(msg)) {
+            setError(
+              "❌ Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser."
+            );
+          } else if (/notfound|devicesnotfound/i.test(msg)) {
+            setError("❌ Tidak ada perangkat kamera yang ditemukan.");
+          } else {
+            setError("❌ Gagal memulai barcode scanner: " + msg);
+          }
+          setStarting(false);
+          setStarted(false);
           return;
         }
-        setError("❌ Gagal memulai barcode scanner. Coba refresh halaman.");
-        setStarting(false);
-        return;
-      }
 
-      // Set up onDetected handler (bind once per init)
-      Quagga.offDetected();
-      Quagga.onDetected(handleQuaggaDetection);
+        // Grab the video track for torch support detection
+        try {
+          const video = container.querySelector("video");
+          if (video && video.srcObject) {
+            const stream = video.srcObject as MediaStream;
+            const track = stream.getVideoTracks()[0];
+            if (track) {
+              trackRef.current = track;
+              const caps = (
+                track as unknown as {
+                  getCapabilities?: () => Record<string, unknown>;
+                }
+              ).getCapabilities?.();
+              setTorchSupported(Boolean(caps && caps.torch));
+            }
+          }
+        } catch {
+          setTorchSupported(false);
+        }
 
-      try {
-        Quagga.start();
-        quaggaStartedRef.current = true;
-        setScanning(true);
-        setStarting(false);
-      } catch (e) {
-        console.error("Quagga start error:", e);
-        setError("❌ Gagal memulai scanner.");
-        setStarting(false);
+        // Style the Quagga-created video to fill the container
+        try {
+          const video = container.querySelector("video");
+          if (video) {
+            video.style.position = "absolute";
+            video.style.inset = "0";
+            video.style.width = "100%";
+            video.style.height = "100%";
+            video.style.objectFit = "cover";
+          }
+          // Hide the canvas overlay Quagga creates (we have our own guide)
+          const canvas = container.querySelector("canvas");
+          if (canvas) {
+            canvas.style.display = "none";
+          }
+        } catch {
+          // ignore styling errors
+        }
+
+        // Set up onDetected handler
+        Quagga.offDetected();
+        Quagga.onDetected(handleQuaggaDetection);
+
+        try {
+          Quagga.start();
+          quaggaStartedRef.current = true;
+          setScanning(true);
+          setStarting(false);
+        } catch (e) {
+          console.error("Quagga start error:", e);
+          setError("❌ Gagal memulai scanner.");
+          setStarting(false);
+        }
       }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    );
+  };
 
   const handleQuaggaDetection = useCallback(
     (data: unknown) => {
@@ -348,7 +266,7 @@ export default function ScanPage() {
         .filter((e): e is number => e !== null);
       if (errors.length > 0) {
         const avg = errors.reduce((a, b) => a + b, 0) / errors.length;
-        if (avg > 0.15) return;
+        if (avg > 0.25) return; // Relaxed threshold for small cosmetic barcodes
       }
 
       const now = Date.now();
@@ -372,15 +290,14 @@ export default function ScanPage() {
 
       // Stop camera then navigate (small delay so flash is visible)
       window.setTimeout(() => {
-        cleanupScanner().finally(() => {
-          handleScanResult(code);
-        });
-      }, 180);
+        cleanupScanner();
+        handleScanResult(code);
+      }, 200);
     },
     [handleScanResult]
   );
 
-  const cleanupScanner = async () => {
+  const cleanupScanner = () => {
     if (retryTimerRef.current) {
       window.clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
@@ -401,30 +318,11 @@ export default function ScanPage() {
       quaggaStartedRef.current = false;
     }
 
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => {
-        try {
-          track.stop();
-        } catch {
-          // ignore
-        }
-      });
-      streamRef.current = null;
-    }
     trackRef.current = null;
-
-    if (videoRef.current) {
-      try {
-        videoRef.current.pause();
-      } catch {
-        // ignore
-      }
-      videoRef.current.srcObject = null;
-    }
   };
 
-  const stopScanner = useCallback(async () => {
-    await cleanupScanner();
+  const stopScanner = useCallback(() => {
+    cleanupScanner();
     setScanning(false);
     setStarted(false);
     setStarting(false);
@@ -455,16 +353,14 @@ export default function ScanPage() {
   if (started) {
     return (
       <div className="scanner-fullscreen">
-        <video
-          ref={videoRef}
-          className="scanner-video"
-          playsInline
-          autoPlay
-          muted
+        {/* Quagga2 injects its own <video> and <canvas> into this container */}
+        <div
+          ref={scannerContainerRef}
+          className="absolute inset-0 overflow-hidden bg-black"
         />
 
         {/* Dim overlay */}
-        <div className="absolute inset-0 bg-black/30 pointer-events-none" />
+        <div className="absolute inset-0 bg-black/20 pointer-events-none" />
 
         {/* Scanning guide with corner frame and scan line */}
         <div className="scanner-guide">
@@ -472,12 +368,14 @@ export default function ScanPage() {
           <div className="scanner-guide-corner tr" />
           <div className="scanner-guide-corner bl" />
           <div className="scanner-guide-corner br" />
-          <div className="scanner-scanline" />
+          {scanning && <div className="scanner-scanline" />}
         </div>
 
         {/* Top hint */}
-        <div className="absolute top-0 left-0 right-0 flex justify-center pt-4 pointer-events-none"
-             style={{ paddingTop: "calc(env(safe-area-inset-top) + 1rem)" }}>
+        <div
+          className="absolute top-0 left-0 right-0 flex justify-center pointer-events-none"
+          style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}
+        >
           <div className="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm">
             {starting ? "Memulai kamera..." : "Arahkan kamera ke barcode"}
           </div>
@@ -487,10 +385,10 @@ export default function ScanPage() {
         <button
           onClick={stopScanner}
           aria-label="Tutup scanner"
-          className="absolute top-0 right-0 m-4 h-11 w-11 flex items-center justify-center rounded-full bg-black/60 text-white text-2xl hover:bg-black/80 backdrop-blur-sm"
+          className="absolute h-11 w-11 flex items-center justify-center rounded-full bg-black/60 text-white text-2xl hover:bg-black/80 backdrop-blur-sm"
           style={{
-            top: "calc(env(safe-area-inset-top) + 0.75rem)",
-            right: "calc(env(safe-area-inset-right) + 0.75rem)",
+            top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+            right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
           }}
         >
           ×
@@ -501,12 +399,12 @@ export default function ScanPage() {
           <button
             onClick={toggleTorch}
             aria-label="Toggle flash"
-            className={`absolute bottom-0 right-0 m-4 h-12 w-12 flex items-center justify-center rounded-full backdrop-blur-sm text-xl ${
+            className={`absolute h-12 w-12 flex items-center justify-center rounded-full backdrop-blur-sm text-xl ${
               torch ? "bg-yellow-400 text-black" : "bg-black/60 text-white"
             }`}
             style={{
-              bottom: "calc(env(safe-area-inset-bottom) + 1rem)",
-              right: "calc(env(safe-area-inset-right) + 0.75rem)",
+              bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
+              right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
             }}
           >
             💡
@@ -528,8 +426,12 @@ export default function ScanPage() {
 
         {/* Error overlay */}
         {error && (
-          <div className="absolute left-0 right-0 mx-4 bg-red-600 text-white text-sm px-4 py-3 rounded-xl shadow-lg"
-               style={{ bottom: "calc(env(safe-area-inset-bottom) + 5rem)" }}>
+          <div
+            className="absolute left-0 right-0 mx-4 bg-red-600 text-white text-sm px-4 py-3 rounded-xl shadow-lg"
+            style={{
+              bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)",
+            }}
+          >
             {error}
           </div>
         )}
