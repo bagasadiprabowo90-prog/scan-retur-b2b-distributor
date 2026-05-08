@@ -102,6 +102,7 @@ export default function ScanPage() {
     setStarted(true);
     detectedRef.current = false;
     retryCountRef.current = 0;
+    lastDetectionTimeRef.current = 0;
 
     // Small delay to let the container div render in DOM
     await new Promise((r) => setTimeout(r, 200));
@@ -120,6 +121,9 @@ export default function ScanPage() {
       }
       return;
     }
+
+    // Clear any leftover elements from previous Quagga sessions
+    container.innerHTML = "";
 
     const workers =
       typeof Worker !== "undefined"
@@ -316,6 +320,20 @@ export default function ScanPage() {
         console.error("Error stopping Quagga:", e);
       }
       quaggaStartedRef.current = false;
+    }
+
+    // Also stop any media streams Quagga may have created
+    const container = scannerContainerRef.current;
+    if (container) {
+      const video = container.querySelector("video");
+      if (video && video.srcObject) {
+        const stream = video.srcObject as MediaStream;
+        stream.getTracks().forEach((track) => {
+          try { track.stop(); } catch { /* ignore */ }
+        });
+        video.srcObject = null;
+      }
+      container.innerHTML = "";
     }
 
     trackRef.current = null;
