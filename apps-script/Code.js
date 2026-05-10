@@ -422,6 +422,67 @@ function appendReturn_(payload, sheetName) {
   return sh.getLastRow();
 }
 
+function editReturn_(sheetName, rowNumber, payload) {
+  if (!ALLOWED_RETURN_SHEETS.includes(sheetName)) {
+    throw new Error("Sheet tidak diizinkan: " + sheetName);
+  }
+
+  var row = Number(rowNumber);
+  if (!isFinite(row) || row < 2) {
+    throw new Error("Row number tidak valid: " + rowNumber);
+  }
+
+  var sh = getSheet(sheetName);
+  var lastRow = sh.getLastRow();
+  if (row > lastRow) {
+    throw new Error("Row " + row + " tidak ditemukan di sheet " + sheetName);
+  }
+
+  var map = getHeaderMap(sh);
+
+  var required = [
+    "receive date", "distri/event", "product", "barcode",
+    "batch", "exp date", "qty", "keterangan", "pic",
+  ];
+  required.forEach(function (h) {
+    if (!map[h]) throw new Error("Sheet '" + sheetName + "' missing header: " + h);
+  });
+
+  var qty = Number(payload.qty);
+  if (!isFinite(qty) || qty <= 0) {
+    throw new Error("Qty harus angka positif");
+  }
+
+  sh.getRange(row, map["receive date"]).setValue(payload.receiveDate || "");
+  sh.getRange(row, map["distri/event"]).setValue(payload.distriEvent || "");
+  sh.getRange(row, map["product"]).setValue(payload.product || "");
+  sh.getRange(row, map["barcode"]).setValue(payload.barcode || "");
+  sh.getRange(row, map["batch"]).setValue(payload.batch || "");
+  sh.getRange(row, map["exp date"]).setValue(payload.expDate || "");
+  sh.getRange(row, map["qty"]).setValue(qty);
+  sh.getRange(row, map["keterangan"]).setValue(payload.keterangan || "");
+  sh.getRange(row, map["pic"]).setValue(payload.pic || "");
+}
+
+function deleteReturn_(sheetName, rowNumber) {
+  if (!ALLOWED_RETURN_SHEETS.includes(sheetName)) {
+    throw new Error("Sheet tidak diizinkan: " + sheetName);
+  }
+
+  var row = Number(rowNumber);
+  if (!isFinite(row) || row < 2) {
+    throw new Error("Row number tidak valid: " + rowNumber);
+  }
+
+  var sh = getSheet(sheetName);
+  var lastRow = sh.getLastRow();
+  if (row > lastRow) {
+    throw new Error("Row " + row + " tidak ditemukan di sheet " + sheetName);
+  }
+
+  sh.deleteRow(row);
+}
+
 function doGet(e) {
   try {
     const action = (e && e.parameter && e.parameter.action) || "";
@@ -471,6 +532,21 @@ function doPost(e) {
       var expDate = String(body.expDate || "").trim();
       var batchRow = appendBatch_(lot, expDate);
       return jsonOut({ ok: true, appendedRow: batchRow, lot: lot.toUpperCase(), expDate: expDate });
+    }
+
+    if (action === "editReturn") {
+      var editSheet = String(body.sheet || "").trim();
+      var editRow = body.rowNumber;
+      var editPayload = body.payload || {};
+      editReturn_(editSheet, editRow, editPayload);
+      return jsonOut({ ok: true });
+    }
+
+    if (action === "deleteReturn") {
+      var delSheet = String(body.sheet || "").trim();
+      var delRow = body.rowNumber;
+      deleteReturn_(delSheet, delRow);
+      return jsonOut({ ok: true });
     }
 
     if (action !== "returns") return jsonOut({ ok: false, error: "Unknown action" });

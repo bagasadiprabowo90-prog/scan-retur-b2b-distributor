@@ -8,6 +8,7 @@ export default function ScanPage() {
   const location = useLocation();
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const detectedRef = useRef<boolean>(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Scanner state
   const [scanning, setScanning] = useState(false);
@@ -16,7 +17,6 @@ export default function ScanPage() {
   const [error, setError] = useState("");
   const [successToast, setSuccessToast] = useState("");
   const [successFlash, setSuccessFlash] = useState(false);
-  const [manualInput, setManualInput] = useState("");
 
   // Product search state
   const [products, setProducts] = useState<ProductItem[]>([]);
@@ -62,6 +62,17 @@ export default function ScanPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Click outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowProductDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const filteredProducts = productSearch.trim()
     ? products.filter((p) => {
         const q = productSearch.toLowerCase();
@@ -71,7 +82,7 @@ export default function ScanPage() {
           p.sku.toLowerCase().includes(q)
         );
       })
-    : products;
+    : [];
 
   const handleScanResult = useCallback(
     (barcode: string) => {
@@ -81,13 +92,6 @@ export default function ScanPage() {
     },
     [navigate]
   );
-
-  const handleManualSubmit = useCallback(() => {
-    const barcode = manualInput.trim();
-    if (!barcode) return;
-    setManualInput("");
-    handleScanResult(barcode);
-  }, [manualInput, handleScanResult]);
 
   const startScanner = useCallback(async () => {
     setError("");
@@ -251,138 +255,113 @@ export default function ScanPage() {
 
   // ---------- IDLE / NON-SCANNING RENDER ----------
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {successToast && (
-        <div className="rounded-xl px-4 py-3 text-sm font-medium bg-green-50 text-green-700 border border-green-200">
-          ✅ {successToast}
+        <div className="rounded-xl px-3.5 py-2.5 text-sm bg-green-50 text-green-700 border border-green-100">
+          {successToast}
         </div>
       )}
 
-      {/* Start scan card */}
-      <div className="bg-white rounded-2xl shadow-md overflow-hidden">
-        <div className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">📷</span>
-            <span className="font-semibold">Scan Barcode</span>
+      {/* Scan Card */}
+      <div className="card">
+        <div className="flex flex-col items-center justify-center py-12 gap-3">
+          <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center">
+            <span className="text-2xl">📷</span>
           </div>
-        </div>
-
-        <div className="bg-gray-100 flex flex-col items-center justify-center py-16 gap-4">
-          <span className="text-5xl">📷</span>
-          <p className="text-sm text-gray-500">Kamera belum aktif</p>
+          <p className="text-xs text-gray-400">Scan barcode produk</p>
           <button
             onClick={startScanner}
-            className="bg-gray-900 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-gray-800 transition-colors"
+            className="btn-primary px-8 mt-1"
           >
-            🔍 Mulai Scan
+            Mulai Scan
           </button>
         </div>
 
         {error && (
-          <div className="px-4 py-3 bg-red-50 text-red-700 text-sm">
+          <div className="px-4 py-3 bg-red-50 text-red-600 text-sm border-t border-red-100">
             {error}
           </div>
         )}
       </div>
 
-      {/* Manual Input */}
-      <div className="bg-white rounded-2xl shadow-md p-4">
-        <label className="text-xs font-semibold text-gray-700 block mb-2">
-          📝 Input Manual Barcode:
-        </label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={manualInput}
-            onChange={(e) => setManualInput(e.target.value.toUpperCase())}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleManualSubmit();
-            }}
-            placeholder="Ketik barcode & Enter..."
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-          />
-          <button
-            onClick={handleManualSubmit}
-            disabled={!manualInput.trim()}
-            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-semibold hover:bg-gray-800 disabled:bg-gray-300 transition-colors"
-          >
-            ✓
-          </button>
-        </div>
+      {/* Divider */}
+      <div className="flex items-center gap-3 px-1">
+        <div className="flex-1 h-px bg-gray-200" />
+        <span className="text-[11px] text-gray-300 font-medium uppercase tracking-wider">atau</span>
+        <div className="flex-1 h-px bg-gray-200" />
       </div>
 
-      {/* Product Search / Picker */}
-      <div className="bg-white rounded-2xl shadow-md p-4">
-        <p className="text-sm font-semibold text-gray-700 mb-2">
-          📦 Cari & pilih produk dari master data:
-        </p>
-        <div className="relative">
-          <input
-            type="text"
-            value={productSearch}
-            onChange={(e) => {
-              setProductSearch(e.target.value);
-              setShowProductDropdown(true);
-            }}
-            onFocus={() => setShowProductDropdown(true)}
-            placeholder={
-              loadingProducts
-                ? "Memuat data produk..."
-                : "Ketik nama produk / barcode / SKU..."
-            }
-            disabled={loadingProducts}
-            className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:bg-gray-100"
-          />
-          {showProductDropdown && filteredProducts.length > 0 && (
-            <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-              {filteredProducts.slice(0, 50).map((p) => (
+      {/* Product Search */}
+      <div className="card">
+        <div className="card-body">
+          <p className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">Cari Produk</p>
+          <div className="relative" ref={dropdownRef}>
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={productSearch}
+                onChange={(e) => {
+                  setProductSearch(e.target.value);
+                  setShowProductDropdown(e.target.value.trim().length > 0);
+                }}
+                placeholder={loadingProducts ? "Memuat produk..." : "Nama produk, barcode, atau SKU..."}
+                disabled={loadingProducts}
+                className="input-field pl-9 pr-9"
+              />
+              {productSearch.trim() && (
                 <button
-                  key={p.barcode}
                   type="button"
-                  onClick={() => {
-                    setShowProductDropdown(false);
-                    setProductSearch("");
-                    navigate(
-                      `/return-form?barcode=${encodeURIComponent(p.barcode)}`
-                    );
-                  }}
-                  className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                  onClick={() => { setProductSearch(""); setShowProductDropdown(false); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
                 >
-                  <span className="text-sm font-medium text-gray-900">
-                    {p.product}
-                  </span>
-                  <span className="block text-xs text-gray-400">
-                    {p.barcode} · {p.sku}
-                  </span>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
-              ))}
-              {filteredProducts.length > 50 && (
-                <div className="px-4 py-2 text-xs text-gray-400 text-center">
-                  + {filteredProducts.length - 50} produk lagi, ketik lebih
-                  spesifik...
-                </div>
               )}
             </div>
-          )}
-          {showProductDropdown &&
-            productSearch.trim() &&
-            filteredProducts.length === 0 &&
-            !loadingProducts && (
-              <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 text-sm text-gray-500 text-center">
-                Produk tidak ditemukan
+            {showProductDropdown && filteredProducts.length > 0 && (
+              <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-100 rounded-xl shadow-lg max-h-80 overflow-y-auto">
+                {filteredProducts.slice(0, 50).map((p) => (
+                  <button
+                    key={p.barcode}
+                    type="button"
+                    onClick={() => {
+                      setShowProductDropdown(false);
+                      setProductSearch("");
+                      navigate(`/return-form?barcode=${encodeURIComponent(p.barcode)}`);
+                    }}
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors"
+                  >
+                    <span className="text-sm font-medium text-gray-900 block">{p.product}</span>
+                    <span className="text-[11px] text-gray-400">{p.barcode} · {p.sku}</span>
+                  </button>
+                ))}
+                {filteredProducts.length > 50 && (
+                  <div className="px-3.5 py-2 text-[11px] text-gray-400 text-center bg-gray-50">
+                    +{filteredProducts.length - 50} produk lagi
+                  </div>
+                )}
               </div>
             )}
+            {showProductDropdown &&
+              productSearch.trim() &&
+              filteredProducts.length === 0 &&
+              !loadingProducts && (
+                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-100 rounded-xl shadow-lg px-4 py-3 text-sm text-gray-400 text-center">
+                  Produk tidak ditemukan
+                </div>
+              )}
+          </div>
+          {!loadingProducts && (
+            <p className="text-[11px] text-gray-300 mt-2">
+              {products.length} produk tersedia
+            </p>
+          )}
         </div>
-        {!loadingProducts && (
-          <p className="text-xs text-gray-400 mt-2">
-            Total {products.length} produk di master data
-          </p>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className="text-center text-xs text-gray-400 py-2">
-        📱 Scanner support: barcode 1D (Code128, EAN, UPC, dll)
       </div>
     </div>
   );

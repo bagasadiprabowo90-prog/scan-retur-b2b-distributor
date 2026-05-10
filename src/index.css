@@ -4,12 +4,32 @@
 
 @layer components {
   .input-field {
-    @apply w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent;
+    @apply w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-400 transition-all;
+  }
+  .card {
+    @apply bg-white rounded-2xl border border-gray-100 shadow-sm;
+  }
+  .card-header {
+    @apply px-4 py-3 flex items-center justify-between;
+  }
+  .card-body {
+    @apply p-4;
+  }
+  .btn-primary {
+    @apply bg-gray-900 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-800 active:scale-[0.98] disabled:opacity-40 transition-all;
+  }
+  .btn-outline {
+    @apply border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 active:scale-[0.98] transition-all;
   }
 }
 
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Fullscreen scanner styles */

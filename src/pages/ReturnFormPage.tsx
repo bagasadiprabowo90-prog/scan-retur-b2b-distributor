@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../lib/auth";
 import BatchPickerModal from "../components/BatchPickerModal";
 import {
   createReturn,
@@ -20,6 +21,7 @@ function todayFormatted() {
 }
 
 const KETERANGAN_OPTIONS = [
+  "Ok",
   "Packaging Rusak, Penyok, Sobek, Kotor",
   "Pudar Hilang (IB, Batch & Exp Date)",
   "Tidak ada seal / Seal lepas",
@@ -64,6 +66,7 @@ function saveDistriHistory(value: string) {
 export default function ReturnFormPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const initialBarcode = searchParams.get("barcode") ?? "";
 
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -84,9 +87,10 @@ export default function ReturnFormPage() {
   const [distriHistory] = useState<string[]>(getDistriHistory);
   const [qty, setQty] = useState("");
   const [keteranganList, setKeteranganList] = useState<string[]>([]);
-  const [pic, setPic] = useState("");
+  const [pic, setPic] = useState(user?.displayName ?? "");
   const [targetSheet, setTargetSheet] = useState<"Bagas" | "Dimas">(getSavedSheet);
 
+  const [showDistriDropdown, setShowDistriDropdown] = useState(false);
   const [batchModal, setBatchModal] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
@@ -217,53 +221,48 @@ export default function ReturnFormPage() {
   }
 
   return (
-    <div className="space-y-4 pb-8">
+    <div className="space-y-3 pb-6">
       {/* ENV Error Banner */}
       {envError && (
-        <div className="rounded-xl px-4 py-3 text-sm font-medium bg-amber-50 text-amber-800 border border-amber-300">
-          ⚙️ <strong>Setup diperlukan:</strong> {envError}
+        <div className="rounded-xl px-3.5 py-2.5 text-sm bg-amber-50 text-amber-700 border border-amber-100">
+          {envError}
         </div>
       )}
 
       {/* Toast */}
       {toast && (
-        <div
-          className={`rounded-xl px-4 py-3 text-sm font-medium ${toast.type === "success"
-            ? "bg-green-50 text-green-700 border border-green-200"
-            : "bg-red-50 text-red-700 border border-red-200"
-            }`}
-        >
-          {toast.type === "success" ? "✅" : "❌"} {toast.msg}
+        <div className={`rounded-xl px-3.5 py-2.5 text-sm border ${
+          toast.type === "success"
+            ? "bg-green-50 text-green-700 border-green-100"
+            : "bg-red-50 text-red-600 border-red-100"
+        }`}>
+          {toast.msg}
         </div>
       )}
 
       {/* Form Card */}
-      <form onSubmit={onSubmit} className="bg-white rounded-2xl shadow-md overflow-hidden">
-        <div className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between">
-          <h2 className="font-semibold flex items-center gap-2">
-            <span>📋</span> Input Retur
-          </h2>
-          {(loadingProducts || loadingBatches) && (
-            <span className="text-xs flex items-center gap-1 bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full animate-pulse">
-              ⏳ Memuat data...
-            </span>
-          )}
-        </div>
+      <form onSubmit={onSubmit} className="card">
+        {/* Loading indicator */}
+        {(loadingProducts || loadingBatches) && (
+          <div className="h-0.5 bg-gray-100 overflow-hidden">
+            <div className="h-full w-1/3 bg-gray-900 rounded-full animate-pulse" />
+          </div>
+        )}
 
         <div className="p-4 space-y-4">
           {/* Sheet Selector */}
           <div>
-            <label className="block text-sm font-semibold text-gray-600 mb-1">🎯 Sheet Tujuan</label>
+            <label className="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wide">Sheet Tujuan</label>
             <div className="flex gap-2">
               {(["Bagas", "Dimas"] as const).map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => { setTargetSheet(s); saveSheet(s); }}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors ${targetSheet === s
-                    ? "bg-gray-900 text-white shadow-md"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                    }`}
+                  className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${targetSheet === s
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100"
+                  }`}
                 >
                   {s}
                 </button>
@@ -271,8 +270,10 @@ export default function ReturnFormPage() {
             </div>
           </div>
 
+          <div className="h-px bg-gray-100" />
+
           {/* Product Picker */}
-          <Field label="Product Master">
+          <Field label="Produk">
             <div className="relative">
               <input
                 type="text"
@@ -283,12 +284,12 @@ export default function ReturnFormPage() {
                   setShowProductDropdown(true);
                 }}
                 onFocus={() => setShowProductDropdown(true)}
-                placeholder={loadingProducts ? "Memuat produk master..." : "Cari nama produk / barcode / SKU..."}
+                placeholder={loadingProducts ? "Memuat..." : "Cari produk / barcode / SKU"}
                 disabled={loadingProducts}
-                className="input-field disabled:bg-gray-100"
+                className="input-field"
               />
               {showProductDropdown && filteredProducts.length > 0 && (
-                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-100 rounded-xl shadow-lg max-h-60 overflow-y-auto">
                   {filteredProducts.slice(0, 50).map((item) => (
                     <button
                       key={item.barcode}
@@ -298,61 +299,48 @@ export default function ReturnFormPage() {
                         setProductSearch(item.product);
                         setShowProductDropdown(false);
                       }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                      className="w-full text-left px-3.5 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors"
                     >
-                      <span className="text-sm font-medium text-gray-900">{item.product}</span>
-                      <span className="block text-xs text-gray-400">{item.barcode} · {item.sku}</span>
+                      <span className="text-sm font-medium text-gray-900 block truncate">{item.product}</span>
+                      <span className="text-[11px] text-gray-400">{item.barcode} · {item.sku}</span>
                     </button>
                   ))}
                   {filteredProducts.length > 50 && (
-                    <div className="px-4 py-2 text-xs text-gray-400 text-center">
-                      + {filteredProducts.length - 50} produk lagi, ketik lebih spesifik...
+                    <div className="px-3.5 py-2 text-[11px] text-gray-400 text-center bg-gray-50">
+                      +{filteredProducts.length - 50} produk lagi
                     </div>
                   )}
                 </div>
               )}
               {showProductDropdown && productSearch.trim() && filteredProducts.length === 0 && !loadingProducts && (
-                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 text-sm text-gray-500 text-center">
-                  Produk tidak ditemukan
+                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-100 rounded-xl shadow-lg px-4 py-3 text-sm text-gray-400 text-center">
+                  Tidak ditemukan
                 </div>
               )}
             </div>
-            {!selectedProduct && (
-              <p className="text-xs text-gray-400 mt-1">Pilih produk dari master data untuk mengisi barcode dan SKU otomatis.</p>
-            )}
           </Field>
 
-          {/* Barcode (readonly) */}
-          <Field label="Barcode">
-            <input
-              value={selectedProduct?.barcode || ""}
-              readOnly
-              className="input-field bg-gray-100 cursor-not-allowed font-mono"
-              placeholder="Otomatis dari master data"
-            />
-          </Field>
+          {/* Selected product info */}
+          {selectedProduct && (
+            <div className="bg-gray-50 rounded-xl p-3 space-y-1.5">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-400">Barcode</span>
+                <span className="font-mono font-medium text-gray-700">{selectedProduct.barcode}</span>
+              </div>
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-400">SKU</span>
+                <span className="font-medium text-gray-700">{selectedProduct.sku}</span>
+              </div>
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-400">Produk</span>
+                <span className="font-medium text-gray-700 text-right max-w-[60%] truncate">{selectedProduct.product}</span>
+              </div>
+            </div>
+          )}
 
-          {/* SKU (readonly) */}
-          <Field label="SKU">
-            <input
-              value={selectedProduct?.sku || ""}
-              readOnly
-              className="input-field bg-gray-100 cursor-not-allowed"
-              placeholder="Otomatis dari master data"
-            />
-          </Field>
+          <div className="h-px bg-gray-100" />
 
-          {/* Product (readonly) */}
-          <Field label="Product">
-            <input
-              value={selectedProduct?.product || ""}
-              readOnly
-              className="input-field bg-gray-100 cursor-not-allowed"
-              placeholder="Otomatis dari master data"
-            />
-          </Field>
-
-          {/* Batch (picker) */}
+          {/* Batch */}
           <Field label="Batch">
             <button
               type="button"
@@ -362,66 +350,71 @@ export default function ReturnFormPage() {
               <span className={batch ? "text-gray-900 font-medium" : "text-gray-400"}>
                 {batch || "Pilih / Buat batch"}
               </span>
-              <span className="text-gray-400">▼</span>
+              <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
             </button>
           </Field>
 
-          {/* Exp Date — format Mon YYYY */}
+          {/* Exp Date */}
           <Field label="Exp Date">
-            <input
-              value={expDate}
-              onChange={(e) => setExpDate(e.target.value)}
-              placeholder="Mis: Sep 2027"
-              className="input-field"
-            />
-            <p className="text-xs text-gray-400 mt-1">Format: Bln Tahun (contoh: Sep 2027, Agu 2025)</p>
+            <input value={expDate} onChange={(e) => setExpDate(e.target.value)} placeholder="Sep 2027" className="input-field" />
           </Field>
 
-          {/* Receive Date — format DD-Mon-YYYY */}
-          <Field label="Receive Date">
-            <input
-              value={receiveDate}
-              onChange={(e) => setReceiveDate(e.target.value)}
-              placeholder="DD-Mon-YYYY"
-              className="input-field"
-            />
-            <p className="text-xs text-gray-400 mt-1">Format: DD-Bln-YYYY (contoh: 12-Mar-2026)</p>
-          </Field>
+          {/* Two-column: Receive Date + Qty */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Receive Date">
+              <input value={receiveDate} onChange={(e) => setReceiveDate(e.target.value)} placeholder="DD-Mon-YYYY" className="input-field" />
+            </Field>
+            <Field label="Qty">
+              <input type="number" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" min="1" className="input-field" />
+            </Field>
+          </div>
 
           {/* Distri/Event */}
-          <Field label="Distri/Event">
-            <input
-              list="distri-history-list"
-              value={distriEvent}
-              onChange={(e) => setDistriEvent(e.target.value)}
-              placeholder="Ketik atau pilih dari riwayat..."
-              className="input-field"
-            />
-            <datalist id="distri-history-list">
-              {distriHistory.map((item, idx) => (
-                <option key={idx} value={item} />
-              ))}
-            </datalist>
+          <Field label="Distri / Event">
+            <div className="relative">
+              <input
+                value={distriEvent}
+                onChange={(e) => {
+                  setDistriEvent(e.target.value);
+                  setShowDistriDropdown(true);
+                }}
+                onFocus={() => setShowDistriDropdown(true)}
+                onBlur={() => setTimeout(() => setShowDistriDropdown(false), 150)}
+                placeholder="Ketik atau pilih..."
+                className="input-field"
+              />
+              {showDistriDropdown && distriHistory.length > 0 && (
+                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-100 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                  {distriHistory
+                    .filter((h) => !distriEvent.trim() || h.toLowerCase().includes(distriEvent.toLowerCase()))
+                    .map((item, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setDistriEvent(item);
+                          setShowDistriDropdown(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2.5 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors"
+                      >
+                        {item}
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
           </Field>
 
-          {/* Qty */}
-          <Field label="Qty">
-            <input
-              type="number"
-              inputMode="numeric"
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              placeholder="Mis: 119"
-              min="1"
-              className="input-field"
-            />
-          </Field>
+          <div className="h-px bg-gray-100" />
 
-          {/* Keterangan — multi-select */}
-          <Field label="Keterangan (bisa pilih lebih dari 1)">
-            <div className="space-y-2 border border-gray-300 rounded-xl p-3">
+          {/* Keterangan */}
+          <Field label="Keterangan">
+            <div className="space-y-1.5 bg-gray-50 rounded-xl p-3">
               {KETERANGAN_OPTIONS.map((opt) => (
-                <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                <label key={opt} className="flex items-center gap-2.5 cursor-pointer py-0.5">
                   <input
                     type="checkbox"
                     checked={keteranganList.includes(opt)}
@@ -432,42 +425,33 @@ export default function ReturnFormPage() {
                         setKeteranganList((prev) => prev.filter((v) => v !== opt));
                       }
                     }}
-                    className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                    className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 shrink-0"
                   />
-                  <span className="text-sm text-gray-700">{opt}</span>
+                  <span className="text-sm text-gray-600">{opt}</span>
                 </label>
               ))}
             </div>
             {keteranganList.length > 0 && (
-              <p className="text-xs text-gray-500 mt-1">Terpilih: {keteranganList.join("; ")}</p>
+              <p className="text-[11px] text-gray-400 mt-1.5">{keteranganList.join("; ")}</p>
             )}
           </Field>
 
           {/* PIC */}
           <Field label="PIC">
-            <input
-              value={pic}
-              onChange={(e) => setPic(e.target.value)}
-              placeholder="Opsional"
-              className="input-field"
-            />
+            <input value={pic} onChange={(e) => setPic(e.target.value)} placeholder="Opsional" className="input-field" />
           </Field>
 
           {/* Buttons */}
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="flex-1 border border-gray-300 text-gray-700 py-3 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors"
-            >
-              ← Scan Lagi
+          <div className="flex gap-2.5 pt-1">
+            <button type="button" onClick={() => navigate("/")} className="flex-1 btn-outline py-3">
+              Kembali
             </button>
             <button
               type="submit"
               disabled={!canSubmit || submitting || loadingProducts || loadingBatches}
-              className="flex-1 bg-gray-900 text-white py-3 rounded-xl font-semibold text-sm hover:bg-gray-800 disabled:opacity-40 transition-colors"
+              className="flex-1 btn-primary py-3"
             >
-              {submitting ? "Menyimpan..." : "💾 Simpan"}
+              {submitting ? "Menyimpan..." : "Simpan"}
             </button>
           </div>
         </div>
@@ -492,33 +476,26 @@ export default function ReturnFormPage() {
 
       {/* Confirm Dialog */}
       {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmOpen(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl p-6 mx-4 max-w-sm w-full space-y-4">
-            <h3 className="font-bold text-lg text-gray-900">Konfirmasi Simpan</h3>
-            <div className="text-sm text-gray-600 space-y-1">
-              <p><span className="font-semibold text-gray-800">🎯 Sheet:</span> <span className="font-bold text-gray-900">{targetSheet}</span></p>
-              <p><span className="font-semibold text-gray-800">Produk:</span> {selectedProduct?.product || "-"}</p>
-              <p><span className="font-semibold text-gray-800">Barcode:</span> {selectedProduct?.barcode || "-"}</p>
-              <p><span className="font-semibold text-gray-800">Batch:</span> {batch} — Exp: {expDate}</p>
-              <p><span className="font-semibold text-gray-800">Distri/Event:</span> {distriEvent}</p>
-              <p><span className="font-semibold text-gray-800">Qty:</span> {qty}</p>
-              {pic && <p><span className="font-semibold text-gray-800">PIC:</span> {pic}</p>}
-              {keteranganList.length > 0 && <p><span className="font-semibold text-gray-800">Keterangan:</span> {keteranganList.join("; ")}</p>}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setConfirmOpen(false)} />
+          <div className="relative card p-5 max-w-sm w-full space-y-4">
+            <h3 className="font-bold text-base text-gray-900">Konfirmasi</h3>
+            <div className="bg-gray-50 rounded-xl p-3 space-y-1.5 text-sm">
+              <Row label="Sheet" value={targetSheet} />
+              <Row label="Produk" value={selectedProduct?.product || "-"} />
+              <Row label="Barcode" value={selectedProduct?.barcode || "-"} mono />
+              <Row label="Batch" value={`${batch} — ${expDate}`} />
+              <Row label="Distri/Event" value={distriEvent} />
+              <Row label="Qty" value={qty} />
+              {pic && <Row label="PIC" value={pic} />}
+              {keteranganList.length > 0 && <Row label="Keterangan" value={keteranganList.join("; ")} />}
             </div>
-            <p className="text-sm text-gray-500">Yakin ingin menyimpan data retur ini?</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setConfirmOpen(false)}
-                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors"
-              >
+            <div className="flex gap-2.5">
+              <button onClick={() => setConfirmOpen(false)} className="flex-1 btn-outline">
                 Batal
               </button>
-              <button
-                onClick={doSubmit}
-                className="flex-1 bg-gray-900 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-800 transition-colors"
-              >
-                Ya, Simpan
+              <button onClick={doSubmit} className="flex-1 btn-primary">
+                Simpan
               </button>
             </div>
           </div>
@@ -531,8 +508,17 @@ export default function ReturnFormPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-sm font-semibold text-gray-600 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wide">{label}</label>
       {children}
+    </div>
+  );
+}
+
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex justify-between gap-2">
+      <span className="text-gray-400 shrink-0">{label}</span>
+      <span className={`text-gray-700 font-medium text-right truncate ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
   );
 }

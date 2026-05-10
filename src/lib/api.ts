@@ -147,6 +147,53 @@ export async function createReturn(
   }
 }
 
+export type EditReturnResponse =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export type DeleteReturnResponse =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function editReturn(
+  sheet: string,
+  rowNumber: number,
+  payload: CreateReturnPayload
+): Promise<EditReturnResponse> {
+  try {
+    const base = getBaseUrl();
+    const res = await fetch(base, {
+      method: "POST",
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ action: "editReturn", sheet, rowNumber, payload }),
+    });
+    return await res.json();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Gagal mengedit data retur";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function deleteReturn(
+  sheet: string,
+  rowNumber: number
+): Promise<DeleteReturnResponse> {
+  try {
+    const base = getBaseUrl();
+    const res = await fetch(base, {
+      method: "POST",
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ action: "deleteReturn", sheet, rowNumber }),
+    });
+    return await res.json();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Gagal menghapus data retur";
+    return { ok: false, error: msg };
+  }
+}
+
 export async function addBatch(lot: string, expDate: string): Promise<AddBatchResponse> {
   try {
     const base = getBaseUrl();
