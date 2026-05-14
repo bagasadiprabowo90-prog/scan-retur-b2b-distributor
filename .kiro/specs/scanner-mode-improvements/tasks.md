@@ -12,7 +12,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
 
 ## Phase 1: Bug Condition Exploration Tests
 
-- [ ] 1. Write bug condition exploration test - UI Layout
+- [x] 1. Write bug condition exploration test - UI Layout
   - **Property 1: Bug Condition** - Camera Preview Not Fullscreen
   - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
   - **DO NOT attempt to fix the test or the code when it fails**
@@ -25,7 +25,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
   - Document counterexamples: "Camera preview uses 4/3 aspect ratio, controls count: 3+"
   - _Requirements: 1.1, 1.2_
 
-- [ ] 2. Write bug condition exploration test - Quagga2 Configuration
+- [~] 2. Write bug condition exploration test - Quagga2 Configuration
   - **Property 1: Bug Condition** - Suboptimal Quagga2 Config for Small Barcodes
   - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
   - **GOAL**: Surface counterexamples that demonstrate the config bug exists
@@ -37,7 +37,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
   - Document counterexamples: "halfSample=true reduces detail, patchSize='medium' misses small barcodes"
   - _Requirements: 1.6, 2.6_
 
-- [ ] 3. Write bug condition exploration test - iOS Compatibility
+- [~] 3. Write bug condition exploration test - iOS Compatibility
   - **Property 1: Bug Condition** - Missing iOS Safari Compatibility
   - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
   - **GOAL**: Surface counterexamples that demonstrate iOS handling is missing
@@ -53,7 +53,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
 
 ## Phase 2: Preservation Property Tests
 
-- [ ] 4. Write preservation property tests - Navigation Flow
+- [~] 4. Write preservation property tests - Navigation Flow
   - **Property 2: Preservation** - Navigation After Scan
   - **IMPORTANT**: Follow observation-first methodology
   - Observe: After barcode detection, `navigate('/return-form?barcode=...')` is called
@@ -62,7 +62,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
   - **EXPECTED OUTCOME**: Test PASSES (confirms baseline navigation behavior)
   - _Requirements: 3.1_
 
-- [ ] 5. Write preservation property tests - Product Search
+- [~] 5. Write preservation property tests - Product Search
   - **Property 2: Preservation** - Product Search Dropdown
   - **IMPORTANT**: Follow observation-first methodology
   - Observe: Product search filters products and allows selection
@@ -72,7 +72,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
   - **EXPECTED OUTCOME**: Test PASSES (confirms product search works)
   - _Requirements: 3.2_
 
-- [ ] 6. Write preservation property tests - Manual Input
+- [~] 6. Write preservation property tests - Manual Input
   - **Property 2: Preservation** - Manual Barcode Input
   - **IMPORTANT**: Follow observation-first methodology
   - Observe: Manual input field accepts barcode and submits on Enter
@@ -82,7 +82,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
   - **EXPECTED OUTCOME**: Test PASSES (confirms manual input works)
   - _Requirements: 3.4_
 
-- [ ] 7. Write preservation property tests - Error Handling
+- [~] 7. Write preservation property tests - Error Handling
   - **Property 2: Preservation** - Error Messages
   - **IMPORTANT**: Follow observation-first methodology
   - Observe: Permission denied shows informative error message
@@ -97,7 +97,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
 ## Phase 3: Implementation - Phase 1 UI Restructure
 
 - [ ] 8. Fix for UI - Fullscreen Camera Preview
-  - [ ] 8.1 Implement fullscreen scanner container
+  - [~] 8.1 Implement fullscreen scanner container
     - Remove card-based layout for scanner area
     - Create fullscreen overlay when scanner is active
     - Apply `position: fixed; inset: 0` for fullscreen coverage
@@ -107,7 +107,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
     - _Preservation: Manual input, product search, navigation remain functional_
     - _Requirements: 2.1_
 
-  - [ ] 8.2 Implement scanning overlay with animation
+  - [~] 8.2 Implement scanning overlay with animation
     - Add animated scanning line that moves vertically
     - Add corner frame guides for barcode positioning
     - Make overlay visually clean and native-like
@@ -115,7 +115,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
     - _Expected_Behavior: Clean overlay with animated guide, minimal controls_
     - _Requirements: 2.2_
 
-  - [ ] 8.3 Simplify scanner controls
+  - [~] 8.3 Simplify scanner controls
     - Remove zoom slider (use auto-focus)
     - Keep only close button and torch toggle
     - Position controls at bottom with safe area padding
@@ -124,21 +124,21 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
     - _Expected_Behavior: Maximum 2 visible controls (close + torch)_
     - _Requirements: 2.2_
 
-  - [ ] 8.4 Add CSS styles for fullscreen scanner
+  - [~] 8.4 Add CSS styles for fullscreen scanner
     - Add `.scanner-fullscreen` class in index.css
     - Add `.scanner-overlay` and `.scanner-controls` styles
     - Add `@keyframes scanLine` for scanning animation
     - Add safe area handling with `env(safe-area-inset-*)`
     - _Requirements: 2.1, 2.2_
 
-  - [ ] 8.5 Verify bug condition exploration test now passes
+  - [~] 8.5 Verify bug condition exploration test now passes
     - **Property 1: Expected Behavior** - Fullscreen Camera Preview
     - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
     - Run bug condition exploration test from step 1
     - **EXPECTED OUTCOME**: Test PASSES (confirms UI is now fullscreen)
     - _Requirements: 2.1, 2.2_
 
-  - [ ] 8.6 Verify preservation tests still pass
+  - [~] 8.6 Verify preservation tests still pass
     - **Property 2: Preservation** - Navigation and Input
     - Run preservation tests from tasks 4-7
     - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
@@ -149,7 +149,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
 ## Phase 4: Implementation - Phase 2 Quagga2 Optimization
 
 - [ ] 9. Fix for Quagga2 Configuration - Small Barcode Detection
-  - [ ] 9.1 Update Quagga2 input stream constraints
+  - [~] 9.1 Update Quagga2 input stream constraints
     - Change width to `{ min: 1280, ideal: 1920 }`
     - Change height to `{ min: 720, ideal: 1080 }`
     - Change aspectRatio to `{ min: 1, max: 2 }` (more flexible)
@@ -157,7 +157,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
     - _Expected_Behavior: Higher resolution for better small barcode detection_
     - _Requirements: 2.5, 2.6_
 
-  - [ ] 9.2 Update Quagga2 locator configuration
+  - [~] 9.2 Update Quagga2 locator configuration
     - Change `patchSize` from "medium" to "small"
     - Change `halfSample` from `true` to `false`
     - Enable `locate: true` for better locator
@@ -165,21 +165,21 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
     - _Expected_Behavior: Optimal configuration for small barcode detection_
     - _Requirements: 2.5, 2.6_
 
-  - [ ] 9.3 Update Quagga2 frequency and workers
+  - [~] 9.3 Update Quagga2 frequency and workers
     - Change `frequency` from 10 to 20 (more responsive)
     - Cap `numOfWorkers` to `Math.min(navigator.hardwareConcurrency || 2, 4)`
     - _Bug_Condition: input.detectionTime > 3000_
     - _Expected_Behavior: Detection time < 2 seconds_
     - _Requirements: 2.3_
 
-  - [ ] 9.4 Update decoder configuration
+  - [~] 9.4 Update decoder configuration
     - Reorder readers: prioritize "ean_reader" first for cosmetics
     - Set `multiple: false` for single barcode mode (faster)
     - _Bug_Condition: Detection slow or fails for cosmetic barcodes_
     - _Expected_Behavior: Fast and accurate EAN detection_
     - _Requirements: 2.3, 2.5_
 
-  - [ ] 9.5 Add detection confidence filtering
+  - [~] 9.5 Add detection confidence filtering
     - Check `data.codeResult` has valid error level
     - Filter detections with high error count
     - Add debounce for rapid detections (prevent duplicate navigations)
@@ -187,13 +187,13 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
     - _Expected_Behavior: Accurate single detection per barcode_
     - _Requirements: 2.3_
 
-  - [ ] 9.6 Verify bug condition exploration test now passes
+  - [~] 9.6 Verify bug condition exploration test now passes
     - **Property 1: Expected Behavior** - Optimized Quagga2 Config
     - Run bug condition exploration test from step 2
     - **EXPECTED OUTCOME**: Test PASSES (confirms config is optimized)
     - _Requirements: 2.3, 2.5, 2.6_
 
-  - [ ] 9.7 Verify preservation tests still pass
+  - [~] 9.7 Verify preservation tests still pass
     - **Property 2: Preservation** - Navigation After Detection
     - Run preservation tests from tasks 4-7
     - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
@@ -203,40 +203,40 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
 ## Phase 5: Implementation - Phase 3 Cross-Platform Fixes
 
 - [ ] 10. Fix for iOS Safari Compatibility
-  - [ ] 10.1 Add video ready state check before Quagga init
+  - [~] 10.1 Add video ready state check before Quagga init
     - Check `video.readyState >= 3` (HAVE_FUTURE_DATA) before Quagga.init()
     - Add event listener for `canplay` if video not ready
     - _Bug_Condition: input.platform = "iOS" AND input.videoReadyState < 3_
     - _Expected_Behavior: Quagga initializes only when video is ready_
     - _Requirements: 2.4_
 
-  - [ ] 10.2 Add retry mechanism for Quagga initialization
+  - [~] 10.2 Add retry mechanism for Quagga initialization
     - Implement retry with exponential backoff (max 3 retries)
     - Add proper error handling for iOS-specific errors
     - _Bug_Condition: input.platform = "iOS" AND input.detectionResult = null_
     - _Expected_Behavior: Successful initialization on iOS_
     - _Requirements: 2.4_
 
-  - [ ] 10.3 Add iOS user gesture handling
+  - [~] 10.3 Add iOS user gesture handling
     - Ensure scanner starts from user gesture (button click)
     - Add workaround for iOS autoplay restrictions
     - _Bug_Condition: iOS requires user gesture for media playback_
     - _Expected_Behavior: Scanner works after user taps "Mulai Scan"_
     - _Requirements: 2.4_
 
-  - [ ] 10.4 Verify bug condition exploration test now passes
+  - [~] 10.4 Verify bug condition exploration test now passes
     - **Property 1: Expected Behavior** - iOS Compatibility
     - Run bug condition exploration test from step 3
     - **EXPECTED OUTCOME**: Test PASSES (confirms iOS handling exists)
     - _Requirements: 2.4_
 
-  - [ ] 10.5 Verify preservation tests still pass
+  - [~] 10.5 Verify preservation tests still pass
     - **Property 2: Preservation** - All preserved behaviors
     - Run all preservation tests
     - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
 
 - [ ] 11. Fix for Android Chrome Optimization
-  - [ ] 11.1 Improve camera selection with deviceId fallback
+  - [~] 11.1 Improve camera selection with deviceId fallback
     - Enumerate cameras with `navigator.mediaDevices.enumerateDevices()`
     - Select back camera by deviceId if `facingMode: "environment"` fails
     - Store selected deviceId for session
@@ -244,14 +244,14 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
     - _Expected_Behavior: Back camera is always selected_
     - _Requirements: 2.3_
 
-  - [ ] 11.2 Add worker fallback for environments without support
+  - [~] 11.2 Add worker fallback for environments without support
     - Check if Web Workers are supported before setting `numOfWorkers`
     - Fallback to `numOfWorkers: 0` if Workers not available
     - _Bug_Condition: Web Workers may not work on all mobile browsers_
     - _Expected_Behavior: Scanner works with or without Workers_
     - _Requirements: 2.3_
 
-  - [ ] 11.3 Verify Android performance improvement
+  - [~] 11.3 Verify Android performance improvement
     - Test detection time on Android device
     - Confirm detection time < 2 seconds for small barcodes
     - _Bug_Condition: input.platform = "Android" AND input.detectionTime > 3000_
@@ -263,14 +263,14 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
 ## Phase 6: Implementation - Phase 4 Enhanced UX
 
 - [ ] 12. Fix for Enhanced User Experience
-  - [ ] 12.1 Add visual scanning animation
+  - [~] 12.1 Add visual scanning animation
     - Implement animated scan line moving vertically
     - Add pulsing effect on scanning area
     - _Bug_Condition: No visual feedback during scanning_
     - _Expected_Behavior: User sees scanning is active_
     - _Requirements: 2.2_
 
-  - [ ] 12.2 Add haptic feedback on barcode detected
+  - [~] 12.2 Add haptic feedback on barcode detected
     - Use `navigator.vibrate(100)` for haptic feedback
     - Trigger on successful barcode detection
     - Check for vibration API support before using
@@ -278,7 +278,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
     - _Expected_Behavior: User feels vibration on detection_
     - _Requirements: 2.2_
 
-  - [ ] 12.3 Add success state animation
+  - [~] 12.3 Add success state animation
     - Flash green overlay briefly on detection
     - Show detected barcode in overlay
     - Smooth transition to return form page
@@ -286,7 +286,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
     - _Expected_Behavior: Smooth visual transition_
     - _Requirements: 2.2_
 
-  - [ ] 12.4 Add loading state during initialization
+  - [~] 12.4 Add loading state during initialization
     - Show loading spinner while camera initializes
     - Display "Memulai kamera..." text
     - Hide spinner once scanning is live
@@ -294,7 +294,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
     - _Expected_Behavior: User sees initialization progress_
     - _Requirements: 2.2_
 
-  - [ ] 12.5 Verify all tests pass
+  - [~] 12.5 Verify all tests pass
     - Run all exploration tests (should pass)
     - Run all preservation tests (should pass)
     - **EXPECTED OUTCOME**: All tests PASS
@@ -304,7 +304,7 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
 
 ## Phase 7: Checkpoint
 
-- [ ] 13. Checkpoint - Ensure all tests pass
+- [~] 13. Checkpoint - Ensure all tests pass
   - Ensure all exploration tests pass (bugs are fixed)
   - Ensure all preservation tests pass (no regressions)
   - Manual testing on iOS Safari (if device available)
