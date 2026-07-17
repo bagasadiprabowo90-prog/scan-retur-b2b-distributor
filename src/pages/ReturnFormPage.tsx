@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import BatchPickerModal from "../components/BatchPickerModal";
@@ -63,6 +63,30 @@ function saveDistriHistory(value: string) {
   localStorage.setItem(DISTRI_STORAGE_KEY, JSON.stringify(filtered.slice(0, 20)));
 }
 
+/** Highlight matching substring with bold */
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-yellow-200 text-gray-900 rounded-sm px-0.5 font-bold">{text.slice(idx, idx + query.length)}</mark>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
+/** Debounce hook */
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
 export default function ReturnFormPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -77,6 +101,7 @@ export default function ReturnFormPage() {
   const [selectedBarcode, setSelectedBarcode] = useState(initialBarcode);
   const [productSearch, setProductSearch] = useState("");
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [highlightedIdx, setHighlightedIdx] = useState(-1);
 
   const [batches, setBatches] = useState<BatchItem[]>([]);
   const [batch, setBatch] = useState("");
@@ -99,6 +124,18 @@ export default function ReturnFormPage() {
     if (!url) return "VITE_APPS_SCRIPT_URL belum diisi di file .env. Aplikasi tidak bisa terhubung ke Google Sheet.";
     return null;
   });
+
+  // === REFS for auto-tab ===
+  const productInputRef = useRef<HTMLInputElement>(null);
+  const batchBtnRef = useRef<HTMLButtonElement>(null);
+  const expDateRef = useRef<HTMLInputElement>(null);
+  const receiveDateRef = useRef<HTMLInputElement>(null);
+  const qtyRef = useRef<HTMLInputElement>(null);
+  const distriRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Debounce the product search for performance
+  const debouncedSearch = useDebounce(productSearch, 150);
 
   // Fetch products
   useEffect(() => {
@@ -123,14 +160,19 @@ export default function ReturnFormPage() {
   );
 
   const filteredProducts = useMemo(() => {
-    const q = productSearch.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     if (!q) return products;
     return products.filter((item) =>
       item.product.toLowerCase().includes(q) ||
       item.barcode.toLowerCase().includes(q) ||
       item.sku.toLowerCase().includes(q)
     );
-  }, [products, productSearch]);
+  }, [products, debouncedSearch]);
+
+  // Reset highlighted index when filtered list changes
+  useEffect(() => {
+    setHighlightedIdx(-1);
+  }, [filteredProducts]);
 
   useEffect(() => {
     if (!selectedProduct && selectedBarcode && products.length > 0) {
@@ -175,6 +217,62 @@ export default function ReturnFormPage() {
       q > 0
     );
   }, [selectedProduct, batch, expDate, receiveDate, distriEvent, qty]);
+
+  // === AUTO-TAB HELPERS ===
+  const selectProduct = useCallback((item: ProductItem) => {
+    setSelectedBarcode(item.barcode);
+    setProductSearch(item.product);
+    setShowProductDropdown(false);
+    setHighlightedIdx(-1);
+    // Auto-tab → Batch button
+    setTimeout(() => batchBtnRef.current?.focus(), 80);
+  }, []);
+
+  const handleBatchPicked = useCallback((item: BatchItem) => {
+    setBatch(item.lot);
+    setExpDate(item.expDate || "");
+    setBatchModal(false);
+    // Auto-tab → Qty (since exp date is auto-filled from batch)
+    setTimeout(() => qtyRef.current?.focus(), 80);
+  }, []);
+
+  const handleBatchCreated = useCallback((lot: string, exp: string) => {
+    setBatch(lot);
+    setExpDate(exp);
+    setBatchModal(false);
+    // Auto-tab → Qty
+    setTimeout(() => qtyRef.current?.focus(), 80);
+  }, []);
+
+  // === KEYBOARD NAVIGATION for product dropdown ===
+  const displayedProducts = useMemo(() => filteredProducts.slice(0, 30), [filteredProducts]);
+
+  const handleProductKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!showProductDropdown || displayedProducts.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIdx((prev) => (prev < displayedProducts.length - 1 ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIdx((prev) => (prev > 0 ? prev - 1 : displayedProducts.length - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (highlightedIdx >= 0 && highlightedIdx < displayedProducts.length) {
+        selectProduct(displayedProducts[highlightedIdx]);
+      }
+    } else if (e.key === "Escape") {
+      setShowProductDropdown(false);
+    }
+  }, [showProductDropdown, displayedProducts, highlightedIdx, selectProduct]);
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (highlightedIdx >= 0 && dropdownRef.current) {
+      const items = dropdownRef.current.querySelectorAll("[data-dropdown-item]");
+      items[highlightedIdx]?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightedIdx]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -249,18 +347,18 @@ export default function ReturnFormPage() {
           </div>
         )}
 
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-5">
           {/* Sheet Selector */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wide">Sheet Tujuan</label>
+            <label className="label-field">Sheet Tujuan</label>
             <div className="flex gap-2">
               {(["Bagas", "Dimas"] as const).map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => { setTargetSheet(s); saveSheet(s); }}
-                  className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${targetSheet === s
-                    ? "bg-gray-900 text-white"
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${targetSheet === s
+                    ? "bg-gray-900 text-white shadow-md"
                     : "bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100"
                   }`}
                 >
@@ -276,6 +374,7 @@ export default function ReturnFormPage() {
           <Field label="Produk">
             <div className="relative">
               <input
+                ref={productInputRef}
                 type="text"
                 value={productSearch}
                 onChange={(e) => {
@@ -284,30 +383,43 @@ export default function ReturnFormPage() {
                   setShowProductDropdown(true);
                 }}
                 onFocus={() => setShowProductDropdown(true)}
+                onBlur={() => setTimeout(() => setShowProductDropdown(false), 200)}
+                onKeyDown={handleProductKeyDown}
                 placeholder={loadingProducts ? "Memuat..." : "Cari produk / barcode / SKU"}
                 disabled={loadingProducts}
                 className="input-field"
               />
-              {showProductDropdown && filteredProducts.length > 0 && (
-                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-100 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                  {filteredProducts.slice(0, 50).map((item) => (
+              {showProductDropdown && displayedProducts.length > 0 && (
+                <div
+                  ref={dropdownRef}
+                  className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl max-h-64 overflow-y-auto"
+                >
+                  {displayedProducts.map((item, idx) => (
                     <button
                       key={item.barcode}
                       type="button"
-                      onClick={() => {
-                        setSelectedBarcode(item.barcode);
-                        setProductSearch(item.product);
-                        setShowProductDropdown(false);
-                      }}
-                      className="w-full text-left px-3.5 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors"
+                      data-dropdown-item
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectProduct(item)}
+                      className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-0 transition-colors ${
+                        idx === highlightedIdx
+                          ? "bg-gray-100"
+                          : "hover:bg-gray-50"
+                      }`}
                     >
-                      <span className="text-sm font-medium text-gray-900 block truncate">{item.product}</span>
-                      <span className="text-[11px] text-gray-400">{item.barcode} · {item.sku}</span>
+                      <span className="text-base font-medium text-gray-900 block truncate">
+                        <HighlightText text={item.product} query={debouncedSearch} />
+                      </span>
+                      <span className="text-xs text-gray-400 mt-0.5 block">
+                        <HighlightText text={item.barcode} query={debouncedSearch} />
+                        {" · "}
+                        <HighlightText text={item.sku} query={debouncedSearch} />
+                      </span>
                     </button>
                   ))}
-                  {filteredProducts.length > 50 && (
-                    <div className="px-3.5 py-2 text-[11px] text-gray-400 text-center bg-gray-50">
-                      +{filteredProducts.length - 50} produk lagi
+                  {filteredProducts.length > 30 && (
+                    <div className="px-4 py-2.5 text-xs text-gray-400 text-center bg-gray-50 font-medium">
+                      +{filteredProducts.length - 30} produk lagi — ketik lebih spesifik
                     </div>
                   )}
                 </div>
@@ -322,18 +434,21 @@ export default function ReturnFormPage() {
 
           {/* Selected product info */}
           {selectedProduct && (
-            <div className="bg-gray-50 rounded-xl p-3 space-y-1.5">
-              <div className="flex justify-between text-[11px]">
-                <span className="text-gray-400">Barcode</span>
-                <span className="font-mono font-medium text-gray-700">{selectedProduct.barcode}</span>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 space-y-2">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-emerald-600 text-sm font-semibold">✓ Produk Terpilih</span>
               </div>
-              <div className="flex justify-between text-[11px]">
-                <span className="text-gray-400">SKU</span>
-                <span className="font-medium text-gray-700">{selectedProduct.sku}</span>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Barcode</span>
+                <span className="font-mono font-semibold text-gray-800">{selectedProduct.barcode}</span>
               </div>
-              <div className="flex justify-between text-[11px]">
-                <span className="text-gray-400">Produk</span>
-                <span className="font-medium text-gray-700 text-right max-w-[60%] truncate">{selectedProduct.product}</span>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">SKU</span>
+                <span className="font-semibold text-gray-800">{selectedProduct.sku}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Produk</span>
+                <span className="font-semibold text-gray-800 text-right max-w-[60%]">{selectedProduct.product}</span>
               </div>
             </div>
           )}
@@ -343,14 +458,15 @@ export default function ReturnFormPage() {
           {/* Batch */}
           <Field label="Batch">
             <button
+              ref={batchBtnRef}
               type="button"
               onClick={() => setBatchModal(true)}
               className="input-field text-left flex items-center justify-between"
             >
-              <span className={batch ? "text-gray-900 font-medium" : "text-gray-400"}>
+              <span className={batch ? "text-gray-900 font-semibold" : "text-gray-400"}>
                 {batch || "Pilih / Buat batch"}
               </span>
-              <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-5 h-5 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
@@ -358,16 +474,58 @@ export default function ReturnFormPage() {
 
           {/* Exp Date */}
           <Field label="Exp Date">
-            <input value={expDate} onChange={(e) => setExpDate(e.target.value)} placeholder="Sep 2027" className="input-field" />
+            <input
+              ref={expDateRef}
+              value={expDate}
+              onChange={(e) => setExpDate(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === "Tab") {
+                  if (e.key === "Enter") e.preventDefault();
+                  // Auto-tab → Receive Date
+                  setTimeout(() => receiveDateRef.current?.focus(), 50);
+                }
+              }}
+              placeholder="Sep 2027"
+              className="input-field"
+            />
           </Field>
 
           {/* Two-column: Receive Date + Qty */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Receive Date">
-              <input value={receiveDate} onChange={(e) => setReceiveDate(e.target.value)} placeholder="DD-Mon-YYYY" className="input-field" />
+              <input
+                ref={receiveDateRef}
+                value={receiveDate}
+                onChange={(e) => setReceiveDate(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    // Auto-tab → Qty
+                    setTimeout(() => qtyRef.current?.focus(), 50);
+                  }
+                }}
+                placeholder="DD-Mon-YYYY"
+                className="input-field"
+              />
             </Field>
             <Field label="Qty">
-              <input type="number" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" min="1" className="input-field" />
+              <input
+                ref={qtyRef}
+                type="number"
+                inputMode="numeric"
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    // Auto-tab → Distri/Event
+                    setTimeout(() => distriRef.current?.focus(), 50);
+                  }
+                }}
+                placeholder="0"
+                min="1"
+                className="input-field"
+              />
             </Field>
           </div>
 
@@ -375,6 +533,7 @@ export default function ReturnFormPage() {
           <Field label="Distri / Event">
             <div className="relative">
               <input
+                ref={distriRef}
                 value={distriEvent}
                 onChange={(e) => {
                   setDistriEvent(e.target.value);
@@ -386,7 +545,7 @@ export default function ReturnFormPage() {
                 className="input-field"
               />
               {showDistriDropdown && distriHistory.length > 0 && (
-                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-100 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                   {distriHistory
                     .filter((h) => !distriEvent.trim() || h.toLowerCase().includes(distriEvent.toLowerCase()))
                     .map((item, idx) => (
@@ -398,7 +557,7 @@ export default function ReturnFormPage() {
                           setDistriEvent(item);
                           setShowDistriDropdown(false);
                         }}
-                        className="w-full text-left px-3.5 py-2.5 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors"
+                        className="w-full text-left px-4 py-3 text-base text-gray-700 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors"
                       >
                         {item}
                       </button>
@@ -412,9 +571,9 @@ export default function ReturnFormPage() {
 
           {/* Keterangan */}
           <Field label="Keterangan">
-            <div className="space-y-1.5 bg-gray-50 rounded-xl p-3">
+            <div className="space-y-2 bg-gray-50 rounded-xl p-3.5">
               {KETERANGAN_OPTIONS.map((opt) => (
-                <label key={opt} className="flex items-center gap-2.5 cursor-pointer py-0.5">
+                <label key={opt} className="flex items-start gap-3 cursor-pointer py-0.5">
                   <input
                     type="checkbox"
                     checked={keteranganList.includes(opt)}
@@ -425,14 +584,14 @@ export default function ReturnFormPage() {
                         setKeteranganList((prev) => prev.filter((v) => v !== opt));
                       }
                     }}
-                    className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 shrink-0"
+                    className="w-5 h-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900 shrink-0 mt-0.5"
                   />
-                  <span className="text-sm text-gray-600">{opt}</span>
+                  <span className="text-sm text-gray-700 leading-snug">{opt}</span>
                 </label>
               ))}
             </div>
             {keteranganList.length > 0 && (
-              <p className="text-[11px] text-gray-400 mt-1.5">{keteranganList.join("; ")}</p>
+              <p className="text-xs text-gray-400 mt-1.5">{keteranganList.join("; ")}</p>
             )}
           </Field>
 
@@ -462,16 +621,8 @@ export default function ReturnFormPage() {
         open={batchModal}
         onClose={() => setBatchModal(false)}
         batches={batches}
-        onPickExisting={(item) => {
-          setBatch(item.lot);
-          setExpDate(item.expDate || "");
-          setBatchModal(false);
-        }}
-        onCreateNew={(lot, exp) => {
-          setBatch(lot);
-          setExpDate(exp);
-          setBatchModal(false);
-        }}
+        onPickExisting={handleBatchPicked}
+        onCreateNew={handleBatchCreated}
       />
 
       {/* Confirm Dialog */}
@@ -480,7 +631,7 @@ export default function ReturnFormPage() {
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setConfirmOpen(false)} />
           <div className="relative card p-5 max-w-sm w-full space-y-4">
             <h3 className="font-bold text-base text-gray-900">Konfirmasi</h3>
-            <div className="bg-gray-50 rounded-xl p-3 space-y-1.5 text-sm">
+            <div className="bg-gray-50 rounded-xl p-3.5 space-y-2 text-sm">
               <Row label="Sheet" value={targetSheet} />
               <Row label="Produk" value={selectedProduct?.product || "-"} />
               <Row label="Barcode" value={selectedProduct?.barcode || "-"} mono />
@@ -508,7 +659,7 @@ export default function ReturnFormPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wide">{label}</label>
+      <label className="label-field">{label}</label>
       {children}
     </div>
   );
@@ -517,8 +668,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex justify-between gap-2">
-      <span className="text-gray-400 shrink-0">{label}</span>
-      <span className={`text-gray-700 font-medium text-right truncate ${mono ? "font-mono" : ""}`}>{value}</span>
+      <span className="text-gray-500 shrink-0">{label}</span>
+      <span className={`text-gray-800 font-medium text-right truncate ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
   );
 }

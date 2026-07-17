@@ -93,7 +93,7 @@ export default function BatchPickerModal({
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Cari batch (contoh: CBF)..."
-                className="input-field"
+                className="input-field text-base"
                 autoFocus
               />
 
@@ -105,9 +105,9 @@ export default function BatchPickerModal({
                     <button
                       key={`${item.lot}-${idx}`}
                       onClick={() => onPickExisting(item)}
-                      className="w-full text-left border border-gray-200 rounded-xl px-4 py-3 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                      className="w-full text-left border border-gray-200 rounded-xl px-4 py-3.5 hover:bg-gray-50 hover:border-gray-300 transition-colors"
                     >
-                      <span className="font-semibold text-gray-900">{item.lot}</span>
+                      <span className="font-bold text-gray-900 text-base">{item.lot}</span>
                       <span className="text-sm text-gray-500 ml-2">
                         Exp: {item.expDate || "-"}
                       </span>
@@ -122,14 +122,14 @@ export default function BatchPickerModal({
                 value={newLot}
                 onChange={(e) => setNewLot(e.target.value.toUpperCase())}
                 placeholder="Batch/Lot baru (mis: CBF2801)"
-                className="input-field"
+                className="input-field text-base"
                 autoFocus
               />
               <input
                 value={newExp}
                 onChange={(e) => setNewExp(e.target.value)}
                 placeholder="Exp Date (mis: Jun-2027)"
-                className="input-field"
+                className="input-field text-base"
               />
               {saveError && (
                 <div className="rounded-xl px-3 py-2 text-sm bg-red-50 text-red-700 border border-red-200">
