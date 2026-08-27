@@ -115,7 +115,6 @@ export default function ReturnFormPage() {
 
   const [showDistriDropdown, setShowDistriDropdown] = useState(false);
   const [batchModal, setBatchModal] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
   // === REFS for auto-focus & scrolling ===
@@ -270,11 +269,6 @@ export default function ReturnFormPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting || !canSubmit) return;
-    setConfirmOpen(true);
-  }
-
-  async function doSubmit() {
-    setConfirmOpen(false);
     setSubmitting(true);
     setToast(null);
 
@@ -607,50 +601,6 @@ export default function ReturnFormPage() {
         onPickExisting={handleBatchPicked}
         onCreateNew={handleBatchCreated}
       />
-
-      {/* Confirm Dialog */}
-      {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={() => setConfirmOpen(false)} />
-          <div className="relative card p-5 max-w-xs w-full space-y-3.5">
-            <h3 className="font-bold text-sm text-gray-900 text-center">Konfirmasi Simpan Retur</h3>
-            <div className="bg-gray-50 rounded-xl p-3 space-y-1.5 text-xs">
-              <Row label="Sheet" value={targetSheet} />
-              <Row label="Produk" value={selectedProduct?.product || "-"} />
-              <Row label="Batch" value={`${batch} (${expDate})`} />
-              <Row label="Qty" value={qty} bold />
-              <Row label="Distri" value={distriEvent} />
-              {pic && <Row label="PIC" value={pic} />}
-              {keteranganList.length > 0 && <Row label="Keterangan" value={keteranganList.join("; ")} />}
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(false)}
-                className="flex-1 btn-outline py-2 text-xs"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={doSubmit}
-                className="flex-1 btn-primary py-2 text-xs"
-              >
-                Ya, Simpan
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
-  return (
-    <div className="flex justify-between gap-2">
-      <span className="text-gray-400 shrink-0">{label}:</span>
-      <span className={`text-gray-900 text-right truncate ${bold ? "font-bold" : "font-medium"}`}>{value}</span>
     </div>
   );
 }
