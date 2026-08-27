@@ -53,7 +53,7 @@ export type CreateReturnPayload = {
 
 // sheet: nama sheet tujuan, mis "Bagas" atau "Dimas"
 export type CreateReturnResponse =
-  | { ok: true; appendedRow: number; sheet: string }
+  | { ok: true; appendedRow: number; sheet: string; isDuplicate?: boolean }
   | { ok: false; error: string };
 
 export type AddBatchResponse =
@@ -70,12 +70,46 @@ function getBaseUrl(): string {
   return url as string;
 }
 
+async function safeFetchJson<T>(
+  input: string,
+  init?: RequestInit,
+  fallbackError = "Gagal memproses request",
+  timeoutMs = 25000
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+    const text = await res.text();
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      if (text.includes("<title>") || text.includes("<!DOCTYPE") || text.includes("<html")) {
+        const match = text.match(/<title>([^<]+)<\/title>/i);
+        const title = match ? match[1].trim() : "Google Apps Script Error";
+        throw new Error(`${fallbackError}: ${title}`);
+      }
+      throw new Error(`${fallbackError}: Format respon tidak valid`);
+    }
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Koneksi timeout. Mohon periksa jaringan internet Anda.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function fetchMasterByBarcode(barcode: string): Promise<MasterLookupResponse> {
   try {
     const base = getBaseUrl();
     const url = `${base}?action=master&barcode=${encodeURIComponent(barcode)}`;
-    const res = await fetch(url);
-    return await res.json();
+    return await safeFetchJson<MasterLookupResponse>(url, undefined, "Gagal fetch master data");
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal fetch master data";
     return { ok: false, error: msg };
@@ -91,8 +125,7 @@ export async function fetchBatches(force = false): Promise<BatchesResponse> {
   try {
     const base = getBaseUrl();
     const url = `${base}?action=batches`;
-    const res = await fetch(url);
-    const data: BatchesResponse = await res.json();
+    const data = await safeFetchJson<BatchesResponse>(url, undefined, "Gagal fetch batches");
     if (data.ok) batchesCache = data;
     return data;
   } catch (e: unknown) {
@@ -106,8 +139,7 @@ export async function fetchProducts(force = false): Promise<ProductsResponse> {
   try {
     const base = getBaseUrl();
     const url = `${base}?action=products`;
-    const res = await fetch(url);
-    const data: ProductsResponse = await res.json();
+    const data = await safeFetchJson<ProductsResponse>(url, undefined, "Gagal fetch products");
     if (data.ok) productsCache = data;
     return data;
   } catch (e: unknown) {
@@ -116,12 +148,11 @@ export async function fetchProducts(force = false): Promise<ProductsResponse> {
   }
 }
 
-export async function fetchReturnHistory(limit = 100): Promise<ReturnHistoryResponse> {
+export async function fetchReturnHistory(limit = 200): Promise<ReturnHistoryResponse> {
   try {
     const base = getBaseUrl();
     const url = `${base}?action=history&limit=${encodeURIComponent(String(limit))}`;
-    const res = await fetch(url);
-    return await res.json();
+    return await safeFetchJson<ReturnHistoryResponse>(url, undefined, "Gagal fetch riwayat retur");
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal fetch riwayat retur";
     return { ok: false, error: msg };
@@ -134,13 +165,17 @@ export async function createReturn(
 ): Promise<CreateReturnResponse> {
   try {
     const base = getBaseUrl();
-    const res = await fetch(base, {
-      method: "POST",
-      redirect: "follow",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ action: "returns", sheet, payload }),
-    });
-    return await res.json();
+    return await safeFetchJson<CreateReturnResponse>(
+      base,
+      {
+        method: "POST",
+        redirect: "follow",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "returns", sheet, payload }),
+      },
+      "Gagal submit retur",
+      30000
+    );
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal submit retur";
     return { ok: false, error: msg };
@@ -162,13 +197,16 @@ export async function editReturn(
 ): Promise<EditReturnResponse> {
   try {
     const base = getBaseUrl();
-    const res = await fetch(base, {
-      method: "POST",
-      redirect: "follow",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ action: "editReturn", sheet, rowNumber, payload }),
-    });
-    return await res.json();
+    return await safeFetchJson<EditReturnResponse>(
+      base,
+      {
+        method: "POST",
+        redirect: "follow",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "editReturn", sheet, rowNumber, payload }),
+      },
+      "Gagal mengedit data retur"
+    );
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal mengedit data retur";
     return { ok: false, error: msg };
@@ -181,13 +219,16 @@ export async function deleteReturn(
 ): Promise<DeleteReturnResponse> {
   try {
     const base = getBaseUrl();
-    const res = await fetch(base, {
-      method: "POST",
-      redirect: "follow",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ action: "deleteReturn", sheet, rowNumber }),
-    });
-    return await res.json();
+    return await safeFetchJson<DeleteReturnResponse>(
+      base,
+      {
+        method: "POST",
+        redirect: "follow",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "deleteReturn", sheet, rowNumber }),
+      },
+      "Gagal menghapus data retur"
+    );
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal menghapus data retur";
     return { ok: false, error: msg };
@@ -197,14 +238,16 @@ export async function deleteReturn(
 export async function addBatch(lot: string, expDate: string): Promise<AddBatchResponse> {
   try {
     const base = getBaseUrl();
-    const res = await fetch(base, {
-      method: "POST",
-      redirect: "follow",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ action: "addbatch", lot, expDate }),
-    });
-    const data: AddBatchResponse = await res.json();
-    // Invalidate cache supaya batch baru muncul di list
+    const data = await safeFetchJson<AddBatchResponse>(
+      base,
+      {
+        method: "POST",
+        redirect: "follow",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "addbatch", lot, expDate }),
+      },
+      "Gagal menyimpan batch baru"
+    );
     if (data.ok) batchesCache = null;
     return data;
   } catch (e: unknown) {

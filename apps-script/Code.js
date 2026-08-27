@@ -3,10 +3,18 @@
 // https://docs.google.com/spreadsheets/d/SHEET_ID_DISINI/edit
 const SPREADSHEET_ID = "1Ppz3hQrVBMjYTo0qDpQfylGKAdxDG98sVPdD6TRqEiU";
 const MASTER_SHEET_NAME = "Master Product & Lots";
-const DEFAULT_HISTORY_LIMIT = 500;
+const DEFAULT_HISTORY_LIMIT = 200;
 
 // Sheet retur yang tersedia (nama harus PERSIS sama dengan tab di Google Sheet)
 const ALLOWED_RETURN_SHEETS = ["Bagas", "Dimas"];
+
+var _ssCache = null;
+function getSpreadsheet() {
+  if (!_ssCache) {
+    _ssCache = SpreadsheetApp.openById(SPREADSHEET_ID);
+  }
+  return _ssCache;
+}
 
 function jsonOut(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
@@ -15,7 +23,7 @@ function jsonOut(obj) {
 }
 
 function getSheet(name) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const sh = ss.getSheetByName(name);
   if (!sh) throw new Error(`Sheet not found: ${name}`);
   return sh;
@@ -29,10 +37,18 @@ function toText_(value) {
   return String(value == null ? "" : value).trim();
 }
 
+var _headerMapCache = {};
 function getHeaderMap(sheet) {
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const map = {};
-  headers.forEach((h, idx) => (map[normalizeHeader(h)] = idx + 1));
+  var name = sheet.getName();
+  if (_headerMapCache[name]) return _headerMapCache[name];
+  var lastCol = sheet.getLastColumn();
+  if (lastCol < 1) return { _lastCol: 0 };
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var map = { _lastCol: lastCol };
+  for (var i = 0; i < headers.length; i++) {
+    map[normalizeHeader(headers[i])] = i + 1;
+  }
+  _headerMapCache[name] = map;
   return map;
 }
 
@@ -50,7 +66,8 @@ function findMasterByBarcode_(barcode) {
   const lastRow = sh.getLastRow();
   if (lastRow < 2) return null;
 
-  const values = sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).getValues();
+  const lastCol = map._lastCol || sh.getLastColumn();
+  const values = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
   const target = String(barcode).trim();
 
   for (let i = 0; i < values.length; i++) {
@@ -68,26 +85,22 @@ function findMasterByBarcode_(barcode) {
 }
 
 // Parse Exp Date — support bulan Indonesia & Inggris
-// Contoh: "Jun-2027", "Agu-2027", "Des-2025", "2027-06", "2027-06-15"
 function parseExpDate_(exp) {
   if (!exp) return Infinity;
   var s = String(exp).trim();
 
-  // Map bulan Indonesia + Inggris -> index (0-based)
   var monthMap = {
     jan: 0, feb: 1, mar: 2, apr: 3, mei: 4, may: 4,
     jun: 5, jul: 6, agu: 7, aug: 7, sep: 8, okt: 9, oct: 9,
     nov: 10, des: 11, dec: 11
   };
 
-  // Format: "Agu-2027" atau "Agu 2027"
   var m1 = s.match(/^([A-Za-z]{3})[\-\s](\d{4})$/);
   if (m1) {
     var mon = monthMap[m1[1].toLowerCase()];
-    if (mon !== undefined) return new Date(parseInt(m1[2]), mon, 1).getTime();
+    if (mon !== undefined) return new Date(parseInt(m1[2], 10), mon, 1).getTime();
   }
 
-  // Format ISO: "2027-08" atau "2027-08-15"
   var d = new Date(s);
   if (!isNaN(d.getTime())) return d.getTime();
 
@@ -126,23 +139,19 @@ function parseReceiveDate_(value) {
   return 0;
 }
 
-// Format raw exp date value (Date object or string) to "Mon YYYY"
 var MONTH_NAMES_ = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
 
 function formatExpDate_(raw) {
   if (!raw) return "";
-  // If it's a Date object from Google Sheets
   if (raw instanceof Date && !isNaN(raw.getTime())) {
     return MONTH_NAMES_[raw.getMonth()] + " " + raw.getFullYear();
   }
   var s = String(raw).trim();
   if (!s) return "";
-  // Try parsing as date string in case it's a serialized Date
   var d = new Date(s);
   if (!isNaN(d.getTime()) && s.length > 10) {
     return MONTH_NAMES_[d.getMonth()] + " " + d.getFullYear();
   }
-  // Already a short string like "Sep 2027" or "Sep-2027", return as-is
   return s;
 }
 
@@ -167,7 +176,8 @@ function listBatches_() {
   const lastRow = sh.getLastRow();
   if (lastRow < 2) return [];
 
-  const values = sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).getValues();
+  const lastCol = map._lastCol || sh.getLastColumn();
+  const values = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
   const uniq = {};
   for (let i = 0; i < values.length; i++) {
     const row = values[i];
@@ -180,7 +190,6 @@ function listBatches_() {
     }
   }
 
-  // FEFO: batch paling dekat expired muncul paling atas
   return Object.values(uniq).sort(function (a, b) {
     return parseExpDate_(a.expDate) - parseExpDate_(b.expDate);
   });
@@ -200,7 +209,8 @@ function listProducts_() {
   const lastRow = sh.getLastRow();
   if (lastRow < 2) return [];
 
-  const values = sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).getValues();
+  const lastCol = map._lastCol || sh.getLastColumn();
+  const values = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
   const seen = {};
   const results = [];
 
@@ -259,7 +269,11 @@ function listReturnHistory_(limit) {
     var lastRow = sh.getLastRow();
     if (lastRow < 2) continue;
 
-    var data = sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).getValues();
+    var fetchCount = Math.min(lastRow - 1, maxItems);
+    var startRow = lastRow - fetchCount + 1;
+    var lastCol = map._lastCol || sh.getLastColumn();
+    var data = sh.getRange(startRow, 1, fetchCount, lastCol).getValues();
+
     for (var r = 0; r < data.length; r++) {
       var row = data[r];
       var product = toText_(row[map["product"] - 1]);
@@ -270,7 +284,7 @@ function listReturnHistory_(limit) {
       var receiveRaw = row[map["receive date"] - 1];
       results.push({
         sheet: sheetName,
-        rowNumber: r + 2,
+        rowNumber: startRow + r,
         receiveDate: formatReceiveDate_(receiveRaw),
         distriEvent: toText_(row[map["distri/event"] - 1]),
         product: product,
@@ -312,48 +326,55 @@ function listReturnHistory_(limit) {
 }
 
 function appendBatch_(lot, expDate) {
-  var sh = getSheet(MASTER_SHEET_NAME);
-  var map = getHeaderMap(sh);
-
-  var colLot = map["lots"];
-  var colExp = map["exp date"];
-  if (!colLot) throw new Error("MASTER sheet must have header: Lots");
-  if (!colExp) throw new Error("MASTER sheet must have header: Exp Date");
-
   var lotTrimmed = String(lot || "").trim().toUpperCase();
   var expTrimmed = String(expDate || "").trim();
   if (!lotTrimmed) throw new Error("Lot tidak boleh kosong");
   if (!expTrimmed) throw new Error("Exp Date tidak boleh kosong");
 
-  // Cek duplikat lot
-  var lastRow = sh.getLastRow();
-  if (lastRow >= 2) {
-    var data = sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).getValues();
-    for (var r = 0; r < data.length; r++) {
-      var existLot = String(data[r][colLot - 1] || "").trim().toUpperCase();
-      if (existLot === lotTrimmed) {
-        throw new Error("Batch/Lot '" + lotTrimmed + "' sudah ada di Master.");
+  var lock = LockService.getScriptLock();
+  var hasLock = lock.tryLock(15000);
+
+  try {
+    var sh = getSheet(MASTER_SHEET_NAME);
+    var map = getHeaderMap(sh);
+
+    var colLot = map["lots"];
+    var colExp = map["exp date"];
+    if (!colLot) throw new Error("MASTER sheet must have header: Lots");
+    if (!colExp) throw new Error("MASTER sheet must have header: Exp Date");
+
+    var lastRow = sh.getLastRow();
+    var lastCol = map._lastCol || sh.getLastColumn();
+
+    if (lastRow >= 2) {
+      var lotValues = sh.getRange(2, colLot, lastRow - 1, 1).getValues();
+      for (var r = 0; r < lotValues.length; r++) {
+        var existLot = String(lotValues[r][0] || "").trim().toUpperCase();
+        if (existLot === lotTrimmed) {
+          throw new Error("Batch/Lot '" + lotTrimmed + "' sudah ada di Master.");
+        }
       }
     }
+
+    var targetRow = lastRow + 1;
+    var newRow = new Array(lastCol);
+    for (var c = 0; c < lastCol; c++) newRow[c] = "";
+    newRow[colLot - 1] = lotTrimmed;
+    newRow[colExp - 1] = expTrimmed;
+
+    sh.getRange(targetRow, 1, 1, lastCol).setValues([newRow]);
+    SpreadsheetApp.flush();
+    return targetRow;
+  } finally {
+    if (hasLock) lock.releaseLock();
   }
-
-  var newRow = [];
-  var lastCol = sh.getLastColumn();
-  for (var c = 1; c <= lastCol; c++) newRow.push("");
-  newRow[colLot - 1] = lotTrimmed;
-  newRow[colExp - 1] = expTrimmed;
-
-  sh.appendRow(newRow);
-  return sh.getLastRow();
 }
 
 function appendReturn_(payload, sheetName) {
-  // Validasi nama sheet
   if (!ALLOWED_RETURN_SHEETS.includes(sheetName)) {
     throw new Error("Sheet tidak diizinkan: " + sheetName + ". Pilihan: " + ALLOWED_RETURN_SHEETS.join(", "));
   }
 
-  // Server-side validation
   var requiredFields = ["receiveDate", "distriEvent", "product", "barcode", "batch", "expDate", "qty"];
   for (var i = 0; i < requiredFields.length; i++) {
     var f = requiredFields[i];
@@ -367,59 +388,80 @@ function appendReturn_(payload, sheetName) {
     throw new Error("Qty harus angka positif");
   }
 
-  var sh = getSheet(sheetName);
-  var map = getHeaderMap(sh);
+  var lock = LockService.getScriptLock();
+  var hasLock = lock.tryLock(15000);
 
-  var required = [
-    "receive date",
-    "distri/event",
-    "product",
-    "barcode",
-    "batch",
-    "exp date",
-    "qty",
-    "keterangan",
-    "pic",
-  ];
-  required.forEach(function (h) {
-    if (!map[h]) throw new Error("Sheet '" + sheetName + "' missing header: " + h);
-  });
+  try {
+    var sh = getSheet(sheetName);
+    var map = getHeaderMap(sh);
 
-  // Duplicate check: same barcode + batch + receiveDate
-  var lastRow = sh.getLastRow();
-  if (lastRow >= 2) {
-    var data = sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).getValues();
-    for (var r = 0; r < data.length; r++) {
-      var row = data[r];
-      var existBarcode = String(row[map["barcode"] - 1] || "").trim();
-      var existBatch = String(row[map["batch"] - 1] || "").trim();
-      var existDate = String(row[map["receive date"] - 1] || "").trim();
-      if (
-        existBarcode === String(payload.barcode).trim() &&
-        existBatch === String(payload.batch).trim() &&
-        existDate === String(payload.receiveDate).trim()
-      ) {
-        throw new Error("Data duplikat: barcode " + payload.barcode + " batch " + payload.batch + " tanggal " + payload.receiveDate + " sudah ada di row " + (r + 2));
+    var required = [
+      "receive date",
+      "distri/event",
+      "product",
+      "barcode",
+      "batch",
+      "exp date",
+      "qty",
+      "keterangan",
+      "pic",
+    ];
+    for (var rIdx = 0; rIdx < required.length; rIdx++) {
+      if (!map[required[rIdx]]) throw new Error("Sheet '" + sheetName + "' missing header: " + required[rIdx]);
+    }
+
+    var lastRow = sh.getLastRow();
+    var lastCol = map._lastCol || sh.getLastColumn();
+
+    // Cek duplikat cepat hanya pada 20 baris terakhir (mencegah double-click & request berulang akibat lag)
+    if (lastRow >= 2) {
+      var checkRowCount = Math.min(lastRow - 1, 20);
+      var startRow = lastRow - checkRowCount + 1;
+      var recentValues = sh.getRange(startRow, 1, checkRowCount, lastCol).getValues();
+
+      for (var r = recentValues.length - 1; r >= 0; r--) {
+        var row = recentValues[r];
+        var existBarcode = String(row[map["barcode"] - 1] || "").trim();
+        var existBatch = String(row[map["batch"] - 1] || "").trim();
+        var existDate = formatReceiveDate_(row[map["receive date"] - 1]) || String(row[map["receive date"] - 1] || "").trim();
+        var existQty = Number(row[map["qty"] - 1] || 0);
+        var existDistri = String(row[map["distri/event"] - 1] || "").trim();
+
+        if (
+          existBarcode === String(payload.barcode).trim() &&
+          existBatch === String(payload.batch).trim() &&
+          existDate === String(payload.receiveDate).trim() &&
+          existQty === qty &&
+          existDistri === String(payload.distriEvent).trim()
+        ) {
+          return { rowNumber: startRow + r, isDuplicate: true };
+        }
       }
     }
+
+    var newRow = new Array(lastCol);
+    for (var c = 0; c < lastCol; c++) newRow[c] = "";
+
+    newRow[map["receive date"] - 1] = payload.receiveDate || "";
+    newRow[map["distri/event"] - 1] = payload.distriEvent || "";
+    newRow[map["product"] - 1] = payload.product || "";
+    newRow[map["barcode"] - 1] = payload.barcode || "";
+    newRow[map["batch"] - 1] = payload.batch || "";
+    newRow[map["exp date"] - 1] = payload.expDate || "";
+    newRow[map["qty"] - 1] = qty;
+    newRow[map["keterangan"] - 1] = payload.keterangan || "";
+    newRow[map["pic"] - 1] = payload.pic || "";
+
+    var targetRow = lastRow + 1;
+    sh.getRange(targetRow, 1, 1, lastCol).setValues([newRow]);
+    SpreadsheetApp.flush();
+
+    return { rowNumber: targetRow, isDuplicate: false };
+  } finally {
+    if (hasLock) {
+      lock.releaseLock();
+    }
   }
-
-  var newRow = [];
-  var lastCol = sh.getLastColumn();
-  for (var c = 1; c <= lastCol; c++) newRow.push("");
-
-  newRow[map["receive date"] - 1] = payload.receiveDate || "";
-  newRow[map["distri/event"] - 1] = payload.distriEvent || "";
-  newRow[map["product"] - 1] = payload.product || "";
-  newRow[map["barcode"] - 1] = payload.barcode || "";
-  newRow[map["batch"] - 1] = payload.batch || "";
-  newRow[map["exp date"] - 1] = payload.expDate || "";
-  newRow[map["qty"] - 1] = qty;
-  newRow[map["keterangan"] - 1] = payload.keterangan || "";
-  newRow[map["pic"] - 1] = payload.pic || "";
-
-  sh.appendRow(newRow);
-  return sh.getLastRow();
 }
 
 function editReturn_(sheetName, rowNumber, payload) {
@@ -432,36 +474,40 @@ function editReturn_(sheetName, rowNumber, payload) {
     throw new Error("Row number tidak valid: " + rowNumber);
   }
 
-  var sh = getSheet(sheetName);
-  var lastRow = sh.getLastRow();
-  if (row > lastRow) {
-    throw new Error("Row " + row + " tidak ditemukan di sheet " + sheetName);
-  }
-
-  var map = getHeaderMap(sh);
-
-  var required = [
-    "receive date", "distri/event", "product", "barcode",
-    "batch", "exp date", "qty", "keterangan", "pic",
-  ];
-  required.forEach(function (h) {
-    if (!map[h]) throw new Error("Sheet '" + sheetName + "' missing header: " + h);
-  });
-
   var qty = Number(payload.qty);
   if (!isFinite(qty) || qty <= 0) {
     throw new Error("Qty harus angka positif");
   }
 
-  sh.getRange(row, map["receive date"]).setValue(payload.receiveDate || "");
-  sh.getRange(row, map["distri/event"]).setValue(payload.distriEvent || "");
-  sh.getRange(row, map["product"]).setValue(payload.product || "");
-  sh.getRange(row, map["barcode"]).setValue(payload.barcode || "");
-  sh.getRange(row, map["batch"]).setValue(payload.batch || "");
-  sh.getRange(row, map["exp date"]).setValue(payload.expDate || "");
-  sh.getRange(row, map["qty"]).setValue(qty);
-  sh.getRange(row, map["keterangan"]).setValue(payload.keterangan || "");
-  sh.getRange(row, map["pic"]).setValue(payload.pic || "");
+  var lock = LockService.getScriptLock();
+  var hasLock = lock.tryLock(15000);
+
+  try {
+    var sh = getSheet(sheetName);
+    var lastRow = sh.getLastRow();
+    if (row > lastRow) {
+      throw new Error("Row " + row + " tidak ditemukan di sheet " + sheetName);
+    }
+
+    var map = getHeaderMap(sh);
+    var lastCol = map._lastCol || sh.getLastColumn();
+    var existingRow = sh.getRange(row, 1, 1, lastCol).getValues()[0];
+
+    if (map["receive date"]) existingRow[map["receive date"] - 1] = payload.receiveDate || "";
+    if (map["distri/event"]) existingRow[map["distri/event"] - 1] = payload.distriEvent || "";
+    if (map["product"]) existingRow[map["product"] - 1] = payload.product || "";
+    if (map["barcode"]) existingRow[map["barcode"] - 1] = payload.barcode || "";
+    if (map["batch"]) existingRow[map["batch"] - 1] = payload.batch || "";
+    if (map["exp date"]) existingRow[map["exp date"] - 1] = payload.expDate || "";
+    if (map["qty"]) existingRow[map["qty"] - 1] = qty;
+    if (map["keterangan"]) existingRow[map["keterangan"] - 1] = payload.keterangan || "";
+    if (map["pic"]) existingRow[map["pic"] - 1] = payload.pic || "";
+
+    sh.getRange(row, 1, 1, lastCol).setValues([existingRow]);
+    SpreadsheetApp.flush();
+  } finally {
+    if (hasLock) lock.releaseLock();
+  }
 }
 
 function deleteReturn_(sheetName, rowNumber) {
@@ -474,13 +520,21 @@ function deleteReturn_(sheetName, rowNumber) {
     throw new Error("Row number tidak valid: " + rowNumber);
   }
 
-  var sh = getSheet(sheetName);
-  var lastRow = sh.getLastRow();
-  if (row > lastRow) {
-    throw new Error("Row " + row + " tidak ditemukan di sheet " + sheetName);
-  }
+  var lock = LockService.getScriptLock();
+  var hasLock = lock.tryLock(15000);
 
-  sh.deleteRow(row);
+  try {
+    var sh = getSheet(sheetName);
+    var lastRow = sh.getLastRow();
+    if (row > lastRow) {
+      throw new Error("Row " + row + " tidak ditemukan di sheet " + sheetName);
+    }
+
+    sh.deleteRow(row);
+    SpreadsheetApp.flush();
+  } finally {
+    if (hasLock) lock.releaseLock();
+  }
 }
 
 function doGet(e) {
@@ -501,12 +555,10 @@ function doGet(e) {
       return jsonOut({ ok: true, batches });
     }
 
-    // Kembalikan daftar sheet yang tersedia
     if (action === "sheets") {
       return jsonOut({ ok: true, sheets: ALLOWED_RETURN_SHEETS });
     }
 
-    // Kembalikan semua produk unik (barcode + sku + product) dari Master
     if (action === "products") {
       const products = listProducts_();
       return jsonOut({ ok: true, products });
@@ -549,13 +601,17 @@ function doPost(e) {
       return jsonOut({ ok: true });
     }
 
-    if (action !== "returns") return jsonOut({ ok: false, error: "Unknown action" });
+    if (action !== "returns") return jsonOut({ ok: false, error: "Unknown action: " + action });
 
     const payload = body.payload || {};
-    // sheet dari payload, default ke sheet pertama
     const sheetName = String(body.sheet || ALLOWED_RETURN_SHEETS[0]).trim();
-    const appendedRow = appendReturn_(payload, sheetName);
-    return jsonOut({ ok: true, appendedRow, sheet: sheetName });
+    const result = appendReturn_(payload, sheetName);
+    return jsonOut({
+      ok: true,
+      appendedRow: result.rowNumber,
+      sheet: sheetName,
+      isDuplicate: result.isDuplicate,
+    });
   } catch (err) {
     return jsonOut({ ok: false, error: String(err && err.message ? err.message : err) });
   }

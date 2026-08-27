@@ -63,7 +63,6 @@ function saveDistriHistory(value: string) {
   localStorage.setItem(DISTRI_STORAGE_KEY, JSON.stringify(filtered.slice(0, 20)));
 }
 
-/** Highlight matching substring with bold */
 function HighlightText({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>;
   const idx = text.toLowerCase().indexOf(query.toLowerCase());
@@ -71,13 +70,12 @@ function HighlightText({ text, query }: { text: string; query: string }) {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="bg-yellow-200 text-gray-900 rounded-sm px-0.5 font-bold">{text.slice(idx, idx + query.length)}</mark>
+      <mark className="bg-yellow-200 text-gray-900 rounded-xs px-0.5 font-bold">{text.slice(idx, idx + query.length)}</mark>
       {text.slice(idx + query.length)}
     </>
   );
 }
 
-/** Debounce hook */
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -111,7 +109,7 @@ export default function ReturnFormPage() {
   const [distriEvent, setDistriEvent] = useState("");
   const [distriHistory] = useState<string[]>(getDistriHistory);
   const [qty, setQty] = useState("");
-  const [keteranganList, setKeteranganList] = useState<string[]>([]);
+  const [keteranganList, setKeteranganList] = useState<string[]>(["Ok"]);
   const [pic, setPic] = useState(user?.displayName ?? "");
   const [targetSheet, setTargetSheet] = useState<"Bagas" | "Dimas">(getSavedSheet);
 
@@ -119,22 +117,14 @@ export default function ReturnFormPage() {
   const [batchModal, setBatchModal] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
-  const [envError] = useState<string | null>(() => {
-    const url = import.meta.env.VITE_APPS_SCRIPT_URL;
-    if (!url) return "VITE_APPS_SCRIPT_URL belum diisi di file .env. Aplikasi tidak bisa terhubung ke Google Sheet.";
-    return null;
-  });
 
-  // === REFS for auto-tab ===
+  // === REFS for auto-focus & scrolling ===
   const productInputRef = useRef<HTMLInputElement>(null);
   const batchBtnRef = useRef<HTMLButtonElement>(null);
-  const expDateRef = useRef<HTMLInputElement>(null);
-  const receiveDateRef = useRef<HTMLInputElement>(null);
   const qtyRef = useRef<HTMLInputElement>(null);
   const distriRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Debounce the product search for performance
   const debouncedSearch = useDebounce(productSearch, 150);
 
   // Fetch products
@@ -169,7 +159,6 @@ export default function ReturnFormPage() {
     );
   }, [products, debouncedSearch]);
 
-  // Reset highlighted index when filtered list changes
   useEffect(() => {
     setHighlightedIdx(-1);
   }, [filteredProducts]);
@@ -218,33 +207,38 @@ export default function ReturnFormPage() {
     );
   }, [selectedProduct, batch, expDate, receiveDate, distriEvent, qty]);
 
-  // === AUTO-TAB HELPERS ===
+  // === AUTO-TAB & SCROLL HELPERS ===
   const selectProduct = useCallback((item: ProductItem) => {
     setSelectedBarcode(item.barcode);
     setProductSearch(item.product);
     setShowProductDropdown(false);
     setHighlightedIdx(-1);
-    // Auto-tab → Batch button
-    setTimeout(() => batchBtnRef.current?.focus(), 80);
+    setTimeout(() => {
+      batchBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      batchBtnRef.current?.focus();
+    }, 60);
   }, []);
 
   const handleBatchPicked = useCallback((item: BatchItem) => {
     setBatch(item.lot);
     setExpDate(item.expDate || "");
     setBatchModal(false);
-    // Auto-tab → Qty (since exp date is auto-filled from batch)
-    setTimeout(() => qtyRef.current?.focus(), 80);
+    setTimeout(() => {
+      qtyRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      qtyRef.current?.focus();
+    }, 80);
   }, []);
 
   const handleBatchCreated = useCallback((lot: string, exp: string) => {
     setBatch(lot);
     setExpDate(exp);
     setBatchModal(false);
-    // Auto-tab → Qty
-    setTimeout(() => qtyRef.current?.focus(), 80);
+    setTimeout(() => {
+      qtyRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      qtyRef.current?.focus();
+    }, 80);
   }, []);
 
-  // === KEYBOARD NAVIGATION for product dropdown ===
   const displayedProducts = useMemo(() => filteredProducts.slice(0, 30), [filteredProducts]);
 
   const handleProductKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -266,7 +260,6 @@ export default function ReturnFormPage() {
     }
   }, [showProductDropdown, displayedProducts, highlightedIdx, selectProduct]);
 
-  // Scroll highlighted item into view
   useEffect(() => {
     if (highlightedIdx >= 0 && dropdownRef.current) {
       const items = dropdownRef.current.querySelectorAll("[data-dropdown-item]");
@@ -277,7 +270,6 @@ export default function ReturnFormPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting || !canSubmit) return;
-    // Tampilkan dialog konfirmasi dulu
     setConfirmOpen(true);
   }
 
@@ -287,7 +279,6 @@ export default function ReturnFormPage() {
     setToast(null);
 
     try {
-      // Simpan distri/event ke history untuk dropdown berikutnya
       saveDistriHistory(distriEvent);
 
       const res = await createReturn({
@@ -318,48 +309,58 @@ export default function ReturnFormPage() {
     }
   }
 
-  return (
-    <div className="space-y-3 pb-6">
-      {/* ENV Error Banner */}
-      {envError && (
-        <div className="rounded-xl px-3.5 py-2.5 text-sm bg-amber-50 text-amber-700 border border-amber-100">
-          {envError}
-        </div>
-      )}
+  const toggleKeterangan = (opt: string) => {
+    setKeteranganList((prev) => {
+      if (opt === "Ok") {
+        return prev.includes("Ok") ? [] : ["Ok"];
+      }
+      const withoutOk = prev.filter((v) => v !== "Ok");
+      if (withoutOk.includes(opt)) {
+        const next = withoutOk.filter((v) => v !== opt);
+        return next.length === 0 ? ["Ok"] : next;
+      }
+      return [...withoutOk, opt];
+    });
+  };
 
-      {/* Toast */}
+  return (
+    <div className="space-y-3 pb-8">
+      {/* Toast Notification */}
       {toast && (
-        <div className={`rounded-xl px-3.5 py-2.5 text-sm border ${
+        <div className={`rounded-xl px-3.5 py-2.5 text-xs font-semibold border ${
           toast.type === "success"
-            ? "bg-green-50 text-green-700 border-green-100"
-            : "bg-red-50 text-red-600 border-red-100"
+            ? "bg-green-50 text-green-700 border-green-200"
+            : "bg-red-50 text-red-600 border-red-200"
         }`}>
           {toast.msg}
         </div>
       )}
 
-      {/* Form Card */}
-      <form onSubmit={onSubmit} className="card">
-        {/* Loading indicator */}
+      {/* Main Form Card */}
+      <form onSubmit={onSubmit} className="card overflow-hidden">
+        {/* Loading Progress Bar */}
         {(loadingProducts || loadingBatches) && (
-          <div className="h-0.5 bg-gray-100 overflow-hidden">
+          <div className="h-1 bg-gray-100 overflow-hidden">
             <div className="h-full w-1/3 bg-gray-900 rounded-full animate-pulse" />
           </div>
         )}
 
-        <div className="p-4 space-y-5">
-          {/* Sheet Selector */}
-          <div>
-            <label className="label-field">Sheet Tujuan</label>
-            <div className="flex gap-2">
+        <div className="p-3.5 sm:p-4 space-y-3.5">
+          {/* Header Bar: Title + Compact Sheet Switcher */}
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+              Sheet Tujuan
+            </span>
+            <div className="flex bg-gray-100 p-0.5 rounded-xl">
               {(["Bagas", "Dimas"] as const).map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => { setTargetSheet(s); saveSheet(s); }}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${targetSheet === s
-                    ? "bg-gray-900 text-white shadow-md"
-                    : "bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100"
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                    targetSheet === s
+                      ? "bg-gray-900 text-white shadow-xs"
+                      : "text-gray-500 hover:text-gray-800"
                   }`}
                 >
                   {s}
@@ -368,147 +369,124 @@ export default function ReturnFormPage() {
             </div>
           </div>
 
-          <div className="h-px bg-gray-100" />
-
-          {/* Product Picker */}
-          <Field label="Produk">
-            <div className="relative">
-              <input
-                ref={productInputRef}
-                type="text"
-                value={productSearch}
-                onChange={(e) => {
-                  setProductSearch(e.target.value);
-                  setSelectedBarcode("");
-                  setShowProductDropdown(true);
-                }}
-                onFocus={() => setShowProductDropdown(true)}
-                onBlur={() => setTimeout(() => setShowProductDropdown(false), 200)}
-                onKeyDown={handleProductKeyDown}
-                placeholder={loadingProducts ? "Memuat..." : "Cari produk / barcode / SKU"}
-                disabled={loadingProducts}
-                className="input-field"
-              />
-              {showProductDropdown && displayedProducts.length > 0 && (
-                <div
-                  ref={dropdownRef}
-                  className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl max-h-64 overflow-y-auto"
+          {/* Section 1: Produk Selection */}
+          <div>
+            <label className="label-field">Produk Retur</label>
+            {selectedProduct ? (
+              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                <div className="min-w-0 pr-2">
+                  <p className="text-xs font-bold text-gray-900 truncate">
+                    {selectedProduct.product}
+                  </p>
+                  <p className="text-[11px] text-emerald-800 font-mono">
+                    {selectedProduct.sku} · {selectedProduct.barcode}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedBarcode("");
+                    setProductSearch("");
+                    setTimeout(() => productInputRef.current?.focus(), 60);
+                  }}
+                  className="shrink-0 text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-white border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors"
                 >
-                  {displayedProducts.map((item, idx) => (
-                    <button
-                      key={item.barcode}
-                      type="button"
-                      data-dropdown-item
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => selectProduct(item)}
-                      className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-0 transition-colors ${
-                        idx === highlightedIdx
-                          ? "bg-gray-100"
-                          : "hover:bg-gray-50"
-                      }`}
-                    >
-                      <span className="text-base font-medium text-gray-900 block truncate">
-                        <HighlightText text={item.product} query={debouncedSearch} />
-                      </span>
-                      <span className="text-xs text-gray-400 mt-0.5 block">
-                        <HighlightText text={item.barcode} query={debouncedSearch} />
-                        {" · "}
-                        <HighlightText text={item.sku} query={debouncedSearch} />
-                      </span>
-                    </button>
-                  ))}
-                  {filteredProducts.length > 30 && (
-                    <div className="px-4 py-2.5 text-xs text-gray-400 text-center bg-gray-50 font-medium">
-                      +{filteredProducts.length - 30} produk lagi — ketik lebih spesifik
-                    </div>
-                  )}
-                </div>
-              )}
-              {showProductDropdown && productSearch.trim() && filteredProducts.length === 0 && !loadingProducts && (
-                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-100 rounded-xl shadow-lg px-4 py-3 text-sm text-gray-400 text-center">
-                  Tidak ditemukan
-                </div>
-              )}
+                  Ganti
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  ref={productInputRef}
+                  type="text"
+                  value={productSearch}
+                  onChange={(e) => {
+                    setProductSearch(e.target.value);
+                    setSelectedBarcode("");
+                    setShowProductDropdown(true);
+                  }}
+                  onFocus={() => setShowProductDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowProductDropdown(false), 200)}
+                  onKeyDown={handleProductKeyDown}
+                  placeholder={loadingProducts ? "Memuat produk..." : "Ketik nama produk, barcode, atau SKU"}
+                  disabled={loadingProducts}
+                  className="input-field text-sm py-2.5"
+                />
+                {showProductDropdown && displayedProducts.length > 0 && (
+                  <div
+                    ref={dropdownRef}
+                    className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-56 overflow-y-auto"
+                  >
+                    {displayedProducts.map((item, idx) => (
+                      <button
+                        key={item.barcode}
+                        type="button"
+                        data-dropdown-item
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => selectProduct(item)}
+                        className={`w-full text-left px-3.5 py-2.5 border-b border-gray-100 last:border-0 transition-colors ${
+                          idx === highlightedIdx ? "bg-gray-100" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        <span className="text-xs font-bold text-gray-900 block truncate">
+                          <HighlightText text={item.product} query={debouncedSearch} />
+                        </span>
+                        <span className="text-[11px] text-gray-400 block font-mono">
+                          <HighlightText text={item.barcode} query={debouncedSearch} />
+                          {" · "}
+                          <HighlightText text={item.sku} query={debouncedSearch} />
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Section 2: Batch & Exp Date (Grid 2 Kolom, Terlihat Langsung) */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="label-field">Nomor Batch</label>
+              <button
+                ref={batchBtnRef}
+                type="button"
+                onClick={() => setBatchModal(true)}
+                className={`w-full text-left input-field py-2.5 flex items-center justify-between font-mono text-sm ${
+                  batch ? "text-gray-900 font-bold bg-white border-gray-300" : "text-gray-400"
+                }`}
+              >
+                <span className="truncate">{batch || "Pilih Batch..."}</span>
+                <svg className="w-4 h-4 text-gray-400 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             </div>
-          </Field>
 
-          {/* Selected product info */}
-          {selectedProduct && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 space-y-2">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-emerald-600 text-sm font-semibold">✓ Produk Terpilih</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-500">Barcode</span>
-                <span className="font-mono font-semibold text-gray-800">{selectedProduct.barcode}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-500">SKU</span>
-                <span className="font-semibold text-gray-800">{selectedProduct.sku}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-500">Produk</span>
-                <span className="font-semibold text-gray-800 text-right max-w-[60%]">{selectedProduct.product}</span>
-              </div>
-            </div>
-          )}
-
-          <div className="h-px bg-gray-100" />
-
-          {/* Batch */}
-          <Field label="Batch">
-            <button
-              ref={batchBtnRef}
-              type="button"
-              onClick={() => setBatchModal(true)}
-              className="input-field text-left flex items-center justify-between"
-            >
-              <span className={batch ? "text-gray-900 font-semibold" : "text-gray-400"}>
-                {batch || "Pilih / Buat batch"}
-              </span>
-              <svg className="w-5 h-5 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-          </Field>
-
-          {/* Exp Date */}
-          <Field label="Exp Date">
-            <input
-              ref={expDateRef}
-              value={expDate}
-              onChange={(e) => setExpDate(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === "Tab") {
-                  if (e.key === "Enter") e.preventDefault();
-                  // Auto-tab → Receive Date
-                  setTimeout(() => receiveDateRef.current?.focus(), 50);
-                }
-              }}
-              placeholder="Sep 2027"
-              className="input-field"
-            />
-          </Field>
-
-          {/* Two-column: Receive Date + Qty */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Receive Date">
+            <div>
+              <label className="label-field">Exp Date</label>
               <input
-                ref={receiveDateRef}
+                value={expDate}
+                onChange={(e) => setExpDate(e.target.value)}
+                placeholder="Mis: Sep 2027"
+                className="input-field text-sm py-2.5"
+              />
+            </div>
+          </div>
+
+          {/* Section 3: Receive Date + Qty */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="label-field">Receive Date</label>
+              <input
                 value={receiveDate}
                 onChange={(e) => setReceiveDate(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    // Auto-tab → Qty
-                    setTimeout(() => qtyRef.current?.focus(), 50);
-                  }
-                }}
                 placeholder="DD-Mon-YYYY"
-                className="input-field"
+                className="input-field text-sm py-2.5 font-medium"
               />
-            </Field>
-            <Field label="Qty">
+            </div>
+            <div>
+              <label className="label-field">Jumlah (Qty)</label>
               <input
                 ref={qtyRef}
                 type="number"
@@ -518,20 +496,20 @@ export default function ReturnFormPage() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    // Auto-tab → Distri/Event
-                    setTimeout(() => distriRef.current?.focus(), 50);
+                    distriRef.current?.focus();
                   }
                 }}
                 placeholder="0"
                 min="1"
-                className="input-field"
+                className="input-field text-sm py-2.5 font-bold"
               />
-            </Field>
+            </div>
           </div>
 
-          {/* Distri/Event */}
-          <Field label="Distri / Event">
+          {/* Section 4: Distri / Event + PIC (Grid 2 Kolom) */}
+          <div className="grid grid-cols-2 gap-2.5">
             <div className="relative">
+              <label className="label-field">Distri / Event</label>
               <input
                 ref={distriRef}
                 value={distriEvent}
@@ -541,11 +519,11 @@ export default function ReturnFormPage() {
                 }}
                 onFocus={() => setShowDistriDropdown(true)}
                 onBlur={() => setTimeout(() => setShowDistriDropdown(false), 150)}
-                placeholder="Ketik atau pilih..."
-                className="input-field"
+                placeholder="Ketik distri..."
+                className="input-field text-sm py-2.5"
               />
               {showDistriDropdown && distriHistory.length > 0 && (
-                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-40 overflow-y-auto">
                   {distriHistory
                     .filter((h) => !distriEvent.trim() || h.toLowerCase().includes(distriEvent.toLowerCase()))
                     .map((item, idx) => (
@@ -557,7 +535,7 @@ export default function ReturnFormPage() {
                           setDistriEvent(item);
                           setShowDistriDropdown(false);
                         }}
-                        className="w-full text-left px-4 py-3 text-base text-gray-700 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors"
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 border-b border-gray-50 last:border-0 truncate"
                       >
                         {item}
                       </button>
@@ -565,52 +543,57 @@ export default function ReturnFormPage() {
                 </div>
               )}
             </div>
-          </Field>
 
-          <div className="h-px bg-gray-100" />
-
-          {/* Keterangan */}
-          <Field label="Keterangan">
-            <div className="space-y-2 bg-gray-50 rounded-xl p-3.5">
-              {KETERANGAN_OPTIONS.map((opt) => (
-                <label key={opt} className="flex items-start gap-3 cursor-pointer py-0.5">
-                  <input
-                    type="checkbox"
-                    checked={keteranganList.includes(opt)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setKeteranganList((prev) => [...prev, opt]);
-                      } else {
-                        setKeteranganList((prev) => prev.filter((v) => v !== opt));
-                      }
-                    }}
-                    className="w-5 h-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900 shrink-0 mt-0.5"
-                  />
-                  <span className="text-sm text-gray-700 leading-snug">{opt}</span>
-                </label>
-              ))}
+            <div>
+              <label className="label-field">PIC</label>
+              <input
+                value={pic}
+                onChange={(e) => setPic(e.target.value)}
+                placeholder="PIC"
+                className="input-field text-sm py-2.5"
+              />
             </div>
-            {keteranganList.length > 0 && (
-              <p className="text-xs text-gray-400 mt-1.5">{keteranganList.join("; ")}</p>
-            )}
-          </Field>
+          </div>
 
-          {/* PIC */}
-          <Field label="PIC">
-            <input value={pic} onChange={(e) => setPic(e.target.value)} placeholder="Opsional" className="input-field" />
-          </Field>
+          {/* Section 5: Keterangan (Pill Chips) */}
+          <div>
+            <label className="label-field">Kondisi / Keterangan</label>
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              {KETERANGAN_OPTIONS.map((opt) => {
+                const active = keteranganList.includes(opt);
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => toggleKeterangan(opt)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                      active
+                        ? "bg-gray-900 text-white border-gray-900 shadow-xs"
+                        : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    {active ? "✓ " : ""}{opt}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Buttons */}
-          <div className="flex gap-2.5 pt-1">
-            <button type="button" onClick={() => navigate("/")} className="flex-1 btn-outline py-3">
+          <div className="flex gap-2 pt-2 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="flex-1 btn-outline py-2.5 text-xs font-bold"
+            >
               Kembali
             </button>
             <button
               type="submit"
               disabled={!canSubmit || submitting || loadingProducts || loadingBatches}
-              className="flex-1 btn-primary py-3"
+              className="flex-1 btn-primary py-2.5 text-xs font-bold"
             >
-              {submitting ? "Menyimpan..." : "Simpan"}
+              {submitting ? "Menyimpan..." : "Simpan Retur"}
             </button>
           </div>
         </div>
@@ -628,25 +611,32 @@ export default function ReturnFormPage() {
       {/* Confirm Dialog */}
       {confirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setConfirmOpen(false)} />
-          <div className="relative card p-5 max-w-sm w-full space-y-4">
-            <h3 className="font-bold text-base text-gray-900">Konfirmasi</h3>
-            <div className="bg-gray-50 rounded-xl p-3.5 space-y-2 text-sm">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={() => setConfirmOpen(false)} />
+          <div className="relative card p-5 max-w-xs w-full space-y-3.5">
+            <h3 className="font-bold text-sm text-gray-900 text-center">Konfirmasi Simpan Retur</h3>
+            <div className="bg-gray-50 rounded-xl p-3 space-y-1.5 text-xs">
               <Row label="Sheet" value={targetSheet} />
               <Row label="Produk" value={selectedProduct?.product || "-"} />
-              <Row label="Barcode" value={selectedProduct?.barcode || "-"} mono />
-              <Row label="Batch" value={`${batch} — ${expDate}`} />
-              <Row label="Distri/Event" value={distriEvent} />
-              <Row label="Qty" value={qty} />
+              <Row label="Batch" value={`${batch} (${expDate})`} />
+              <Row label="Qty" value={qty} bold />
+              <Row label="Distri" value={distriEvent} />
               {pic && <Row label="PIC" value={pic} />}
               {keteranganList.length > 0 && <Row label="Keterangan" value={keteranganList.join("; ")} />}
             </div>
-            <div className="flex gap-2.5">
-              <button onClick={() => setConfirmOpen(false)} className="flex-1 btn-outline">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                className="flex-1 btn-outline py-2 text-xs"
+              >
                 Batal
               </button>
-              <button onClick={doSubmit} className="flex-1 btn-primary">
-                Simpan
+              <button
+                type="button"
+                onClick={doSubmit}
+                className="flex-1 btn-primary py-2 text-xs"
+              >
+                Ya, Simpan
               </button>
             </div>
           </div>
@@ -656,20 +646,11 @@ export default function ReturnFormPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="label-field">{label}</label>
-      {children}
-    </div>
-  );
-}
-
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
     <div className="flex justify-between gap-2">
-      <span className="text-gray-500 shrink-0">{label}</span>
-      <span className={`text-gray-800 font-medium text-right truncate ${mono ? "font-mono" : ""}`}>{value}</span>
+      <span className="text-gray-400 shrink-0">{label}:</span>
+      <span className={`text-gray-900 text-right truncate ${bold ? "font-bold" : "font-medium"}`}>{value}</span>
     </div>
   );
 }
