@@ -174,7 +174,7 @@ export async function createReturn(
         body: JSON.stringify({ action: "returns", sheet, payload }),
       },
       "Gagal submit retur",
-      30000
+      60000
     );
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal submit retur";

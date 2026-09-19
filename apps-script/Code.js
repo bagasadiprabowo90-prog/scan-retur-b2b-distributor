@@ -413,11 +413,14 @@ function appendReturn_(payload, sheetName) {
     var lastRow = sh.getLastRow();
     var lastCol = map._lastCol || sh.getLastColumn();
 
-    // Cek duplikat cepat hanya pada 20 baris terakhir (mencegah double-click & request berulang akibat lag)
+    // Cek duplikat cepat: hanya anggap duplikat jika data PERSIS sama ditulis dalam 60 detik terakhir
+    // Ini mencegah double-click / network retry, tapi tetap membolehkan input ulang yang disengaja
     if (lastRow >= 2) {
-      var checkRowCount = Math.min(lastRow - 1, 20);
+      var checkRowCount = Math.min(lastRow - 1, 5);
       var startRow = lastRow - checkRowCount + 1;
       var recentValues = sh.getRange(startRow, 1, checkRowCount, lastCol).getValues();
+      var now = new Date().getTime();
+      var DUPLICATE_WINDOW_MS = 60 * 1000; // 60 detik
 
       for (var r = recentValues.length - 1; r >= 0; r--) {
         var row = recentValues[r];
@@ -434,7 +437,19 @@ function appendReturn_(payload, sheetName) {
           existQty === qty &&
           existDistri === String(payload.distriEvent).trim()
         ) {
-          return { rowNumber: startRow + r, isDuplicate: true };
+          // Cek timestamp: hanya blokir jika row ditulis dalam window waktu singkat
+          var rowTimestamp = 0;
+          if (map["timestamp"]) {
+            var tsVal = row[map["timestamp"] - 1];
+            if (tsVal instanceof Date) rowTimestamp = tsVal.getTime();
+            else if (tsVal) rowTimestamp = new Date(tsVal).getTime();
+          }
+          // Jika ada kolom timestamp dan masih dalam window → duplikat
+          // Jika tidak ada kolom timestamp, skip pengecekan (izinkan insert)
+          if (map["timestamp"] && rowTimestamp > 0 && (now - rowTimestamp) < DUPLICATE_WINDOW_MS) {
+            return { rowNumber: startRow + r, isDuplicate: true };
+          }
+          // Jika tidak ada timestamp atau sudah lewat window, lanjut insert baris baru
         }
       }
     }
@@ -451,6 +466,10 @@ function appendReturn_(payload, sheetName) {
     newRow[map["qty"] - 1] = qty;
     newRow[map["keterangan"] - 1] = payload.keterangan || "";
     newRow[map["pic"] - 1] = payload.pic || "";
+    // Tulis timestamp untuk deteksi duplikat berbasis waktu
+    if (map["timestamp"]) {
+      newRow[map["timestamp"] - 1] = new Date();
+    }
 
     var targetRow = lastRow + 1;
     sh.getRange(targetRow, 1, 1, lastCol).setValues([newRow]);

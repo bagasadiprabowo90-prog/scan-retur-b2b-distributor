@@ -123,6 +123,7 @@ export default function ReturnFormPage() {
   const qtyRef = useRef<HTMLInputElement>(null);
   const distriRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const submitLockRef = useRef(false);
 
   const debouncedSearch = useDebounce(productSearch, 150);
 
@@ -268,7 +269,8 @@ export default function ReturnFormPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (submitting || !canSubmit) return;
+    if (submitting || !canSubmit || submitLockRef.current) return;
+    submitLockRef.current = true;
     setSubmitting(true);
     setToast(null);
 
@@ -298,8 +300,12 @@ export default function ReturnFormPage() {
           successMessage: `Data berhasil disimpan di sheet ${res.sheet} (row ${res.appendedRow}).`,
         },
       });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Terjadi kesalahan saat menyimpan data";
+      setToast({ type: "error", msg });
     } finally {
       setSubmitting(false);
+      submitLockRef.current = false;
     }
   }
 
