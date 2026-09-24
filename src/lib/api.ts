@@ -170,7 +170,10 @@ async function safeFetchJson<T>(
 // cache basi tetap menjadi fallback jika Google Apps Script gagal diakses.
 // ============================================================
 
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 menit
+// Cache server sendiri hanya bertahan 10 menit, jadi TTL lokal yang pendek
+// sudah cukup untuk melihat perubahan master tanpa memaksa `force=1`.
+// `force=1` dihindari karena memicu pembacaan penuh master sheet.
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 menit
 const LS_PRODUCTS = "scan-retur-cache-products-v2";
 const LS_BATCHES = "scan-retur-cache-batches-v2";
 
@@ -281,9 +284,7 @@ export async function fetchBatches(force = false): Promise<BatchesResponse> {
   }
 
   try {
-    // Cache lokal kedaluwarsa berarti server juga harus melewati cache-nya,
-    // supaya edit langsung di Google Sheets terlihat paling lambat 30 menit.
-    const data = await fetchBatchesNetwork(force || Boolean(cached && !cached.fresh));
+    const data = await fetchBatchesNetwork(force);
     if (data.ok) writeCache(LS_BATCHES, data.batches);
     return data;
   } catch (e: unknown) {
@@ -302,7 +303,7 @@ export async function fetchProducts(force = false): Promise<ProductsResponse> {
   }
 
   try {
-    const data = await fetchProductsNetwork(force || Boolean(cached && !cached.fresh));
+    const data = await fetchProductsNetwork(force);
     if (data.ok) writeCache(LS_PRODUCTS, data.products);
     return data;
   } catch (e: unknown) {
@@ -354,32 +355,100 @@ export function createReturnRequestId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+type VerifyReturnResponse =
+  | { ok: true; saved: boolean; rowNumber: number; sheet: string }
+  | { ok: false; error: string };
+
+// Membatalkan fetch TIDAK membatalkan eksekusi Apps Script. Karena itu setiap
+// kegagalan submit harus dipastikan dulu: barisnya mungkin sudah tertulis.
+// null = status belum bisa dipastikan.
+async function verifyReturnSaved(
+  sheet: string,
+  clientId: string
+): Promise<{ saved: boolean; rowNumber: number } | null> {
+  try {
+    const base = getBaseUrl();
+    const url =
+      `${base}?action=checkreturn` +
+      `&sheet=${encodeURIComponent(sheet)}` +
+      `&requestId=${encodeURIComponent(clientId)}`;
+    const res = await safeFetchJson<VerifyReturnResponse>(
+      url,
+      undefined,
+      "Gagal memeriksa status penyimpanan",
+      15000,
+      2
+    );
+    if (!res.ok) return null;
+    return { saved: res.saved, rowNumber: res.rowNumber };
+  } catch {
+    return null;
+  }
+}
+
+function postReturn(
+  payload: CreateReturnPayload,
+  sheet: string,
+  clientId: string
+): Promise<CreateReturnResponse> {
+  const base = getBaseUrl();
+  return safeFetchJson<CreateReturnResponse>(
+    base,
+    {
+      method: "POST",
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ action: "returns", sheet, clientId, payload }),
+    },
+    "Gagal submit retur",
+    // Apps Script bisa perlu puluhan detik saat cold start. Tanpa retry
+    // otomatis: hasil ambigu diselesaikan lewat verifikasi, bukan kiriman ulang.
+    45000,
+    0
+  );
+}
+
 export async function createReturn(
   payload: CreateReturnPayload,
   sheet: string,
   clientId: string
 ): Promise<CreateReturnResponse> {
-  // clientId dibuat oleh form dan dipertahankan ketika hasil submit ambigu.
-  // Retry otomatis maupun retry manual memakai ID yang sama.
+  // clientId dibuat oleh form dan dipertahankan ketika hasil submit ambigu,
+  // sehingga percobaan berikutnya tidak menghasilkan baris ganda.
+  let lastError = "Gagal submit retur";
 
-  try {
-    const base = getBaseUrl();
-    return await safeFetchJson<CreateReturnResponse>(
-      base,
-      {
-        method: "POST",
-        redirect: "follow",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "returns", sheet, clientId, payload }),
-      },
-      "Gagal submit retur",
-      20000,
-      1
-    );
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Gagal submit retur";
-    return { ok: false, error: msg };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await postReturn(payload, sheet, clientId);
+    } catch (e: unknown) {
+      lastError = e instanceof Error ? e.message : "Gagal submit retur";
+    }
+
+    const verified = await verifyReturnSaved(sheet, clientId);
+
+    // Sudah tertulis di Google Sheets -> laporkan sukses, jangan kirim ulang.
+    if (verified?.saved) {
+      return {
+        ok: true,
+        appendedRow: verified.rowNumber,
+        sheet,
+        isDuplicate: true,
+      };
+    }
+
+    // Status tidak bisa dipastikan -> berhenti, jangan ambil risiko duplikat.
+    if (verified === null) {
+      return {
+        ok: false,
+        error: `${lastError} Status penyimpanan belum bisa dipastikan. Periksa Riwayat sebelum menyimpan ulang.`,
+      };
+    }
+
+    // verified.saved === false: benar-benar belum tersimpan, aman dicoba ulang.
+    if (attempt === 0) await sleep(1000);
   }
+
+  return { ok: false, error: lastError };
 }
 
 export type EditReturnResponse =

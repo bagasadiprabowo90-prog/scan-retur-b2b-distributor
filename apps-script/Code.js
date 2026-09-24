@@ -33,6 +33,12 @@ var CACHE_KEY_PRODUCTS = "products_v3";
 var CACHE_KEY_BATCHES = "batches_v3";
 var IDEM_TTL_SECONDS = 21600; // 6 jam
 
+// Master data dicache singkat supaya perubahan manual di Google Sheets terlihat
+// tanpa memaksa aplikasi melewati cache server setiap kali.
+var MASTER_CACHE_TTL_SECONDS = 600; // 10 menit
+var MASTER_GEN_PROPERTY = "master_generation";
+var CACHE_KEY_MASTER_GEN = "master_gen_v1";
+
 function getCache_() {
   return CacheService.getScriptCache();
 }
@@ -61,8 +67,36 @@ function acquireWriteLock_() {
   return lock;
 }
 
+// Generation counter menandai versi master sheet. Disimpan di ScriptProperties
+// supaya tetap ada walaupun CacheService dibersihkan.
+function getMasterGeneration_() {
+  var cached = cacheGetText_(CACHE_KEY_MASTER_GEN);
+  if (cached) return cached;
+
+  var value = "0";
+  try {
+    value = PropertiesService.getScriptProperties().getProperty(MASTER_GEN_PROPERTY) || "0";
+  } catch (e) {
+    return "0";
+  }
+
+  cachePutText_(CACHE_KEY_MASTER_GEN, value, CACHE_TTL_SECONDS);
+  return value;
+}
+
+function bumpMasterGeneration_() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var next = String(Number(props.getProperty(MASTER_GEN_PROPERTY) || 0) + 1);
+    props.setProperty(MASTER_GEN_PROPERTY, next);
+    cachePutText_(CACHE_KEY_MASTER_GEN, next, CACHE_TTL_SECONDS);
+  } catch (e) {
+    // Gagal menaikkan generation cukup ditangani oleh invalidasi cache.
+  }
+}
+
 // CacheService dibatasi ~100KB per key, jadi payload besar dipecah jadi chunk.
-function cachePutLarge_(key, value) {
+function cachePutLarge_(key, value, ttlSeconds) {
   try {
     var json = JSON.stringify(value);
     // Batas CacheService dihitung dalam byte, bukan karakter. 40.000 karakter
@@ -75,7 +109,7 @@ function cachePutLarge_(key, value) {
       payload[key + "_p" + i] = json.substring(i * CHUNK, (i + 1) * CHUNK);
     }
     payload[key + "_meta"] = String(total);
-    getCache_().putAll(payload, CACHE_TTL_SECONDS);
+    getCache_().putAll(payload, ttlSeconds || CACHE_TTL_SECONDS);
   } catch (e) {
     // cache gagal bukan error fatal
   }
@@ -193,6 +227,32 @@ function ensureRequestIdColumn_(sheet, map) {
   return col;
 }
 
+// Dipakai aplikasi untuk memastikan apakah sebuah submit benar-benar tersimpan
+// setelah koneksi timeout. Hanya membaca, tanpa lock, jadi selalu cepat.
+function findReturnRowByRequestId_(sheetName, clientId) {
+  if (!ALLOWED_RETURN_SHEETS.includes(sheetName)) {
+    throw new Error("Sheet tidak diizinkan: " + sheetName);
+  }
+  var cleanId = String(clientId || "").trim();
+  if (!cleanId) throw new Error("Request ID tidak boleh kosong");
+
+  var idemKey = "idem_" + sheetName + "_" + cleanId;
+  var cached = cacheGetText_(idemKey);
+  if (cached) {
+    var cachedRow = parseInt(cached, 10);
+    if (isFinite(cachedRow) && cachedRow > 0) return cachedRow;
+  }
+
+  var sh = getSheet(sheetName);
+  var map = getHeaderMap(sh);
+  var col = map["request id"];
+  if (!col) return 0;
+
+  var row = findRowByRequestId_(sh, col, cleanId);
+  if (row > 0) cachePutText_(idemKey, String(row), IDEM_TTL_SECONDS);
+  return row;
+}
+
 function findRowByRequestId_(sheet, requestIdCol, clientId) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return 0;
@@ -303,6 +363,10 @@ function formatReceiveDate_(raw) {
   return String(raw).trim();
 }
 
+// PENTING: fungsi ini TIDAK BOLEH mengambil write lock. Membaca master sheet
+// di dalam lock yang sama dengan appendReturn_ membuat penyimpanan retur
+// mengantre di belakang pembacaan, lalu timeout di sisi aplikasi walaupun
+// barisnya tetap tertulis. Konsistensi cache dijaga generation counter.
 function getMasterData_(force) {
   if (!force) {
     var cachedProducts = cacheGetLarge_(CACHE_KEY_PRODUCTS);
@@ -312,20 +376,9 @@ function getMasterData_(force) {
     }
   }
 
-  // Cache fill dan append batch memakai lock yang sama. Ini mencegah snapshot
-  // lama dipublikasikan kembali setelah batch baru selesai ditulis.
-  var lock = acquireWriteLock_();
-  try {
-    // Request lain mungkin sudah mengisi cache saat menunggu lock.
-    if (!force) {
-      var productsAfterLock = cacheGetLarge_(CACHE_KEY_PRODUCTS);
-      var batchesAfterLock = cacheGetLarge_(CACHE_KEY_BATCHES);
-      if (productsAfterLock && batchesAfterLock) {
-        return { products: productsAfterLock, batches: batchesAfterLock };
-      }
-    }
+  var generationBefore = getMasterGeneration_();
 
-    var sh = getSheet(MASTER_SHEET_NAME);
+  var sh = getSheet(MASTER_SHEET_NAME);
   var map = getHeaderMap(sh);
   var colBarcode = map["barcode"];
   var colSku = map["sku"];
@@ -380,12 +433,14 @@ function getMasterData_(force) {
     });
   }
 
-    cachePutLarge_(CACHE_KEY_PRODUCTS, products);
-    cachePutLarge_(CACHE_KEY_BATCHES, batches);
-    return { products: products, batches: batches };
-  } finally {
-    lock.releaseLock();
+  // Publikasikan hanya jika master sheet tidak berubah selama pembacaan.
+  // Snapshot lama tidak boleh menimpa hasil append batch yang lebih baru.
+  if (getMasterGeneration_() === generationBefore) {
+    cachePutLarge_(CACHE_KEY_PRODUCTS, products, MASTER_CACHE_TTL_SECONDS);
+    cachePutLarge_(CACHE_KEY_BATCHES, batches, MASTER_CACHE_TTL_SECONDS);
   }
+
+  return { products: products, batches: batches };
 }
 
 function listBatches_(force) {
@@ -537,6 +592,9 @@ function appendBatch_(lot, expDate) {
     SpreadsheetApp.flush();
 
     // Batch baru -> cache batches wajib dibuang supaya langsung muncul di aplikasi.
+    // Generation dinaikkan agar pembacaan yang sedang berjalan tidak
+    // mempublikasikan snapshot sebelum append ini.
+    bumpMasterGeneration_();
     cacheInvalidateLarge_(CACHE_KEY_BATCHES);
 
     return targetRow;
@@ -742,6 +800,18 @@ function doGet(e) {
       if (!found) return jsonOut({ ok: false, error: "Barcode not found in master" });
 
       return jsonOut({ ok: true, ...found });
+    }
+
+    if (action === "checkreturn") {
+      const checkSheet = String((e.parameter && e.parameter.sheet) || "").trim();
+      const checkRequestId = String((e.parameter && e.parameter.requestId) || "").trim();
+      const foundRow = findReturnRowByRequestId_(checkSheet, checkRequestId);
+      return jsonOut({
+        ok: true,
+        saved: foundRow > 0,
+        rowNumber: foundRow,
+        sheet: checkSheet,
+      });
     }
 
     const force = String((e.parameter && e.parameter.force) || "") === "1";
