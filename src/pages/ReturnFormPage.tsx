@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import BatchPickerModal from "../components/BatchPickerModal";
 import {
   createReturn,
+  createReturnRequestId,
   fetchBatches,
   fetchProducts,
   type BatchItem,
@@ -124,6 +125,10 @@ export default function ReturnFormPage() {
   const distriRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const submitLockRef = useRef(false);
+  const pendingSubmitRef = useRef<{
+    fingerprint: string;
+    clientId: string;
+  } | null>(null);
 
   const debouncedSearch = useDebounce(productSearch, 150);
 
@@ -277,7 +282,7 @@ export default function ReturnFormPage() {
     try {
       saveDistriHistory(distriEvent);
 
-      const res = await createReturn({
+      const payload = {
         receiveDate,
         distriEvent,
         product: selectedProduct?.product || "",
@@ -287,13 +292,31 @@ export default function ReturnFormPage() {
         qty: Number(qty),
         keterangan: keteranganList.join("; "),
         pic,
-      }, targetSheet);
+      };
+      const fingerprint = JSON.stringify({ sheet: targetSheet, payload });
+
+      // Pertahankan ID operasi bila submit sebelumnya mungkin sudah masuk ke
+      // Google Sheets tetapi responsnya timeout. Perubahan isi form otomatis
+      // menghasilkan ID baru, sehingga input identik yang disengaja tetap boleh.
+      if (pendingSubmitRef.current?.fingerprint !== fingerprint) {
+        pendingSubmitRef.current = {
+          fingerprint,
+          clientId: createReturnRequestId(),
+        };
+      }
+
+      const res = await createReturn(
+        payload,
+        targetSheet,
+        pendingSubmitRef.current.clientId
+      );
 
       if (!res.ok) {
         setToast({ type: "error", msg: res.error });
         return;
       }
 
+      pendingSubmitRef.current = null;
       navigate("/", {
         replace: true,
         state: {
