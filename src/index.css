@@ -44,18 +44,26 @@ body {
   overflow: hidden;
 }
 
-/* html5-qrcode container - make video fill screen */
-#scanner-container {
-  width: 100%;
-  height: 100%;
+/* Stage kamera: dirender lebih besar lalu diperkecil via transform
+   (lihat ScanPage). Pusat layar = pusat area decode. */
+.scanner-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: 50% 50%;
 }
 
+#scanner-container {
+  width: 100%;
+}
+
+/* Video mengikuti rasio asli kamera. Jangan pakai object-fit: cover:
+   html5-qrcode memetakan area decode dengan asumsi video tidak terpotong,
+   sehingga cover membuat kotak di layar berbeda dari area decode. */
 #scanner-container video {
+  display: block !important;
   width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-  position: absolute !important;
-  inset: 0 !important;
+  height: auto !important;
 }
 
 /* Hide html5-qrcode's built-in scan region border */
@@ -69,13 +77,12 @@ body {
   display: none !important;
 }
 
+/* Ukuran diatur inline dari ScanPage agar sama persis dengan area decode. */
 .scanner-guide {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(80vw, 300px);
-  height: min(40vh, 180px);
   pointer-events: none;
   z-index: 5;
 }
@@ -118,23 +125,33 @@ body {
   border-bottom-right-radius: 8px;
 }
 
+/* Garis statis di tengah kotak: patokan agar barcode melintasi baris
+   yang dibaca decoder. */
 .scanner-scanline {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 4%;
+  right: 4%;
+  top: 50%;
   height: 2px;
-  background: linear-gradient(90deg, transparent, #22c55e, transparent);
+  margin-top: -1px;
+  background: linear-gradient(90deg, transparent, #22c55e 15%, #22c55e 85%, transparent);
   box-shadow: 0 0 8px #22c55e;
-  animation: scanLine 2s ease-in-out infinite;
+  animation: scanLinePulse 1.6s ease-in-out infinite;
 }
 
-@keyframes scanLine {
+@keyframes scanLinePulse {
   0%,
   100% {
-    top: 0;
+    opacity: 1;
   }
   50% {
-    top: calc(100% - 2px);
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanner-scanline {
+    animation: none;
   }
 }
 

@@ -1,7 +1,185 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Html5Qrcode } from "html5-qrcode";
+import {
+  Html5Qrcode,
+  Html5QrcodeScannerState,
+  Html5QrcodeSupportedFormats,
+} from "html5-qrcode";
 import { fetchProducts, type ProductItem } from "../lib/api";
+
+// ============================================================
+// KONFIGURASI SCANNER
+// ============================================================
+
+// Hanya format yang dipakai pada kemasan/karton produk. Format lain
+// memperlambat decode setiap frame dan menambah risiko salah baca.
+const SCAN_FORMATS = [
+  Html5QrcodeSupportedFormats.EAN_13,
+  Html5QrcodeSupportedFormats.EAN_8,
+  Html5QrcodeSupportedFormats.UPC_A,
+  Html5QrcodeSupportedFormats.UPC_E,
+  Html5QrcodeSupportedFormats.CODE_128,
+  Html5QrcodeSupportedFormats.CODE_39,
+  Html5QrcodeSupportedFormats.ITF,
+  Html5QrcodeSupportedFormats.QR_CODE,
+];
+
+// Tanpa resolusi eksplisit, browser memakai default rendah (umumnya
+// 640x480) sehingga garis barcode kecil pecah dan tidak terbaca.
+const CAMERA_WIDTH = 1920;
+const CAMERA_HEIGHT = 1080;
+
+// Kotak scan lebar dan pendek, sesuai bentuk barcode batang.
+const SCAN_BOX_WIDTH_RATIO = 0.9;
+const SCAN_BOX_HEIGHT_RATIO = 0.4; // tinggi kotak = 40% dari lebarnya
+
+// html5-qrcode mendecode canvas seukuran kotak scan dalam CSS pixel,
+// bukan resolusi asli kamera. Stage kamera dirender `scale` kali lebih
+// besar lalu diperkecil dengan CSS transform: tampilan tetap sama, tetapi
+// canvas decode mendekati resolusi asli kamera.
+const MAX_DECODE_SCALE = 2.5;
+const MAX_STAGE_WIDTH = 1280;
+
+const ZOOM_PRESETS = [1, 2, 3, 4, 5];
+// Zoom 2x membuat barcode kecil tampak besar dari jarak ±20 cm, jarak
+// yang masih bisa difokus lensa utama ponsel.
+const DEFAULT_ZOOM = 2;
+const ZOOM_STORAGE_KEY = "scan-retur-scan-zoom";
+
+type StageLayout = { width: number; scale: number };
+type GuideBox = { width: number; height: number };
+type ZoomRange = { min: number; max: number; step: number };
+type CameraFeatures = { zoom: ZoomRange | null; continuousFocus: boolean };
+
+// Properti Image Capture (zoom, focusMode) belum ada di tipe DOM TypeScript.
+type CameraTrackCapabilities = MediaTrackCapabilities & {
+  zoom?: { min?: number; max?: number; step?: number };
+  focusMode?: string[];
+};
+type CameraConstraintSet = MediaTrackConstraintSet & {
+  zoom?: number;
+  focusMode?: string;
+};
+
+function computeStageLayout(): StageLayout {
+  const width = Math.max(
+    1,
+    Math.round(document.documentElement.clientWidth || window.innerWidth)
+  );
+  const dpr = window.devicePixelRatio || 1;
+  const scale = Math.max(1, Math.min(dpr, MAX_DECODE_SCALE, MAX_STAGE_WIDTH / width));
+  return { width, scale };
+}
+
+function scanBoxFor(viewfinderWidth: number, viewfinderHeight: number): GuideBox {
+  const width = Math.floor(viewfinderWidth * SCAN_BOX_WIDTH_RATIO);
+  const height = Math.min(
+    Math.floor(width * SCAN_BOX_HEIGHT_RATIO),
+    Math.floor(viewfinderHeight * 0.9)
+  );
+  return { width: Math.max(50, width), height: Math.max(50, height) };
+}
+
+function readCameraFeatures(scanner: Html5Qrcode): CameraFeatures {
+  let caps: CameraTrackCapabilities;
+  try {
+    caps = scanner.getRunningTrackCapabilities() as CameraTrackCapabilities;
+  } catch {
+    // Browser tanpa MediaStreamTrack.getCapabilities().
+    return { zoom: null, continuousFocus: false };
+  }
+
+  const z = caps?.zoom;
+  const zoom =
+    z && typeof z.min === "number" && typeof z.max === "number" && z.max > z.min
+      ? {
+          min: z.min,
+          max: z.max,
+          step: typeof z.step === "number" && z.step > 0 ? z.step : 0.1,
+        }
+      : null;
+  const focusModes = caps?.focusMode;
+  const continuousFocus = Array.isArray(focusModes) && focusModes.includes("continuous");
+
+  return { zoom, continuousFocus };
+}
+
+function snapZoom(value: number, range: ZoomRange): number {
+  const clamped = Math.min(range.max, Math.max(range.min, value));
+  const stepped = range.min + Math.round((clamped - range.min) / range.step) * range.step;
+  return Math.min(range.max, Math.max(range.min, Number(stepped.toFixed(2))));
+}
+
+function buildZoomOptions(range: ZoomRange): number[] {
+  const options = ZOOM_PRESETS.filter((z) => z >= range.min && z <= range.max);
+  if (options.length === 0 || options[0] > range.min) {
+    options.unshift(snapZoom(range.min, range));
+  }
+  if (options.length < 2) {
+    options.push(snapZoom(Math.min(range.max, ZOOM_PRESETS[ZOOM_PRESETS.length - 1]), range));
+  }
+  return Array.from(new Set(options));
+}
+
+function readSavedZoom(): number | null {
+  try {
+    const raw = Number(localStorage.getItem(ZOOM_STORAGE_KEY));
+    return Number.isFinite(raw) && raw > 0 ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveZoom(value: number) {
+  try {
+    localStorage.setItem(ZOOM_STORAGE_KEY, String(value));
+  } catch {
+    // localStorage penuh/terblokir: preferensi zoom tidak disimpan.
+  }
+}
+
+function pickInitialZoom(options: number[]): number {
+  const target = readSavedZoom() ?? DEFAULT_ZOOM;
+  return options.reduce(
+    (best, z) => (Math.abs(z - target) < Math.abs(best - target) ? z : best),
+    options[0]
+  );
+}
+
+function readCurrentZoom(scanner: Html5Qrcode): number | null {
+  try {
+    const settings = scanner.getRunningTrackSettings() as MediaTrackSettings & {
+      zoom?: number;
+    };
+    return typeof settings.zoom === "number" ? settings.zoom : null;
+  } catch {
+    return null;
+  }
+}
+
+async function applyCameraTuning(
+  scanner: Html5Qrcode,
+  features: CameraFeatures,
+  zoom: number | null
+): Promise<boolean> {
+  const tuning: CameraConstraintSet = {};
+  if (zoom !== null && features.zoom) tuning.zoom = snapZoom(zoom, features.zoom);
+  if (features.continuousFocus) tuning.focusMode = "continuous";
+  if (tuning.zoom === undefined && tuning.focusMode === undefined) return false;
+
+  await scanner.applyVideoConstraints({
+    // applyConstraints mengganti seluruh constraint aktif. Resolusi diulang
+    // supaya kamera tidak turun ke resolusi default saat zoom diubah.
+    width: { ideal: CAMERA_WIDTH },
+    height: { ideal: CAMERA_HEIGHT },
+    advanced: [tuning],
+  });
+  return true;
+}
+
+function formatZoom(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
 
 export default function ScanPage() {
   const navigate = useNavigate();
@@ -9,6 +187,8 @@ export default function ScanPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const detectedRef = useRef<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const cameraFeaturesRef = useRef<CameraFeatures | null>(null);
+  const zoomBusyRef = useRef(false);
 
   // Scanner state
   const [scanning, setScanning] = useState(false);
@@ -17,6 +197,11 @@ export default function ScanPage() {
   const [error, setError] = useState("");
   const [successToast, setSuccessToast] = useState("");
   const [successFlash, setSuccessFlash] = useState(false);
+  const [stage, setStage] = useState<StageLayout>({ width: 360, scale: 1 });
+  const [guideBox, setGuideBox] = useState<GuideBox>({ width: 324, height: 130 });
+  const [zoomOptions, setZoomOptions] = useState<number[]>([]);
+  const [zoomLevel, setZoomLevel] = useState<number | null>(null);
+  const [zoomBusy, setZoomBusy] = useState(false);
 
   // Product search state
   const [products, setProducts] = useState<ProductItem[]>([]);
@@ -54,13 +239,38 @@ export default function ScanPage() {
     return () => window.clearTimeout(timer);
   }, [location.pathname, location.state, navigate]);
 
+  const stopScanner = useCallback(async () => {
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
+    cameraFeaturesRef.current = null;
+
+    try {
+      if (scanner) {
+        if (scanner.getState() === Html5QrcodeScannerState.SCANNING) {
+          await scanner.stop();
+        }
+        scanner.clear();
+      }
+    } catch (e) {
+      console.error("Error stopping scanner:", e);
+    }
+
+    zoomBusyRef.current = false;
+    setZoomBusy(false);
+    setZoomOptions([]);
+    setZoomLevel(null);
+    setScanning(false);
+    setStarted(false);
+    setStarting(false);
+    detectedRef.current = false;
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopScanner();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [stopScanner]);
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -93,26 +303,80 @@ export default function ScanPage() {
     [navigate]
   );
 
+  // Zoom dan fokus kontinu bersifat opsional: hanya diterapkan bila
+  // kamera/browser melaporkan dukungannya. Kegagalan tidak menghentikan scan.
+  const tuneCamera = useCallback(async (scanner: Html5Qrcode) => {
+    const features = readCameraFeatures(scanner);
+    cameraFeaturesRef.current = features;
+
+    try {
+      if (!features.zoom) {
+        await applyCameraTuning(scanner, features, null);
+        return;
+      }
+
+      const options = buildZoomOptions(features.zoom);
+      const initial = pickInitialZoom(options);
+      await applyCameraTuning(scanner, features, initial);
+      if (scannerRef.current !== scanner) return;
+
+      setZoomOptions(options);
+      setZoomLevel(readCurrentZoom(scanner) ?? initial);
+    } catch {
+      if (scannerRef.current === scanner && features.zoom) {
+        setZoomOptions(buildZoomOptions(features.zoom));
+        setZoomLevel(readCurrentZoom(scanner));
+      }
+    }
+  }, []);
+
   const startScanner = useCallback(async () => {
+    const layout = computeStageLayout();
     setError("");
     setStarting(true);
+    setStage(layout);
+    setGuideBox({
+      width: layout.width * SCAN_BOX_WIDTH_RATIO,
+      height: layout.width * SCAN_BOX_WIDTH_RATIO * SCAN_BOX_HEIGHT_RATIO,
+    });
+    setZoomOptions([]);
+    setZoomLevel(null);
+    cameraFeaturesRef.current = null;
     setStarted(true);
     detectedRef.current = false;
 
-    // Wait for the container to render
+    // Tunggu container ter-render dengan lebar stage yang benar.
     await new Promise((r) => setTimeout(r, 100));
 
     try {
-      const scanner = new Html5Qrcode("scanner-container");
+      const scanner = new Html5Qrcode("scanner-container", {
+        verbose: false,
+        formatsToSupport: SCAN_FORMATS,
+        useBarCodeDetectorIfSupported: true,
+      });
       scannerRef.current = scanner;
 
       await scanner.start(
         { facingMode: "environment" },
         {
           fps: 15,
-          qrbox: { width: 280, height: 150 },
-          aspectRatio: 1.0,
-          disableFlip: false,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const box = scanBoxFor(viewfinderWidth, viewfinderHeight);
+            // Kotak panduan di layar = area decode yang sebenarnya.
+            setGuideBox({
+              width: box.width / layout.scale,
+              height: box.height / layout.scale,
+            });
+            return box;
+          },
+          // Kamera belakang tidak menghasilkan gambar cermin; flip hanya
+          // menggandakan waktu decode per frame.
+          disableFlip: true,
+          videoConstraints: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: CAMERA_WIDTH },
+            height: { ideal: CAMERA_HEIGHT },
+          },
         },
         // Success callback
         (decodedText) => {
@@ -146,6 +410,7 @@ export default function ScanPage() {
 
       setScanning(true);
       setStarting(false);
+      void tuneCamera(scanner);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("Scanner start error:", msg);
@@ -159,42 +424,52 @@ export default function ScanPage() {
       } else {
         setError("❌ Error membuka kamera: " + msg);
       }
-      setStarted(false);
-      setStarting(false);
+      await stopScanner();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleScanResult]);
+  }, [handleScanResult, stopScanner, tuneCamera]);
 
-  const stopScanner = useCallback(async () => {
+  const changeZoom = useCallback(async (value: number) => {
+    const scanner = scannerRef.current;
+    const features = cameraFeaturesRef.current;
+    if (!scanner || !features?.zoom || zoomBusyRef.current) return;
+
+    zoomBusyRef.current = true;
+    setZoomBusy(true);
     try {
-      if (scannerRef.current) {
-        const state = scannerRef.current.getState();
-        // State 2 = scanning, need to stop first
-        if (state === 2) {
-          await scannerRef.current.stop();
-        }
-        scannerRef.current.clear();
-        scannerRef.current = null;
-      }
-    } catch (e) {
-      console.error("Error stopping scanner:", e);
+      await applyCameraTuning(scanner, features, value);
+      if (scannerRef.current !== scanner) return;
+      setZoomLevel(readCurrentZoom(scanner) ?? value);
+      saveZoom(value);
+    } catch {
+      // Nilai ditolak kamera; zoom sebelumnya tetap berlaku.
+    } finally {
+      zoomBusyRef.current = false;
+      setZoomBusy(false);
     }
-
-    setScanning(false);
-    setStarted(false);
-    setStarting(false);
-    detectedRef.current = false;
   }, []);
 
   // ---------- FULLSCREEN SCANNER RENDER ----------
   if (started) {
     return (
       <div className="scanner-fullscreen">
-        {/* html5-qrcode renders into this div */}
-        <div id="scanner-container" className="absolute inset-0 overflow-hidden" />
+        {/* Stage dirender `scale` kali lebih besar lalu diperkecil: tampilan
+            sama, tetapi html5-qrcode mendecode dengan resolusi lebih tinggi. */}
+        <div
+          className="scanner-stage"
+          style={{
+            width: `${stage.width * stage.scale}px`,
+            transform: `translate(-50%, -50%) scale(${1 / stage.scale})`,
+          }}
+        >
+          {/* html5-qrcode renders into this div */}
+          <div id="scanner-container" />
+        </div>
 
-        {/* Scanning guide overlay */}
-        <div className="scanner-guide">
+        {/* Scanning guide overlay: ukuran sama persis dengan area decode */}
+        <div
+          className="scanner-guide"
+          style={{ width: `${guideBox.width}px`, height: `${guideBox.height}px` }}
+        >
           <div className="scanner-guide-corner tl" />
           <div className="scanner-guide-corner tr" />
           <div className="scanner-guide-corner bl" />
@@ -204,11 +479,11 @@ export default function ScanPage() {
 
         {/* Top hint */}
         <div
-          className="absolute top-0 left-0 right-0 flex justify-center pointer-events-none z-10"
+          className="absolute top-0 left-0 right-0 flex justify-center pointer-events-none z-10 px-14"
           style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}
         >
-          <div className="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm">
-            {starting ? "Memulai kamera..." : "Arahkan kamera ke barcode"}
+          <div className="bg-black/60 text-white text-xs text-center px-3 py-1.5 rounded-full backdrop-blur-sm">
+            {starting ? "Memulai kamera..." : "Barcode di garis hijau, jarak ±20 cm"}
           </div>
         </div>
 
@@ -224,6 +499,39 @@ export default function ScanPage() {
         >
           ×
         </button>
+
+        {/* Zoom control: hanya tampil bila kamera mendukung zoom */}
+        {zoomOptions.length > 1 && (
+          <div
+            className="absolute left-0 right-0 z-10 flex justify-center"
+            style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
+          >
+            <div
+              role="group"
+              aria-label="Zoom kamera"
+              className="flex gap-1 rounded-full bg-black/60 p-1 backdrop-blur-sm"
+            >
+              {zoomOptions.map((z) => {
+                const active = zoomLevel !== null && Math.abs(z - zoomLevel) < 0.05;
+                return (
+                  <button
+                    key={z}
+                    type="button"
+                    onClick={() => void changeZoom(z)}
+                    disabled={zoomBusy}
+                    aria-pressed={active}
+                    aria-label={`Zoom ${formatZoom(z)} kali`}
+                    className={`h-11 min-w-[2.75rem] px-3 rounded-full text-sm font-bold transition-colors disabled:opacity-60 ${
+                      active ? "bg-white text-gray-900" : "text-white hover:bg-white/20"
+                    }`}
+                  >
+                    {formatZoom(z)}×
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Loading spinner */}
         {starting && (
@@ -243,7 +551,7 @@ export default function ScanPage() {
           <div
             className="absolute left-0 right-0 mx-4 bg-red-600 text-white text-sm px-4 py-3 rounded-xl shadow-lg z-10"
             style={{
-              bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)",
+              bottom: "calc(env(safe-area-inset-bottom, 0px) + 6.5rem)",
             }}
           >
             {error}
