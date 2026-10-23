@@ -1,10 +1,38 @@
 import { useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "./lib/auth";
+import { useAuth, type AppUser } from "./lib/auth";
 import LoginPage from "./pages/LoginPage";
 import ScanPage from "./pages/ScanPage";
 import ReturnFormPage from "./pages/ReturnFormPage";
 import HistoryPage from "./pages/HistoryPage";
+
+function UserAvatar({ user, size = "sm" }: { user: AppUser; size?: "sm" | "lg" }) {
+  const [hasError, setHasError] = useState(false);
+  const initial = (user.displayName || user.username || "U").charAt(0).toUpperCase();
+
+  const sizeClasses = size === "lg" ? "w-12 h-12 text-lg" : "w-5 h-5 text-[10px]";
+
+  if (user.picture && !hasError) {
+    return (
+      <img
+        src={user.picture}
+        alt={user.displayName}
+        referrerPolicy="no-referrer"
+        crossOrigin="anonymous"
+        onError={() => setHasError(true)}
+        className={`${sizeClasses} rounded-full object-cover shrink-0 ring-1 ring-white/20`}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`${sizeClasses} rounded-full bg-blue-600 text-white font-bold flex items-center justify-center shrink-0 ring-1 ring-white/20`}
+    >
+      {initial}
+    </div>
+  );
+}
 
 export default function App() {
   const { user, logout } = useAuth();
@@ -39,9 +67,10 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="bg-white/10 text-white/90 text-[11px] font-medium px-2.5 py-1 rounded-lg">
-              {user.displayName}
-            </span>
+            <div className="flex items-center gap-1.5 bg-white/10 text-white/90 text-[11px] font-medium px-2 py-1 rounded-lg">
+              <UserAvatar user={user} size="sm" />
+              <span className="truncate max-w-[110px]">{user.displayName}</span>
+            </div>
             <button
               onClick={() => setLogoutConfirm(true)}
               className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 transition-colors"
@@ -60,10 +89,16 @@ export default function App() {
       {logoutConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setLogoutConfirm(false)} />
-          <div className="relative card p-5 max-w-xs w-full space-y-4">
-            <h3 className="font-bold text-base text-gray-900 text-center">Logout?</h3>
-            <p className="text-sm text-gray-500 text-center">
-              Keluar dari akun <strong className="text-gray-700">{user.displayName}</strong>?
+          <div className="relative card p-5 max-w-xs w-full space-y-4 text-center">
+            <div className="flex justify-center mb-1">
+              <UserAvatar user={user} size="lg" />
+            </div>
+            <h3 className="font-bold text-base text-gray-900">Logout?</h3>
+            <p className="text-sm text-gray-500">
+              Keluar dari akun <strong className="text-gray-700">{user.displayName}</strong>
+              {user.email && (
+                <span className="block text-xs text-gray-400 mt-0.5">{user.email}</span>
+              )}?
             </p>
             <div className="flex gap-2.5">
               <button

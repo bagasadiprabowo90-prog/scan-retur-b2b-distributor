@@ -3,31 +3,41 @@ SETUP CHECKLIST - SCAN RETUR
 ============================
 
 1) apps-script/Code.js
-   - SPREADSHEET_ID sudah diisi (ambil dari URL Google Sheet)
-     Contoh URL: https://docs.google.com/spreadsheets/d/INI_SHEET_ID/edit
-   - MASTER_SHEET_NAME = "Master Product & Lots"  <- nama sheet harus PERSIS sama
-   - RETURNS_SHEET_NAME = "Bagas retur"           <- nama sheet harus PERSIS sama
+   - Salin isi Code.js ke Apps Script editor
+   - Jalankan fungsi 'setupEnvironment' (Run > setupEnvironment):
+     * Menyimpan SPREADSHEET_ID ke Script Properties dengan aman
+     * Membuat otomatis tab sheet 'Users' untuk whitelist email @blpbeauty.com
+   - Tab retur (mis. "Bagas", "Dimas") <- nama sheet harus PERSIS sama
 
 2) Deploy Apps Script sebagai Web App:
-   - Buka Apps Script (Extensions > Apps Script atau script.google.com)
-   - Paste isi Code.js
    - Klik Deploy > New deployment > Web App
    - Execute as: Me
    - Who has access: Anyone
    - Klik Deploy, copy URL yang muncul
 
-3) Buat file .env di root project (bukan .env.example):
-   VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/PASTE_URL_DISINI/exec
+3) Buat Google OAuth Client ID (untuk Google Sign-In @blpbeauty.com):
+   - Buka console.cloud.google.com > APIs & Services > Credentials
+   - Klik Create Credentials > OAuth client ID
+   - Application type: Web application
+   - Authorized JavaScript origins:
+     * http://localhost:5173 (untuk testing dev)
+     * https://scan-retur.vercel.app (URL domain Vercel Anda)
+   - Salin Client ID yang muncul (contoh: xxxxx-xxxxx.apps.googleusercontent.com)
 
-4) Jalankan aplikasi:
+4) Buat file .env di root project (bukan .env.example):
+   VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/PASTE_URL_DISINI/exec
+   VITE_GOOGLE_CLIENT_ID=PASTE_CLIENT_ID_GOOGLE_DISINI.apps.googleusercontent.com
+   ⚠️ PENTING: Jangan pernah commit file .env ke Git repository!
+
+5) Jalankan aplikasi:
    npm run dev        <- untuk development
    npm run build      <- untuk build production (deploy ke Vercel)
 
-5) Deploy ke Vercel:
-   - Pastikan sudah set VITE_APPS_SCRIPT_URL di Vercel > Settings > Environment Variables
+6) Deploy ke Vercel:
+   - Pastikan set VITE_APPS_SCRIPT_URL dan VITE_GOOGLE_CLIENT_ID di Vercel > Settings > Environment Variables
    - Push ke GitHub / drag-drop folder dist ke vercel.com
 
-6) Install sebagai PWA di HP:
+7) Install sebagai PWA di HP:
    - Buka URL aplikasi di Chrome (Android) atau Safari (iOS)
    - Android: menu titik tiga > "Add to Home screen"
    - iOS: tombol Share > "Add to Home Screen"
@@ -36,8 +46,13 @@ SETUP CHECKLIST - SCAN RETUR
 STRUKTUR KOLOM GOOGLE SHEET
 ===========================
 
-Sheet "Master Product & Lots" - wajib ada kolom:
-  barcode | SKU | Product | Lots | Exp Date
+1. Sheet "Users" (Whitelist Pengguna @blpbeauty.com):
+   Email | Nama Lengkap | Role | Status | Terakhir Login
+   Contoh:
+   bagas@blpbeauty.com | Bagas | User | Active | ...
 
-Sheet "Bagas retur" - wajib ada kolom:
-  Receive Date | Distri/Event | Product | Barcode | Batch | Exp Date | Qty | Keterangan | PIC
+2. Sheet "Master Product & Lots" - wajib ada kolom:
+   barcode | SKU | Product | Lots | Exp Date
+
+3. Sheet Retur (misal "Bagas" / "Dimas") - wajib ada kolom:
+   Receive Date | Distri/Event | Product | Barcode | Batch | Exp Date | Qty | Keterangan | PIC

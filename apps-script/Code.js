@@ -1,17 +1,186 @@
-// ⚠️  WAJIB DIGANTI: Paste Google Sheet ID kamu di sini
-// Cara mendapatkan ID: buka spreadsheet, URL-nya seperti
-// https://docs.google.com/spreadsheets/d/SHEET_ID_DISINI/edit
-const SPREADSHEET_ID = "1Ppz3hQrVBMjYTo0qDpQfylGKAdxDG98sVPdD6TRqEiU";
+// ============================================================
+// KONFIGURASI KEAMANAN & SPREADSHEET
+// ============================================================
+// Rekomendasi: Simpan ID Spreadsheet dan Token di Script Properties
+// (Apps Script > Project Settings > Script Properties) agar tidak
+// terekspos jika repositori ini bersifat publik / dishare.
+// Atau jalankan fungsi `setupEnvironment()` sekali di editor Apps Script.
+const SPREADSHEET_ID_FALLBACK = "1Ppz3hQrVBMjYTo0qDpQfylGKAdxDG98sVPdD6TRqEiU";
 const MASTER_SHEET_NAME = "Master Product & Lots";
+const USERS_SHEET_NAME = "Users";
+const REQUIRED_EMAIL_DOMAIN = "blpbeauty.com";
+const REQUIRE_USER_WHITELIST = true;
 const DEFAULT_HISTORY_LIMIT = 200;
 
 // Sheet retur yang tersedia (nama harus PERSIS sama dengan tab di Google Sheet)
 const ALLOWED_RETURN_SHEETS = ["Bagas", "Dimas"];
 
+function getSpreadsheetId_() {
+  try {
+    var propId = PropertiesService.getScriptProperties().getProperty("SPREADSHEET_ID");
+    if (propId && propId.trim()) return propId.trim();
+  } catch (e) {}
+
+  try {
+    var bound = SpreadsheetApp.getActiveSpreadsheet();
+    if (bound) return bound.getId();
+  } catch (e) {}
+
+  return SPREADSHEET_ID_FALLBACK;
+}
+
+function getApiSecretToken_() {
+  try {
+    return PropertiesService.getScriptProperties().getProperty("API_SECRET_TOKEN") || "";
+  } catch (e) {
+    return "";
+  }
+}
+
+function isAuthorized_(e, body) {
+  var secret = getApiSecretToken_();
+  // Jika API_SECRET_TOKEN belum diset di Script Properties, izinkan akses (backward-compatible)
+  if (!secret) return true;
+
+  var incoming = "";
+  if (e && e.parameter && e.parameter.token) {
+    incoming = String(e.parameter.token).trim();
+  } else if (body && body.token) {
+    incoming = String(body.token).trim();
+  }
+  return incoming === secret;
+}
+
+// Mencegah Formula Injection (CSV / Spreadsheet Formula Injection OWASP)
+function sanitizeSheetValue_(val) {
+  if (val == null) return "";
+  var str = String(val).trim();
+  if (/^[=\+\-@\t\r]/.test(str)) {
+    return "'" + str;
+  }
+  return str;
+}
+
+function normalizeEmail_(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function ensureUsersSheet_() {
+  var ss = getSpreadsheet();
+  var sh = ss.getSheetByName(USERS_SHEET_NAME);
+  if (!sh) {
+    sh = ss.insertSheet(USERS_SHEET_NAME);
+    sh.appendRow(["Email", "Nama Lengkap", "Role", "Status", "Terakhir Login"]);
+    var initialUsers = [
+      ["bagas@blpbeauty.com", "Bagas", "User", "Active", ""],
+      ["dimas@blpbeauty.com", "Dimas", "User", "Active", ""],
+      ["nur@blpbeauty.com", "Nur", "User", "Active", ""],
+      ["irwan@blpbeauty.com", "Irwan", "User", "Active", ""],
+    ];
+    sh.getRange(2, 1, initialUsers.length, 5).setValues(initialUsers);
+    SpreadsheetApp.flush();
+  }
+  return sh;
+}
+
+function verifyUserAccess_(email, fallbackName) {
+  var cleanEmail = normalizeEmail_(email);
+  if (!cleanEmail) {
+    return { ok: false, error: "Email wajib diisi" };
+  }
+
+  // 1. Validasi domain email wajib @blpbeauty.com
+  var expectedDomain = "@" + REQUIRED_EMAIL_DOMAIN.toLowerCase();
+  if (!cleanEmail.endsWith(expectedDomain)) {
+    return {
+      ok: false,
+      error: "Akses ditolak: Hanya akun email dengan domain @" + REQUIRED_EMAIL_DOMAIN + " yang diizinkan.",
+    };
+  }
+
+  // 2. Jika whitelist tidak diwajibkan, izinkan semua akun berdomain @blpbeauty.com
+  if (!REQUIRE_USER_WHITELIST) {
+    return {
+      ok: true,
+      email: cleanEmail,
+      displayName: fallbackName || cleanEmail.split("@")[0],
+      role: "User",
+    };
+  }
+
+  // 3. Pengecekan whitelist pada tab sheet 'Users'
+  try {
+    var sh = ensureUsersSheet_();
+    var lastRow = sh.getLastRow();
+    if (lastRow < 2) {
+      // Jika sheet baru/kosong, masukkan akun pertama otomatis
+      sh.appendRow([cleanEmail, fallbackName || cleanEmail.split("@")[0], "Admin", "Active", new Date()]);
+      SpreadsheetApp.flush();
+      return {
+        ok: true,
+        email: cleanEmail,
+        displayName: fallbackName || cleanEmail.split("@")[0],
+        role: "Admin",
+      };
+    }
+
+    var map = getHeaderMap(sh);
+    var colEmail = map["email"];
+    var colName = map["nama lengkap"] || map["name"] || map["nama"];
+    var colRole = map["role"];
+    var colStatus = map["status"];
+    var colLastLogin = map["terakhir login"] || map["last login"];
+
+    if (!colEmail || !colStatus) {
+      throw new Error("Sheet 'Users' wajib memiliki kolom: Email, Status");
+    }
+
+    var lastCol = map._lastCol || sh.getLastColumn();
+    var values = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+    for (var i = 0; i < values.length; i++) {
+      var row = values[i];
+      var rowEmail = normalizeEmail_(row[colEmail - 1]);
+      if (rowEmail === cleanEmail) {
+        var status = String(row[colStatus - 1] || "").trim().toLowerCase();
+        if (status !== "active" && status !== "aktif") {
+          return {
+            ok: false,
+            error: "Akun Anda (" + cleanEmail + ") berstatus non-aktif di sistem. Silakan hubungi Admin.",
+          };
+        }
+
+        var userName = colName ? String(row[colName - 1] || "").trim() : "";
+        var userRole = colRole ? String(row[colRole - 1] || "").trim() : "User";
+
+        if (colLastLogin) {
+          try {
+            sh.getRange(i + 2, colLastLogin).setValue(new Date());
+          } catch (e) {}
+        }
+
+        return {
+          ok: true,
+          email: cleanEmail,
+          displayName: userName || fallbackName || cleanEmail.split("@")[0],
+          role: userRole || "User",
+        };
+      }
+    }
+
+    return {
+      ok: false,
+      error: "Email '" + cleanEmail + "' belum terdaftar di daftar pengguna Scan Retur. Hubungi Admin BLP untuk didaftarkan.",
+    };
+  } catch (err) {
+    return { ok: false, error: "Gagal memverifikasi akun: " + String(err && err.message ? err.message : err) };
+  }
+}
+
 var _ssCache = null;
 function getSpreadsheet() {
   if (!_ssCache) {
-    _ssCache = SpreadsheetApp.openById(SPREADSHEET_ID);
+    _ssCache = SpreadsheetApp.openById(getSpreadsheetId_());
   }
   return _ssCache;
 }
@@ -585,8 +754,8 @@ function appendBatch_(lot, expDate) {
     var targetRow = lastRow + 1;
     var newRow = new Array(lastCol);
     for (var c = 0; c < lastCol; c++) newRow[c] = "";
-    newRow[colLot - 1] = lotTrimmed;
-    newRow[colExp - 1] = expTrimmed;
+    newRow[colLot - 1] = sanitizeSheetValue_(lotTrimmed);
+    newRow[colExp - 1] = sanitizeSheetValue_(expTrimmed);
 
     sh.getRange(targetRow, 1, 1, lastCol).setValues([newRow]);
     SpreadsheetApp.flush();
@@ -686,15 +855,15 @@ function appendReturn_(payload, sheetName, clientId) {
     var newRow = new Array(lastCol);
     for (var c = 0; c < lastCol; c++) newRow[c] = "";
 
-    newRow[map["receive date"] - 1] = payload.receiveDate || "";
-    newRow[map["distri/event"] - 1] = payload.distriEvent || "";
-    newRow[map["product"] - 1] = payload.product || "";
-    newRow[map["barcode"] - 1] = payload.barcode || "";
-    newRow[map["batch"] - 1] = payload.batch || "";
-    newRow[map["exp date"] - 1] = payload.expDate || "";
+    newRow[map["receive date"] - 1] = sanitizeSheetValue_(payload.receiveDate);
+    newRow[map["distri/event"] - 1] = sanitizeSheetValue_(payload.distriEvent);
+    newRow[map["product"] - 1] = sanitizeSheetValue_(payload.product);
+    newRow[map["barcode"] - 1] = sanitizeSheetValue_(payload.barcode);
+    newRow[map["batch"] - 1] = sanitizeSheetValue_(payload.batch);
+    newRow[map["exp date"] - 1] = sanitizeSheetValue_(payload.expDate);
     newRow[map["qty"] - 1] = qty;
-    newRow[map["keterangan"] - 1] = payload.keterangan || "";
-    newRow[map["pic"] - 1] = payload.pic || "";
+    newRow[map["keterangan"] - 1] = sanitizeSheetValue_(payload.keterangan);
+    newRow[map["pic"] - 1] = sanitizeSheetValue_(payload.pic);
     if (map["timestamp"]) {
       newRow[map["timestamp"] - 1] = new Date();
     }
@@ -746,15 +915,15 @@ function editReturn_(sheetName, rowNumber, payload) {
     var lastCol = map._lastCol || sh.getLastColumn();
     var existingRow = sh.getRange(row, 1, 1, lastCol).getValues()[0];
 
-    if (map["receive date"]) existingRow[map["receive date"] - 1] = payload.receiveDate || "";
-    if (map["distri/event"]) existingRow[map["distri/event"] - 1] = payload.distriEvent || "";
-    if (map["product"]) existingRow[map["product"] - 1] = payload.product || "";
-    if (map["barcode"]) existingRow[map["barcode"] - 1] = payload.barcode || "";
-    if (map["batch"]) existingRow[map["batch"] - 1] = payload.batch || "";
-    if (map["exp date"]) existingRow[map["exp date"] - 1] = payload.expDate || "";
+    if (map["receive date"]) existingRow[map["receive date"] - 1] = sanitizeSheetValue_(payload.receiveDate);
+    if (map["distri/event"]) existingRow[map["distri/event"] - 1] = sanitizeSheetValue_(payload.distriEvent);
+    if (map["product"]) existingRow[map["product"] - 1] = sanitizeSheetValue_(payload.product);
+    if (map["barcode"]) existingRow[map["barcode"] - 1] = sanitizeSheetValue_(payload.barcode);
+    if (map["batch"]) existingRow[map["batch"] - 1] = sanitizeSheetValue_(payload.batch);
+    if (map["exp date"]) existingRow[map["exp date"] - 1] = sanitizeSheetValue_(payload.expDate);
     if (map["qty"]) existingRow[map["qty"] - 1] = qty;
-    if (map["keterangan"]) existingRow[map["keterangan"] - 1] = payload.keterangan || "";
-    if (map["pic"]) existingRow[map["pic"] - 1] = payload.pic || "";
+    if (map["keterangan"]) existingRow[map["keterangan"] - 1] = sanitizeSheetValue_(payload.keterangan);
+    if (map["pic"]) existingRow[map["pic"] - 1] = sanitizeSheetValue_(payload.pic);
 
     sh.getRange(row, 1, 1, lastCol).setValues([existingRow]);
     SpreadsheetApp.flush();
@@ -791,6 +960,10 @@ function deleteReturn_(sheetName, rowNumber) {
 
 function doGet(e) {
   try {
+    if (!isAuthorized_(e, null)) {
+      return jsonOut({ ok: false, error: "Akses ditolak: Token API tidak valid atau belum diisi." });
+    }
+
     const action = (e && e.parameter && e.parameter.action) || "";
     if (action === "master") {
       const barcode = (e.parameter.barcode || "").trim();
@@ -855,6 +1028,12 @@ function doGet(e) {
       return jsonOut({ ok: true, refreshed: true });
     }
 
+    if (action === "verifyuser") {
+      const email = String((e.parameter && e.parameter.email) || "").trim();
+      const name = String((e.parameter && e.parameter.name) || "").trim();
+      return jsonOut(verifyUserAccess_(email, name));
+    }
+
     if (action === "history") {
       const result = listReturnHistory_(e.parameter.limit);
       return jsonOut({ ok: true, history: result.history, warnings: result.warnings });
@@ -869,7 +1048,17 @@ function doGet(e) {
 function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || "{}");
+    if (!isAuthorized_(e, body)) {
+      return jsonOut({ ok: false, error: "Akses ditolak: Token API tidak valid atau belum diisi." });
+    }
+
     const action = body.action || "";
+    if (action === "verifyuser") {
+      const email = String(body.email || "").trim();
+      const name = String(body.name || "").trim();
+      return jsonOut(verifyUserAccess_(email, name));
+    }
+
     if (action === "addbatch") {
       var lot = String(body.lot || "").trim();
       var expDate = String(body.expDate || "").trim();
@@ -907,4 +1096,28 @@ function doPost(e) {
   } catch (err) {
     return jsonOut({ ok: false, error: String(err && err.message ? err.message : err) });
   }
+}
+
+/**
+ * ============================================================
+ * HELPER SETUP KEAMANAN & SCRIPT PROPERTIES
+ * ============================================================
+ * Jalankan fungsi ini satu kali di Apps Script Editor (pilih setupEnvironment lalu klik Run)
+ * untuk menyimpan SPREADSHEET_ID dan API_SECRET_TOKEN secara aman di Google Cloud
+ * tanpa harus mengeksposnya di repositori publik.
+ */
+function setupEnvironment() {
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty("SPREADSHEET_ID", "1Ppz3hQrVBMjYTo0qDpQfylGKAdxDG98sVPdD6TRqEiU");
+  
+  // Jika ingin mengaktifkan proteksi API token, aktifkan baris berikut:
+  // props.setProperty("API_SECRET_TOKEN", "ganti_dengan_token_rahasia_kamu");
+
+  // Buat dan inisialisasi sheet 'Users' jika belum ada
+  ensureUsersSheet_();
+
+  Logger.log("Konfigurasi keamanan berhasil disimpan ke Script Properties!");
+  Logger.log("SPREADSHEET_ID: " + props.getProperty("SPREADSHEET_ID"));
+  Logger.log("API_SECRET_TOKEN: " + (props.getProperty("API_SECRET_TOKEN") ? "(Terpasang)" : "(Tidak aktif/kosong)"));
+  Logger.log("Sheet 'Users' telah siap untuk Google Sign-In whitelist!");
 }

@@ -74,6 +74,17 @@ function getBaseUrl(): string {
   return url as string;
 }
 
+function getApiToken(): string {
+  return (import.meta.env.VITE_API_SECRET_TOKEN as string) || "";
+}
+
+function withApiToken(url: string): string {
+  const token = getApiToken();
+  if (!token) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}token=${encodeURIComponent(token)}`;
+}
+
 // ============================================================
 // FETCH CORE: timeout + retry dengan backoff
 // Apps Script sering lambat/cold start, jadi satu kegagalan
@@ -217,7 +228,7 @@ export async function fetchMasterByBarcode(barcode: string): Promise<MasterLooku
 
   try {
     const base = getBaseUrl();
-    const url = `${base}?action=master&barcode=${encodeURIComponent(barcode)}`;
+    const url = withApiToken(`${base}?action=master&barcode=${encodeURIComponent(barcode)}`);
     return await safeFetchJson<MasterLookupResponse>(url, undefined, "Gagal fetch master data");
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal fetch master data";
@@ -240,7 +251,7 @@ async function fetchMasterDataNetwork(force: boolean): Promise<MasterDataRespons
   }
 
   const base = getBaseUrl();
-  const url = `${base}?action=masterdata${force ? "&force=1" : ""}`;
+  const url = withApiToken(`${base}?action=masterdata${force ? "&force=1" : ""}`);
   const request = safeFetchJson<MasterDataResponse>(
     url,
     undefined,
@@ -319,7 +330,7 @@ export async function refreshMasterData(): Promise<void> {
   clearCache(LS_BATCHES);
   const base = getBaseUrl();
   const result = await safeFetchJson<{ ok: boolean; error?: string }>(
-    `${base}?action=refreshcache`,
+    withApiToken(`${base}?action=refreshcache`),
     undefined,
     "Gagal refresh cache",
     15000,
@@ -336,7 +347,7 @@ export async function refreshMasterData(): Promise<void> {
 export async function fetchReturnHistory(limit = 200): Promise<ReturnHistoryResponse> {
   try {
     const base = getBaseUrl();
-    const url = `${base}?action=history&limit=${encodeURIComponent(String(limit))}`;
+    const url = withApiToken(`${base}?action=history&limit=${encodeURIComponent(String(limit))}`);
     return await safeFetchJson<ReturnHistoryResponse>(url, undefined, "Gagal fetch riwayat retur");
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal fetch riwayat retur";
@@ -368,10 +379,11 @@ async function verifyReturnSaved(
 ): Promise<{ saved: boolean; rowNumber: number } | null> {
   try {
     const base = getBaseUrl();
-    const url =
+    const url = withApiToken(
       `${base}?action=checkreturn` +
       `&sheet=${encodeURIComponent(sheet)}` +
-      `&requestId=${encodeURIComponent(clientId)}`;
+      `&requestId=${encodeURIComponent(clientId)}`
+    );
     const res = await safeFetchJson<VerifyReturnResponse>(
       url,
       undefined,
@@ -398,7 +410,7 @@ function postReturn(
       method: "POST",
       redirect: "follow",
       headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ action: "returns", sheet, clientId, payload }),
+      body: JSON.stringify({ action: "returns", token: getApiToken(), sheet, clientId, payload }),
     },
     "Gagal submit retur",
     // Apps Script bisa perlu puluhan detik saat cold start. Tanpa retry
@@ -472,7 +484,7 @@ export async function editReturn(
         method: "POST",
         redirect: "follow",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "editReturn", sheet, rowNumber, payload }),
+        body: JSON.stringify({ action: "editReturn", token: getApiToken(), sheet, rowNumber, payload }),
       },
       "Gagal mengedit data retur",
       20000,
@@ -498,7 +510,7 @@ export async function deleteReturn(
         method: "POST",
         redirect: "follow",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "deleteReturn", sheet, rowNumber }),
+        body: JSON.stringify({ action: "deleteReturn", token: getApiToken(), sheet, rowNumber }),
       },
       "Gagal menghapus data retur",
       20000,
@@ -519,7 +531,7 @@ export async function addBatch(lot: string, expDate: string): Promise<AddBatchRe
         method: "POST",
         redirect: "follow",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "addbatch", lot, expDate }),
+        body: JSON.stringify({ action: "addbatch", token: getApiToken(), lot, expDate }),
       },
       "Gagal menyimpan batch baru",
       20000,
@@ -529,6 +541,32 @@ export async function addBatch(lot: string, expDate: string): Promise<AddBatchRe
     return data;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal menyimpan batch baru";
+    return { ok: false, error: msg };
+  }
+}
+
+export type VerifyUserResponse =
+  | { ok: true; email: string; displayName: string; role?: string }
+  | { ok: false; error: string };
+
+export async function verifyUserWithBackend(
+  email: string,
+  name?: string
+): Promise<VerifyUserResponse> {
+  try {
+    const base = getBaseUrl();
+    const url = withApiToken(
+      `${base}?action=verifyuser&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name || "")}`
+    );
+    return await safeFetchJson<VerifyUserResponse>(
+      url,
+      undefined,
+      "Gagal memverifikasi akun ke sistem",
+      15000,
+      1
+    );
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Gagal memverifikasi akun ke sistem";
     return { ok: false, error: msg };
   }
 }
