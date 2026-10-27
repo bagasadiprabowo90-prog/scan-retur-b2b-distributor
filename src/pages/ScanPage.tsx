@@ -614,36 +614,27 @@ export default function ScanPage() {
 
             {/* Sesi Toko Banner */}
       {session ? (
-        <div className="card p-3.5 bg-linear-to-r from-gray-900 via-slate-900 to-gray-800 text-white shadow-lg">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                  Sesi Toko Berjalan
-                </span>
+        <div className="card p-3 bg-linear-to-r from-gray-900 via-slate-900 to-gray-800 text-white shadow-md">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
+                <h2 className="text-sm font-bold truncate text-white">{session.storeName}</h2>
               </div>
-              <h2 className="text-base font-bold truncate">{session.storeName}</h2>
-              <p className="text-xs text-gray-300">
+              <p className="text-[11px] text-gray-300 truncate mt-0.5">
                 {session.noSJ ? `SJ: ${session.noSJ} · ` : ""}
-                Sheet {session.targetSheet}
+                Sheet {session.targetSheet} · {session.items.reduce((a, b) => a + b.qty, 0)} pcs ({new Set(session.items.map((i) => i.sku || i.barcode)).size} SKU)
               </p>
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-xs font-semibold bg-white/10 px-2 py-0.5 rounded-md text-white">
-                  📦 {session.items.reduce((a, b) => a + b.qty, 0)} pcs (
-                  {new Set(session.items.map((i) => i.sku || i.barcode)).size} SKU)
-                </span>
-              </div>
             </div>
 
-            <div className="flex flex-col gap-1.5 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => navigate("/verification")}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs px-3 py-2 rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-xs transition-all flex items-center gap-1 active:scale-[0.98]"
               >
                 <span>🔍</span>
-                <span>Verifikasi SJ</span>
+                <span>Verifikasi</span>
               </button>
               <button
                 type="button"
@@ -651,7 +642,7 @@ export default function ScanPage() {
                   if (session.items.length > 0) {
                     if (
                       confirm(
-                        `Toko "${session.storeName}" masih memiliki ${session.items.length} item scan.\n\nSangat disarankan melakukan verifikasi sebelum mengganti toko.\n\nYakin ingin ganti toko sekarang?`
+                        `Toko "${session.storeName}" masih memiliki ${session.items.length} item scan.\n\nYakin ingin ganti toko?`
                       )
                     ) {
                       setShowNewStoreModal(true);
@@ -660,43 +651,32 @@ export default function ScanPage() {
                     setShowNewStoreModal(true);
                   }
                 }}
-                className="text-[11px] font-medium text-gray-400 hover:text-white text-center py-1"
+                className="bg-white/10 hover:bg-white/20 text-gray-300 font-medium text-xs px-2 py-1.5 rounded-xl transition-all"
+                title="Ganti Toko"
               >
-                Ganti Toko ⚙️
+                ⚙️
               </button>
             </div>
           </div>
         </div>
       ) : (
-        <div className="card p-3.5 bg-blue-50/70 border border-blue-200">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-base">🏪</span>
-                <h3 className="text-xs font-bold text-gray-900">Belum Memilih Toko Retur</h3>
-              </div>
-              <p className="text-[11px] text-gray-600 mt-0.5">
-                Tentukan nama toko & No. SJ agar verifikasi fisik vs klaim SJ otomatis terhubung.
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => navigate("/verification")}
-                className="btn-outline py-1.5 px-2.5 text-xs font-bold text-purple-700 border-purple-300 hover:bg-purple-50 flex items-center gap-1"
-              >
-                <span>📷</span>
-                <span>Baca SJ (AI)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowNewStoreModal(true)}
-                className="btn-primary py-1.5 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700"
-              >
-                + Mulai Toko
-              </button>
-            </div>
-          </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => navigate("/verification")}
+            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold hover:bg-purple-100 active:scale-[0.98] transition-all shadow-xs"
+          >
+            <span className="text-sm">📷</span>
+            <span>Baca SJ (AI)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowNewStoreModal(true)}
+            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 active:scale-[0.98] transition-all shadow-xs"
+          >
+            <span className="text-sm">🏪</span>
+            <span>+ Mulai Toko</span>
+          </button>
         </div>
       )}
 
