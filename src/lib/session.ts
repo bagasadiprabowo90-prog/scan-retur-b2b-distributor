@@ -136,10 +136,26 @@ export function startStoreSession(
   return session;
 }
 
+function sameStoreName(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+// Mengembalikan nama toko sesi aktif bila berbeda dengan distriEvent, null bila aman
+export function getSessionStoreConflict(distriEvent: string): string | null {
+  const session = getActiveSession();
+  if (!session || !session.storeName.trim()) return null;
+  return sameStoreName(session.storeName, distriEvent) ? null : session.storeName;
+}
+
 export function addScannedItemToSession(
   item: Omit<ScannedSessionItem, "id" | "timestamp">
 ): StoreSession {
   let session = getActiveSession();
+  if (session && session.storeName.trim() && !sameStoreName(session.storeName, item.distriEvent)) {
+    throw new Error(
+      `Sesi aktif milik toko "${session.storeName}", bukan "${item.distriEvent}". Selesaikan sesi toko tersebut dulu.`
+    );
+  }
   if (!session) {
     // Buat sesi otomatis jika belum ada
     session = startStoreSession(item.distriEvent, "", item.targetSheet, item.receiveDate);
@@ -212,6 +228,47 @@ export function setClaimItem(
   return updated;
 }
 
+// Terapkan klaim hasil baca SJ sekaligus. Baris dengan SKU sama dijumlahkan.
+// mode "replace": klaim SKU tersebut diganti; mode "add": ditambahkan ke klaim yang ada (SJ halaman lanjutan).
+export function applyClaimItems(
+  items: { sku: string; product: string; barcode: string; claimQty: number }[],
+  mode: "replace" | "add" = "replace"
+): StoreSession | null {
+  const session = getActiveSession();
+  if (!session) return null;
+
+  const aggregated = new Map<string, { sku: string; product: string; barcode: string; claimQty: number }>();
+  for (const it of items) {
+    const qty = Math.max(0, Number(it.claimQty) || 0);
+    if (qty <= 0) continue;
+    const key = normalizeSkuKey(it.sku, it.product, it.barcode);
+    const existing = aggregated.get(key);
+    if (existing) {
+      existing.claimQty += qty;
+    } else {
+      aggregated.set(key, { ...it, claimQty: qty });
+    }
+  }
+
+  const updatedClaims = { ...session.claims };
+  for (const [key, it] of aggregated) {
+    const prev = updatedClaims[key];
+    const baseQty = mode === "add" && prev ? prev.claimQty : 0;
+    updatedClaims[key] = {
+      sku: it.sku || prev?.sku || "",
+      product: it.product || prev?.product || "",
+      barcode: it.barcode || prev?.barcode || "",
+      claimQty: baseQty + it.claimQty,
+      confirmedDiscrepancy: false,
+      notes: prev?.notes || "",
+    };
+  }
+
+  const updated: StoreSession = { ...session, claims: updatedClaims };
+  saveActiveSession(updated);
+  return updated;
+}
+
 export function confirmDiscrepancy(skuKey: string, notes: string): StoreSession | null {
   const session = getActiveSession();
   if (!session) return null;
@@ -236,9 +293,13 @@ export function confirmDiscrepancy(skuKey: string, notes: string): StoreSession 
   return updated;
 }
 
-export function matchAllClaimsWithPhysical(): StoreSession | null {
+// Menyamakan klaim dengan fisik wajib disertai alasan. Klaim SJ awal dicatat di notes
+// agar selisih asli tetap terlihat di laporan.
+export function matchAllClaimsWithPhysical(reason: string): StoreSession | null {
   const session = getActiveSession();
   if (!session) return null;
+  const trimmedReason = reason.trim();
+  if (!trimmedReason) return null;
 
   // Hitung total fisik per SKU
   const physicalTotals: Record<string, { qty: number; product: string; sku: string; barcode: string }> = {};
@@ -257,13 +318,18 @@ export function matchAllClaimsWithPhysical(): StoreSession | null {
 
   const updatedClaims: Record<string, ClaimItem> = { ...session.claims };
   for (const [key, val] of Object.entries(physicalTotals)) {
+    const prev = updatedClaims[key];
+    if (prev && prev.claimQty === val.qty) continue;
+
+    const originalClaim = prev ? `${prev.claimQty}` : "tidak ada di SJ";
+    const autoNote = `Disamakan manual (klaim SJ awal: ${originalClaim}). Alasan: ${trimmedReason}`;
     updatedClaims[key] = {
       sku: val.sku,
       product: val.product,
       barcode: val.barcode,
       claimQty: val.qty,
       confirmedDiscrepancy: true,
-      notes: updatedClaims[key]?.notes || "",
+      notes: prev?.notes ? `${prev.notes} | ${autoNote}` : autoNote,
     };
   }
 
@@ -487,6 +553,9 @@ export function formatWhatsAppSummary(report: {
     text += `✅ *ITEM SESUAI / MATCH (${matchItems.length} SKU):*\n`;
     matchItems.forEach((item, idx) => {
       text += `${idx + 1}. ${item.product} - *${item.physicalQty} pcs*\n`;
+      if (item.notes) {
+        text += `   Catatan: _${item.notes}_\n`;
+      }
     });
   }
 

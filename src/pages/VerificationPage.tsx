@@ -13,6 +13,7 @@ import {
   startStoreSession,
   computeReconciliation,
   setClaimItem,
+  applyClaimItems,
   confirmDiscrepancy,
   matchAllClaimsWithPhysical,
   finishAndArchiveSession,
@@ -52,6 +53,9 @@ export default function VerificationPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPreviewOpen, setAiPreviewOpen] = useState(false);
   const [aiExtractedData, setAiExtractedData] = useState<ExtractedSJResult | null>(null);
+  const [aiApplyMode, setAiApplyMode] = useState<"replace" | "add">("replace");
+  const [matchAllModalOpen, setMatchAllModalOpen] = useState(false);
+  const [matchAllReason, setMatchAllReason] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [reconHistory, setReconHistory] = useState<SavedReconReport[]>(getReconHistory);
   const [selectedHistoryReport, setSelectedHistoryReport] = useState<SavedReconReport | null>(null);
@@ -169,6 +173,7 @@ export default function VerificationPage() {
     }
 
     setAiExtractedData(result);
+    setAiApplyMode("replace");
     setAiPreviewOpen(true);
   };
 
@@ -183,19 +188,34 @@ export default function VerificationPage() {
       setSession(currentSession);
     }
 
-    for (const item of aiExtractedData.items) {
-      setClaimItem(item.sku, item.product, item.barcode, item.claimQty);
-    }
+    applyClaimItems(aiExtractedData.items, aiApplyMode);
 
     refreshSession();
     setAiPreviewOpen(false);
-    showToast("success", `Berhasil mengisi ${aiExtractedData.items.length} item klaim dari foto SJ!`);
+    showToast(
+      "success",
+      aiApplyMode === "add"
+        ? `${aiExtractedData.items.length} baris SJ ditambahkan ke klaim yang ada.`
+        : `Berhasil mengisi ${aiExtractedData.items.length} item klaim dari foto SJ!`
+    );
   };
 
   const handleMatchAll = () => {
-    matchAllClaimsWithPhysical();
+    setMatchAllReason("");
+    setMatchAllModalOpen(true);
+  };
+
+  const handleConfirmMatchAll = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!matchAllReason.trim()) {
+      showToast("error", "Alasan wajib diisi.");
+      return;
+    }
+    matchAllClaimsWithPhysical(matchAllReason);
     refreshSession();
-    showToast("success", "Semua jumlah klaim disesuaikan dengan hasil fisik scan.");
+    setMatchAllModalOpen(false);
+    setMatchAllReason("");
+    showToast("success", "Klaim disamakan dengan fisik. Klaim SJ awal tercatat di catatan item.");
   };
 
   const handleUpdateClaim = (item: ReconcileItem, newQty: number) => {
@@ -1308,6 +1328,33 @@ export default function VerificationPage() {
               ))}
             </div>
 
+            {session && Object.keys(session.claims).length > 0 && (
+              <div className="shrink-0 grid grid-cols-2 gap-1.5 text-[11px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setAiApplyMode("replace")}
+                  className={`py-1.5 rounded-lg border ${
+                    aiApplyMode === "replace"
+                      ? "bg-purple-600 text-white border-purple-600"
+                      : "bg-white text-gray-600 border-gray-300"
+                  }`}
+                >
+                  Ganti klaim SKU ini
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiApplyMode("add")}
+                  className={`py-1.5 rounded-lg border ${
+                    aiApplyMode === "add"
+                      ? "bg-purple-600 text-white border-purple-600"
+                      : "bg-white text-gray-600 border-gray-300"
+                  }`}
+                >
+                  Tambah (SJ halaman lanjutan)
+                </button>
+              </div>
+            )}
+
             <div className="flex gap-2 pt-2 border-t border-gray-100 shrink-0">
               <button
                 type="button"
@@ -1325,6 +1372,45 @@ export default function VerificationPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {matchAllModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <form
+            onSubmit={handleConfirmMatchAll}
+            className="card max-w-md w-full p-4 space-y-3 bg-white animate-scale-in"
+          >
+            <h3 className="text-sm font-bold text-gray-900">Samakan Semua Klaim dengan Fisik</h3>
+            <p className="text-xs text-gray-600">
+              Jumlah klaim SJ setiap SKU akan diganti dengan hasil scan fisik. Klaim SJ awal dan
+              alasan ini dicatat di laporan.
+            </p>
+            <textarea
+              value={matchAllReason}
+              onChange={(e) => setMatchAllReason(e.target.value)}
+              placeholder="Alasan (wajib), misal: SJ tidak tersedia, dikonfirmasi via telepon dengan toko"
+              rows={3}
+              autoFocus
+              className="input-field text-xs w-full"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setMatchAllModalOpen(false)}
+                className="flex-1 btn-outline py-2 text-xs font-bold"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={!matchAllReason.trim()}
+                className="flex-1 btn-primary py-2 text-xs font-bold disabled:opacity-50"
+              >
+                Samakan
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import BatchPickerModal from "../components/BatchPickerModal";
-import { getActiveSession, addScannedItemToSession } from "../lib/session";
+import { getActiveSession, addScannedItemToSession, getSessionStoreConflict } from "../lib/session";
 import {
   createReturn,
   createReturnRequestId,
@@ -285,6 +285,16 @@ export default function ReturnFormPage() {
     setToast(null);
 
     try {
+      // Cegah data toko lain tercampur ke sesi rekonsiliasi toko yang sedang aktif
+      const conflictStore = getSessionStoreConflict(distriEvent);
+      if (conflictStore) {
+        setToast({
+          type: "error",
+          msg: `Sesi toko "${conflictStore}" masih aktif. Selesaikan verifikasinya dulu atau ubah Distri/Event menjadi "${conflictStore}".`,
+        });
+        return;
+      }
+
       saveDistriHistory(distriEvent);
 
       const payload = {

@@ -6,6 +6,8 @@ import {
   addScannedItemToSession,
   setClaimItem,
   matchAllClaimsWithPhysical,
+  applyClaimItems,
+  getSessionStoreConflict,
   confirmDiscrepancy,
   computeReconciliation,
   finishAndArchiveSession,
@@ -146,12 +148,17 @@ describe("Store Session & Reconciliation Tests", () => {
       targetSheet: "Bagas",
     });
 
-    matchAllClaimsWithPhysical();
+    expect(matchAllClaimsWithPhysical("  ")).toBeNull();
+    expect(computeReconciliation(getActiveSession()!)[0].status).toBe("over");
+
+    matchAllClaimsWithPhysical("SJ hilang, konfirmasi telepon");
 
     const active = getActiveSession();
     const recons = computeReconciliation(active!);
     expect(recons[0].status).toBe("match");
     expect(recons[0].claimQty).toBe(8);
+    expect(recons[0].notes).toContain("klaim SJ awal: tidak ada di SJ");
+    expect(recons[0].notes).toContain("SJ hilang, konfirmasi telepon");
   });
 
   it("should confirm discrepancy with notes", () => {
@@ -229,5 +236,40 @@ describe("Store Session & Reconciliation Tests", () => {
     expect(text).toContain("Watsons GI");
     expect(text).toContain("SJ-100");
     expect(text).toContain("Fisik kurang 2 dari toko");
+  });
+  const baseItem = {
+    receiveDate: "27-Okt-2026",
+    product: "Lip Coat",
+    barcode: "123",
+    sku: "SKU-1",
+    batch: "B1",
+    expDate: "2027",
+    qty: 2,
+    keterangan: "Ok",
+    pic: "Bagas",
+    targetSheet: "Bagas" as const,
+  };
+
+  it("should reject scanned items for a different store than the active session", () => {
+    startStoreSession("Watsons GI", "", "Bagas", "27-Okt-2026");
+    expect(getSessionStoreConflict("watsons gi ")).toBeNull();
+    expect(getSessionStoreConflict("Guardian")).toBe("Watsons GI");
+    expect(() => addScannedItemToSession({ ...baseItem, distriEvent: "Guardian" })).toThrow();
+    expect(getActiveSession()!.items).toHaveLength(0);
+  });
+
+  it("should sum duplicate SJ rows and support replace/add modes", () => {
+    startStoreSession("Sociolla", "", "Bagas", "27-Okt-2026");
+    applyClaimItems([
+      { sku: "SKU-1", product: "Lip Coat", barcode: "123", claimQty: 3 },
+      { sku: "sku-1", product: "Lip Coat", barcode: "123", claimQty: 2 },
+    ]);
+    expect(getActiveSession()!.claims["SKU-1"].claimQty).toBe(5);
+
+    applyClaimItems([{ sku: "SKU-1", product: "Lip Coat", barcode: "123", claimQty: 4 }], "add");
+    expect(getActiveSession()!.claims["SKU-1"].claimQty).toBe(9);
+
+    applyClaimItems([{ sku: "SKU-1", product: "Lip Coat", barcode: "123", claimQty: 1 }], "replace");
+    expect(getActiveSession()!.claims["SKU-1"].claimQty).toBe(1);
   });
 });
