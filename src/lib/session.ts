@@ -35,6 +35,8 @@ export type StoreSession = {
   status: "active" | "verified";
 };
 
+export type ReconcileStatus = "match" | "under" | "unscanned" | "over" | "not_in_sj";
+
 export type ReconcileItem = {
   key: string;
   sku: string;
@@ -43,7 +45,7 @@ export type ReconcileItem = {
   physicalQty: number;
   claimQty: number;
   diff: number; // physicalQty - claimQty
-  status: "match" | "under" | "unscanned" | "over";
+  status: ReconcileStatus;
   confirmedDiscrepancy: boolean;
   notes: string;
   batches: { batch: string; expDate: string; qty: number }[];
@@ -102,12 +104,23 @@ export function saveActiveSession(session: StoreSession | null): void {
   }
 }
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+
+export function getTodayReceiveDate(): string {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = MONTH_NAMES[d.getMonth()];
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
+
 export function startStoreSession(
   storeName: string,
   noSJ: string = "",
   targetSheet: "Bagas" | "Dimas" = "Bagas",
   receiveDate: string = ""
 ): StoreSession {
+  const effectiveDate = (receiveDate && receiveDate.trim()) || getTodayReceiveDate();
   const existing = getActiveSession();
   // Jika sudah ada sesi aktif untuk toko yang sama, perbarui metadata tapi pertahankan item
   if (existing && existing.storeName.trim().toLowerCase() === storeName.trim().toLowerCase()) {
@@ -115,7 +128,7 @@ export function startStoreSession(
       ...existing,
       noSJ: noSJ || existing.noSJ,
       targetSheet,
-      receiveDate: receiveDate || existing.receiveDate,
+      receiveDate: effectiveDate || existing.receiveDate,
     };
     saveActiveSession(updated);
     return updated;
@@ -126,7 +139,7 @@ export function startStoreSession(
     storeName: storeName.trim(),
     noSJ: noSJ.trim(),
     targetSheet,
-    receiveDate: receiveDate.trim(),
+    receiveDate: effectiveDate,
     startedAt: Date.now(),
     items: [],
     claims: {},
@@ -186,6 +199,78 @@ export function removeScannedItemFromSession(itemId: string): StoreSession | nul
   };
   saveActiveSession(updated);
   return updated;
+}
+
+// Sinkronisasi saat ada penghapusan baris di HistoryPage
+export function syncDeleteWithActiveSession(deleted: {
+  distriEvent: string;
+  product: string;
+  barcode: string;
+  batch: string;
+  qty: number;
+}): boolean {
+  const session = getActiveSession();
+  if (!session || !sameStoreName(session.storeName, deleted.distriEvent)) return false;
+
+  const idx = session.items.findIndex(
+    (i) =>
+      (i.barcode === deleted.barcode || i.product === deleted.product) &&
+      i.batch === deleted.batch &&
+      i.qty === deleted.qty
+  );
+
+  if (idx !== -1) {
+    const updatedItems = [...session.items];
+    updatedItems.splice(idx, 1);
+    saveActiveSession({ ...session, items: updatedItems });
+    return true;
+  }
+  return false;
+}
+
+// Sinkronisasi saat ada pengeditan baris di HistoryPage
+export function syncEditWithActiveSession(
+  original: { distriEvent: string; product: string; barcode: string; batch: string; qty: number },
+  updatedPayload: {
+    receiveDate: string;
+    distriEvent: string;
+    product: string;
+    barcode: string;
+    batch: string;
+    expDate: string;
+    qty: number;
+    keterangan: string;
+    pic: string;
+  }
+): boolean {
+  const session = getActiveSession();
+  if (!session || !sameStoreName(session.storeName, original.distriEvent)) return false;
+
+  const idx = session.items.findIndex(
+    (i) =>
+      (i.barcode === original.barcode || i.product === original.product) &&
+      i.batch === original.batch &&
+      i.qty === original.qty
+  );
+
+  if (idx !== -1) {
+    const updatedItems = [...session.items];
+    updatedItems[idx] = {
+      ...updatedItems[idx],
+      receiveDate: updatedPayload.receiveDate,
+      distriEvent: updatedPayload.distriEvent,
+      product: updatedPayload.product,
+      barcode: updatedPayload.barcode,
+      batch: updatedPayload.batch,
+      expDate: updatedPayload.expDate,
+      qty: Number(updatedPayload.qty) || 0,
+      keterangan: updatedPayload.keterangan,
+      pic: updatedPayload.pic,
+    };
+    saveActiveSession({ ...session, items: updatedItems });
+    return true;
+  }
+  return false;
 }
 
 export function setClaimItem(
@@ -390,11 +475,14 @@ export function computeReconciliation(session: StoreSession): ReconcileItem[] {
     const isClaimSpecified = claim !== undefined;
 
     const diff = physicalQty - claimQty;
-    let status: "match" | "under" | "unscanned" | "over" = "match";
+    let status: ReconcileStatus = "match";
 
-    if (!isClaimSpecified) {
-      // Belum dicek dengan SJ
-      status = "over"; // dianggap fisik lebih / belum ada klaim SJ
+    if (!isClaimSpecified || claimQty === 0) {
+      if (physicalQty > 0) {
+        status = "not_in_sj"; // Barang fisik ada di koli tapi tidak tercantum di klaim SJ
+      } else {
+        status = "match";
+      }
     } else if (physicalQty === claimQty) {
       status = "match";
     } else if (physicalQty === 0 && claimQty > 0) {
@@ -402,7 +490,7 @@ export function computeReconciliation(session: StoreSession): ReconcileItem[] {
     } else if (physicalQty < claimQty) {
       status = "under";
     } else if (physicalQty > claimQty) {
-      status = "over";
+      status = "over"; // Tercantum di SJ tapi fisik yang discan berlebih
     }
 
     results.push({
@@ -420,12 +508,13 @@ export function computeReconciliation(session: StoreSession): ReconcileItem[] {
     });
   }
 
-  // Urutkan: yang belum scan (unscanned) dan under paling atas, lalu over, lalu match
-  const statusPriority: Record<string, number> = {
+  // Urutkan: yang belum scan (unscanned), under, not_in_sj, over, lalu match
+  const statusPriority: Record<ReconcileStatus, number> = {
     unscanned: 1,
     under: 2,
-    over: 3,
-    match: 4,
+    not_in_sj: 3,
+    over: 4,
+    match: 5,
   };
 
   return results.sort((a, b) => {
@@ -536,6 +625,8 @@ export function formatWhatsAppSummary(report: {
           ? "🚫 Belum Ter-scan"
           : item.status === "under"
           ? "🔴 Fisik Kurang"
+          : item.status === "not_in_sj"
+          ? "🟣 Tidak Ada di SJ"
           : "🟡 Fisik Lebih";
 
       text += `${idx + 1}. *${item.product}*\n`;

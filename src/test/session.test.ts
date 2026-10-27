@@ -4,6 +4,9 @@ import {
   getActiveSession,
   saveActiveSession,
   addScannedItemToSession,
+  removeScannedItemFromSession,
+  syncDeleteWithActiveSession,
+  syncEditWithActiveSession,
   setClaimItem,
   matchAllClaimsWithPhysical,
   applyClaimItems,
@@ -12,6 +15,7 @@ import {
   computeReconciliation,
   finishAndArchiveSession,
   getReconHistory,
+  getTodayReceiveDate,
   formatWhatsAppSummary,
 } from "../lib/session";
 
@@ -149,7 +153,7 @@ describe("Store Session & Reconciliation Tests", () => {
     });
 
     expect(matchAllClaimsWithPhysical("  ")).toBeNull();
-    expect(computeReconciliation(getActiveSession()!)[0].status).toBe("over");
+    expect(computeReconciliation(getActiveSession()!)[0].status).toBe("not_in_sj");
 
     matchAllClaimsWithPhysical("SJ hilang, konfirmasi telepon");
 
@@ -271,5 +275,120 @@ describe("Store Session & Reconciliation Tests", () => {
 
     applyClaimItems([{ sku: "SKU-1", product: "Lip Coat", barcode: "123", claimQty: 1 }], "replace");
     expect(getActiveSession()!.claims["SKU-1"].claimQty).toBe(1);
+  });
+
+  it("should distinguish not_in_sj (physical with no claim) vs over (physical > claim)", () => {
+    startStoreSession("Sephora", "SJ-10", "Bagas", "27-Okt-2026");
+    addScannedItemToSession({
+      receiveDate: "27-Okt-2026",
+      distriEvent: "Sephora",
+      product: "Product A",
+      barcode: "AAA",
+      sku: "SKU-A",
+      batch: "B1",
+      expDate: "2027",
+      qty: 5,
+      keterangan: "",
+      pic: "Bagas",
+      targetSheet: "Bagas",
+    });
+
+    addScannedItemToSession({
+      receiveDate: "27-Okt-2026",
+      distriEvent: "Sephora",
+      product: "Product B",
+      barcode: "BBB",
+      sku: "SKU-B",
+      batch: "B2",
+      expDate: "2027",
+      qty: 6,
+      keterangan: "",
+      pic: "Bagas",
+      targetSheet: "Bagas",
+    });
+
+    // Set claim for Product B = 4 pcs (physical is 6 -> over)
+    setClaimItem("SKU-B", "Product B", "BBB", 4);
+    // Product A has NO claim (physical is 5 -> not_in_sj)
+
+    const recons = computeReconciliation(getActiveSession()!);
+    const itemA = recons.find((i) => i.sku === "SKU-A");
+    const itemB = recons.find((i) => i.sku === "SKU-B");
+
+    expect(itemA?.status).toBe("not_in_sj");
+    expect(itemB?.status).toBe("over");
+  });
+
+  it("should remove scanned item from session and sync with history edit/delete", () => {
+    startStoreSession("Watsons", "SJ-20", "Bagas", "27-Okt-2026");
+    addScannedItemToSession({
+      receiveDate: "27-Okt-2026",
+      distriEvent: "Watsons",
+      product: "Lip Coat",
+      barcode: "123",
+      sku: "SKU-1",
+      batch: "LOT01",
+      expDate: "2027",
+      qty: 3,
+      keterangan: "",
+      pic: "Bagas",
+      targetSheet: "Bagas",
+    });
+
+    const session = getActiveSession()!;
+    expect(session.items).toHaveLength(1);
+    const scannedId = session.items[0].id;
+
+    // Remove directly
+    removeScannedItemFromSession(scannedId);
+    expect(getActiveSession()!.items).toHaveLength(0);
+
+    // Add again to test sync
+    addScannedItemToSession({
+      receiveDate: "27-Okt-2026",
+      distriEvent: "Watsons",
+      product: "Lip Coat",
+      barcode: "123",
+      sku: "SKU-1",
+      batch: "LOT01",
+      expDate: "2027",
+      qty: 5,
+      keterangan: "",
+      pic: "Bagas",
+      targetSheet: "Bagas",
+    });
+
+    // Test sync edit
+    syncEditWithActiveSession(
+      { distriEvent: "Watsons", product: "Lip Coat", barcode: "123", batch: "LOT01", qty: 5 },
+      {
+        receiveDate: "27-Okt-2026",
+        distriEvent: "Watsons",
+        product: "Lip Coat",
+        barcode: "123",
+        batch: "LOT01",
+        expDate: "2027",
+        qty: 10,
+        keterangan: "Updated",
+        pic: "Bagas",
+      }
+    );
+    expect(getActiveSession()!.items[0].qty).toBe(10);
+
+    // Test sync delete
+    const deleted = syncDeleteWithActiveSession({
+      distriEvent: "Watsons",
+      product: "Lip Coat",
+      barcode: "123",
+      batch: "LOT01",
+      qty: 10,
+    });
+    expect(deleted).toBe(true);
+    expect(getActiveSession()!.items).toHaveLength(0);
+  });
+
+  it("should provide today's date formatted properly in getTodayReceiveDate", () => {
+    const today = getTodayReceiveDate();
+    expect(today).toMatch(/^\d{2}-[A-Za-z]{3}-\d{4}$/);
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchReturnHistory, editReturn, deleteReturn, type ReturnHistoryItem, type CreateReturnPayload } from "../lib/api";
+import { syncDeleteWithActiveSession, syncEditWithActiveSession } from "../lib/session";
 
 const HISTORY_LIMIT = 200;
 const PAGE_SIZE = 20;
@@ -62,7 +63,8 @@ export default function HistoryPage() {
       setToast({ type: "err", msg: res.error });
       return;
     }
-    setToast({ type: "ok", msg: "Data berhasil diperbarui" });
+    syncEditWithActiveSession(editItem, editForm);
+    setToast({ type: "ok", msg: "Data berhasil diperbarui (sesi aktif disinkronkan)" });
     setEditItem(null);
     void loadHistory();
   }
@@ -76,7 +78,8 @@ export default function HistoryPage() {
       setToast({ type: "err", msg: res.error });
       return;
     }
-    setToast({ type: "ok", msg: "Data berhasil dihapus" });
+    syncDeleteWithActiveSession(deleteItem);
+    setToast({ type: "ok", msg: "Data berhasil dihapus (sesi aktif disinkronkan)" });
     setDeleteItem(null);
     void loadHistory();
   }

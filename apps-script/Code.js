@@ -958,6 +958,121 @@ function deleteReturn_(sheetName, rowNumber) {
   }
 }
 
+// ============================================================
+// LAPORAN REKONSILIASI TOKO (Audit Trail di Spreadsheet)
+// ============================================================
+
+var RECON_SHEET_NAME = "Laporan Rekon";
+
+function ensureReconSheet_() {
+  var ss = getSpreadsheet();
+  var sh = ss.getSheetByName(RECON_SHEET_NAME);
+  if (!sh) {
+    sh = ss.insertSheet(RECON_SHEET_NAME);
+    sh.appendRow([
+      "Timestamp",
+      "ID Laporan",
+      "Tanggal Terima",
+      "Nama Toko",
+      "No SJ",
+      "PIC",
+      "Target Sheet",
+      "Total Fisik",
+      "Total Klaim",
+      "Selisih Total",
+      "Status Selisih",
+      "Total SKU",
+      "SKU Sesuai",
+      "SKU Selisih",
+      "Rincian Item (JSON)",
+    ]);
+    SpreadsheetApp.flush();
+  }
+  return sh;
+}
+
+function saveReconReport_(report) {
+  if (!report || !report.storeName) {
+    throw new Error("Data laporan rekonsiliasi tidak valid: nama toko kosong");
+  }
+
+  var lock = acquireWriteLock_();
+  try {
+    var sh = ensureReconSheet_();
+    var lastRow = sh.getLastRow();
+    var targetRow = lastRow + 1;
+
+    var diffTotal = (Number(report.totalPhysicalQty) || 0) - (Number(report.totalClaimQty) || 0);
+    var statusSelisih = diffTotal === 0 ? "PAS" : (diffTotal > 0 ? "LEBIH (" + diffTotal + ")" : "KURANG (" + diffTotal + ")");
+
+    var rowData = [
+      new Date(),
+      sanitizeSheetValue_(report.id || ""),
+      sanitizeSheetValue_(report.receiveDate || ""),
+      sanitizeSheetValue_(report.storeName || ""),
+      sanitizeSheetValue_(report.noSJ || ""),
+      sanitizeSheetValue_(report.pic || ""),
+      sanitizeSheetValue_(report.targetSheet || ""),
+      Number(report.totalPhysicalQty) || 0,
+      Number(report.totalClaimQty) || 0,
+      diffTotal,
+      statusSelisih,
+      Number(report.totalSku) || 0,
+      Number(report.matchSkuCount) || 0,
+      Number(report.discrepancySkuCount) || 0,
+      JSON.stringify(report.items || []),
+    ];
+
+    sh.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
+    SpreadsheetApp.flush();
+    return { ok: true, rowNumber: targetRow };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function listReconReports_(limit) {
+  var max = Number(limit) || 50;
+  var ss = getSpreadsheet();
+  var sh = ss.getSheetByName(RECON_SHEET_NAME);
+  if (!sh || sh.getLastRow() < 2) {
+    return { ok: true, reports: [] };
+  }
+
+  var lastRow = sh.getLastRow();
+  var count = Math.min(lastRow - 1, max);
+  var start = lastRow - count + 1;
+  var values = sh.getRange(start, 1, count, 15).getValues();
+
+  var reports = [];
+  for (var i = values.length - 1; i >= 0; i--) {
+    var r = values[i];
+    var items = [];
+    try {
+      items = JSON.parse(r[14] || "[]");
+    } catch (e) {}
+
+    reports.push({
+      id: String(r[1] || ""),
+      receiveDate: String(r[2] || ""),
+      storeName: String(r[3] || ""),
+      noSJ: String(r[4] || ""),
+      pic: String(r[5] || ""),
+      targetSheet: String(r[6] || ""),
+      totalPhysicalQty: Number(r[7] || 0),
+      totalClaimQty: Number(r[8] || 0),
+      verifiedAt: r[0] instanceof Date ? r[0].getTime() : Date.now(),
+      totalSku: Number(r[11] || 0),
+      matchSkuCount: Number(r[12] || 0),
+      discrepancySkuCount: Number(r[13] || 0),
+      hasDiscrepancy: Number(r[13] || 0) > 0,
+      items: items,
+    });
+  }
+
+  return { ok: true, reports: reports };
+}
+
 function doGet(e) {
   try {
     if (!isAuthorized_(e, null)) {
@@ -1039,10 +1154,164 @@ function doGet(e) {
       return jsonOut({ ok: true, history: result.history, warnings: result.warnings });
     }
 
+    if (action === "reconreports") {
+      return jsonOut(listReconReports_(e.parameter && e.parameter.limit));
+    }
+
     return jsonOut({ ok: false, error: "Unknown action" });
   } catch (err) {
     return jsonOut({ ok: false, error: String(err && err.message ? err.message : err) });
   }
+}
+
+// ============================================================
+// GEMINI PROXY: baca foto/PDF Surat Jalan retur
+// API key disimpan di Script Properties (GEMINI_API_KEY), tidak pernah dikirim ke browser.
+// Daftar model bisa diubah lewat Script Properties GEMINI_MODELS (dipisah koma).
+// ============================================================
+
+var GEMINI_API_KEY_FALLBACK = ""; // Simpan di Apps Script > Project Settings > Script Properties (GEMINI_API_KEY)
+var GEMINI_DEFAULT_MODELS = "gemini-3.5-flash,gemini-3.6-flash,gemini-3.5-flash-lite,gemini-3-flash-preview,gemini-3.8-flash";
+var GEMINI_ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+var GEMINI_MAX_BASE64_LENGTH = 14 * 1024 * 1024; // ~10 MB file asli
+
+var SJ_PROMPT_BASE =
+  'Anda adalah sistem pembaca dokumen gudang untuk brand kosmetik BLP Beauty (By Lizzie Parra).\n' +
+  'Tugas Anda mengekstrak data dari foto/scan lembar "Surat Jalan (SJ) Retur" / "Form Retur Toko / Distributor":\n' +
+  '1. storeName: nama toko, distributor, atau event (misal: "Sociolla PIM", "Watsons GI", "Guardian"). Kosongkan bila tidak ada.\n' +
+  '2. noSJ: nomor surat jalan / dokumen retur. Kosongkan bila tidak ada.\n' +
+  '3. items: setiap baris barang retur yang diklaim, berisi:\n' +
+  '   - product: nama produk lengkap dari dokumen fisik.\n' +
+  '   - sku: kode SKU resmi dari DAFTAR REFERENSI MASTER di bawah yang paling cocok. Jika benar-benar tidak cocok dengan master, kosongkan string "".\n' +
+  '   - claimQty: jumlah klaim retur (bilangan bulat positif >= 1).\n' +
+  'PENTING: Jangan menebak baris atau shade yang tidak tertulis. Utamakan ketepatan shade/varian.';
+
+var SJ_RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    storeName: { type: "STRING" },
+    noSJ: { type: "STRING" },
+    items: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          product: { type: "STRING" },
+          sku: { type: "STRING" },
+          claimQty: { type: "INTEGER" },
+        },
+        required: ["product", "claimQty"],
+      },
+    },
+  },
+  required: ["items"],
+};
+
+function parseSJWithGemini_(mimeType, base64Data, masterCatalog) {
+  var props = PropertiesService.getScriptProperties();
+  var apiKey = props.getProperty("GEMINI_API_KEY") || GEMINI_API_KEY_FALLBACK;
+  if (!apiKey) {
+    return { ok: false, error: "GEMINI_API_KEY belum diatur di Script Properties Apps Script." };
+  }
+  if (GEMINI_ALLOWED_MIME.indexOf(mimeType) === -1) {
+    return { ok: false, error: "Format file tidak didukung: " + mimeType };
+  }
+  if (!base64Data) return { ok: false, error: "File kosong." };
+  if (base64Data.length > GEMINI_MAX_BASE64_LENGTH) {
+    return { ok: false, error: "File terlalu besar (maks ~10 MB)." };
+  }
+
+  // Gunakan master data yang dikirim client atau ambil dari master sheet lokal
+  var masterProducts = (masterCatalog && Array.isArray(masterCatalog) && masterCatalog.length > 0)
+    ? masterCatalog
+    : listProducts_(false);
+
+  var masterReferenceText = "";
+  if (masterProducts && masterProducts.length > 0) {
+    masterReferenceText = "\n\nDAFTAR REFERENSI MASTER PRODUK & SKU BLP BEAUTY (Cocokkan ke SKU di bawah):\n" +
+      masterProducts.slice(0, 300).map(function (p) {
+        return "- SKU: " + (p.sku || "-") + " | " + p.product;
+      }).join("\n");
+  }
+
+  var promptText = SJ_PROMPT_BASE + masterReferenceText;
+
+  var configuredModels = String(props.getProperty("GEMINI_MODELS") || "");
+  // Abaikan konfigurasi jika masih merujuk ke model usang 2.5 atau kosong
+  if (!configuredModels || configuredModels.indexOf("2.5") !== -1) {
+    configuredModels = GEMINI_DEFAULT_MODELS;
+  }
+
+  var models = configuredModels
+    .split(",")
+    .map(function (m) { return m.trim(); })
+    .filter(function (m) { return m; });
+
+  var requestBody = JSON.stringify({
+    contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: mimeType, data: base64Data } }] }],
+    generationConfig: {
+      temperature: 0.1,
+      responseMimeType: "application/json",
+      responseSchema: SJ_RESPONSE_SCHEMA,
+    },
+  });
+
+  var lastError = "";
+  for (var i = 0; i < models.length; i++) {
+    var url = "https://generativelanguage.googleapis.com/v1beta/models/" +
+      encodeURIComponent(models[i]) + ":generateContent";
+    var res;
+    try {
+      res = UrlFetchApp.fetch(url, {
+        method: "post",
+        contentType: "application/json",
+        headers: { "x-goog-api-key": apiKey },
+        payload: requestBody,
+        muteHttpExceptions: true,
+      });
+    } catch (err) {
+      // Error jaringan / timeout UrlFetch: coba model berikutnya
+      lastError = String(err && err.message ? err.message : err);
+      continue;
+    }
+
+    var status = res.getResponseCode();
+    var text = res.getContentText();
+    if (status !== 200) {
+      lastError = "Gemini " + models[i] + " (" + status + "): " + text.slice(0, 300);
+      // 404 = model tidak ada, 429/503/5xx = beban tinggi / sementara: jeda sejenak lalu coba model berikutnya. Error lain langsung berhenti.
+      if (status === 404 || status === 429 || status === 503 || status >= 500) {
+        Utilities.sleep(500);
+        continue;
+      }
+      return { ok: false, error: lastError };
+    }
+
+    try {
+      var data = JSON.parse(text);
+      var raw = (((data.candidates || [])[0] || {}).content || {}).parts;
+      var rawText = raw && raw[0] && raw[0].text ? String(raw[0].text).trim() : "";
+      if (!rawText) return { ok: false, error: "AI tidak menghasilkan teks dari file ini." };
+      var parsed = JSON.parse(rawText.replace(/^```json\s*/i, "").replace(/```\s*$/i, ""));
+      return {
+        ok: true,
+        model: models[i],
+        storeName: String(parsed.storeName || ""),
+        noSJ: String(parsed.noSJ || ""),
+        items: Array.isArray(parsed.items) ? parsed.items : [],
+      };
+    } catch (err) {
+      return { ok: false, error: "Respons AI tidak valid: " + String(err && err.message ? err.message : err) };
+    }
+  }
+
+  if (lastError.indexOf("503") !== -1 || lastError.indexOf("high demand") !== -1) {
+    return {
+      ok: false,
+      error: "Layanan Gemini sedang mengalami lonjakan beban sementara (503). Silakan coba lagi dalam beberapa detik.",
+    };
+  }
+  return { ok: false, error: lastError || "Tidak ada model Gemini yang dikonfigurasi." };
 }
 
 function doPost(e) {
@@ -1057,6 +1326,10 @@ function doPost(e) {
       const email = String(body.email || "").trim();
       const name = String(body.name || "").trim();
       return jsonOut(verifyUserAccess_(email, name));
+    }
+
+    if (action === "parsesj") {
+      return jsonOut(parseSJWithGemini_(String(body.mimeType || ""), String(body.data || ""), body.masterList));
     }
 
     if (action === "addbatch") {
@@ -1079,6 +1352,11 @@ function doPost(e) {
       var delRow = body.rowNumber;
       deleteReturn_(delSheet, delRow);
       return jsonOut({ ok: true });
+    }
+
+    if (action === "saveReconReport") {
+      var reportPayload = body.report || {};
+      return jsonOut(saveReconReport_(reportPayload));
     }
 
     if (action !== "returns") return jsonOut({ ok: false, error: "Unknown action: " + action });
@@ -1109,9 +1387,14 @@ function doPost(e) {
 function setupEnvironment() {
   var props = PropertiesService.getScriptProperties();
   props.setProperty("SPREADSHEET_ID", "1Ppz3hQrVBMjYTo0qDpQfylGKAdxDG98sVPdD6TRqEiU");
+  // Fitur Baca SJ: Simpan GEMINI_API_KEY di Project Settings > Script Properties
+  // props.setProperty("GEMINI_API_KEY", "masukkan_gemini_api_key_di_sini");
   
   // Jika ingin mengaktifkan proteksi API token, aktifkan baris berikut:
   // props.setProperty("API_SECRET_TOKEN", "ganti_dengan_token_rahasia_kamu");
+
+  // Fitur Baca SJ: API key Gemini otomatis disimpan di atas.
+  props.setProperty("GEMINI_MODELS", GEMINI_DEFAULT_MODELS);
 
   // Buat dan inisialisasi sheet 'Users' jika belum ada
   ensureUsersSheet_();

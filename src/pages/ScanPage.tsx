@@ -663,7 +663,7 @@ export default function ScanPage() {
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => navigate("/verification")}
+            onClick={() => navigate("/verification", { state: { autoOpenScan: true } })}
             className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold hover:bg-purple-100 active:scale-[0.98] transition-all shadow-xs"
           >
             <span className="text-sm">📷</span>

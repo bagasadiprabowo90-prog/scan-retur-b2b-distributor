@@ -1,56 +1,88 @@
 import type { ProductItem } from "./api";
+import { parseSJViaBackend } from "./api";
 import { normalizeSkuKey } from "./session";
 
-const LOCAL_KEY_STORAGE = "scan-retur-user-gemini-key";
+export type MatchConfidence = "exact" | "high" | "low" | "unmatched";
 
-export function getGeminiApiKey(): string {
-  // 1. Prioritaskan dari environment variable .env (VITE_GEMINI_API_KEY)
-  const envKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-  if (envKey && envKey.trim()) return envKey.trim();
-
-  // 2. Fallback ke localStorage privat di browser pengguna
-  try {
-    const local = localStorage.getItem(LOCAL_KEY_STORAGE);
-    if (local && local.trim()) return local.trim();
-  } catch {}
-
-  return "";
-}
-
-export function saveUserGeminiApiKey(key: string): void {
-  try {
-    if (!key.trim()) {
-      localStorage.removeItem(LOCAL_KEY_STORAGE);
-    } else {
-      localStorage.setItem(LOCAL_KEY_STORAGE, key.trim());
-    }
-  } catch (e) {
-    console.error("Gagal menyimpan API key lokal", e);
-  }
-}
+export type ExtractedSJItem = {
+  sku: string;
+  product: string;
+  barcode: string;
+  claimQty: number;
+  rawProduct: string;
+  rawSku: string;
+  rawText?: string;
+  matchScore: number; // 0.0 - 1.0
+  matchConfidence: MatchConfidence;
+  matchedFromMaster: boolean;
+};
 
 export type ExtractedSJResult = {
   ok: boolean;
   storeName?: string;
   noSJ?: string;
-  items: {
-    sku: string;
-    product: string;
-    barcode: string;
-    claimQty: number;
-    rawText?: string;
-  }[];
+  items: ExtractedSJItem[];
   error?: string;
+  pageCount?: number;
 };
 
-// Mengubah File (Gambar) ke Base64 & kompresi bila resolusi terlalu raksasa
-async function fileToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
+// ============================================================
+// KOMPRESI GAMBAR
+// Resize ke sisi terpanjang ~1600px, JPEG kualitas 0.8 via canvas.
+// Foto HP 3–8 MB → ~200–400 KB.
+// ============================================================
+
+const MAX_DIMENSION = 1600;
+const JPEG_QUALITY = 0.8;
+
+export async function compressImage(file: File): Promise<{ base64: string; mimeType: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+
+      let { width, height } = img;
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas 2D context tidak tersedia"));
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+      const base64 = dataUrl.split(",")[1];
+      resolve({ base64, mimeType: "image/jpeg" });
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Gagal memuat gambar untuk kompresi"));
+    };
+
+    img.src = url;
+  });
+}
+
+export async function fileToBase64Raw(file: File): Promise<{ base64: string; mimeType: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
       const [header, base64] = result.split(",");
-      const mimeType = header.match(/:(.*?);/)?.[1] || file.type || "image/jpeg";
+      const mimeType = header.match(/:(.*?);/)?.[1] || file.type || "application/octet-stream";
       resolve({ base64, mimeType });
     };
     reader.onerror = (err) => reject(err);
@@ -58,176 +90,320 @@ async function fileToBase64(file: File): Promise<{ base64: string; mimeType: str
   });
 }
 
-export async function parseSJWithGemini(
+// ============================================================
+// ALGORITMA PENCOCOKAN PRODUK & SKOR KEMIRIPAN (WORD-LEVEL)
+// Mencegah "Lip Coat" salah cocok ke sembarang shade.
+// Menghitung token overlap, precision, recall, dan string distance.
+// ============================================================
+
+function normalizeWord(w: string): string {
+  return w.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .map(normalizeWord)
+    .filter((w) => w.length > 0 && w !== "blp" && w !== "beauty");
+}
+
+export function levenshteinSimilarity(a: string, b: string): number {
+  if (a === b) return 1;
+  if (!a.length || !b.length) return 0;
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+    }
+  }
+  const maxLen = Math.max(m, n);
+  return (maxLen - dp[m][n]) / maxLen;
+}
+
+export type ProductMatchResult = {
+  product: ProductItem | null;
+  score: number;
+  confidence: MatchConfidence;
+};
+
+export function findBestMatchProductWithScore(
+  name: string,
+  sku: string,
+  master: ProductItem[]
+): ProductMatchResult {
+  if (!master || master.length === 0) {
+    return { product: null, score: 0, confidence: "unmatched" };
+  }
+
+  const cleanSku = (sku || "").trim().toLowerCase();
+  const cleanName = (name || "").trim().toLowerCase();
+
+  // 1. Cek kecocokan SKU eksak dari master
+  if (cleanSku) {
+    const bySku = master.find((m) => m.sku.toLowerCase() === cleanSku);
+    if (bySku) {
+      return { product: bySku, score: 1.0, confidence: "exact" };
+    }
+  }
+
+  // 2. Cek kecocokan nama produk eksak
+  if (cleanName) {
+    const exactName = master.find((m) => m.product.toLowerCase() === cleanName);
+    if (exactName) {
+      return { product: exactName, score: 1.0, confidence: "exact" };
+    }
+  }
+
+  const inputTokens = tokenize(name);
+  if (inputTokens.length === 0) {
+    return { product: null, score: 0, confidence: "unmatched" };
+  }
+
+  let bestMatch: ProductItem | null = null;
+  let highestScore = 0;
+
+  for (const item of master) {
+    const masterTokens = tokenize(item.product);
+    if (masterTokens.length === 0) continue;
+
+    // Hitung berapa token input yang cocok dengan token master
+    let matchedInputCount = 0;
+    const usedMasterIndices = new Set<number>();
+
+    for (const inToken of inputTokens) {
+      let bestTokenSim = 0;
+      let bestIndex = -1;
+
+      for (let j = 0; j < masterTokens.length; j++) {
+        if (usedMasterIndices.has(j)) continue;
+        const sim = levenshteinSimilarity(inToken, masterTokens[j]);
+        if (sim > bestTokenSim) {
+          bestTokenSim = sim;
+          bestIndex = j;
+        }
+      }
+
+      // Toleransi typo ringan per kata (>= 0.82)
+      if (bestTokenSim >= 0.82 && bestIndex !== -1) {
+        matchedInputCount += bestTokenSim;
+        usedMasterIndices.add(bestIndex);
+      }
+    }
+
+    const precision = matchedInputCount / masterTokens.length;
+    const recall = matchedInputCount / inputTokens.length;
+
+    let f1 = 0;
+    if (precision + recall > 0) {
+      f1 = (2 * precision * recall) / (precision + recall);
+    }
+
+    // Skor string global untuk tie-breaker
+    const globalDist = levenshteinSimilarity(
+      inputTokens.join(" "),
+      masterTokens.join(" ")
+    );
+    const combinedScore = f1 * 0.75 + globalDist * 0.25;
+
+    if (combinedScore > highestScore) {
+      highestScore = combinedScore;
+      bestMatch = item;
+    }
+  }
+
+  const roundedScore = Math.round(highestScore * 100) / 100;
+
+  let confidence: MatchConfidence = "unmatched";
+  if (roundedScore >= 0.82) {
+    confidence = "high";
+  } else if (roundedScore >= 0.50) {
+    confidence = "low";
+  } else {
+    confidence = "unmatched";
+    bestMatch = null;
+  }
+
+  return {
+    product: bestMatch,
+    score: roundedScore,
+    confidence,
+  };
+}
+
+// Backward-compatible wrapper
+export function findBestMatchProduct(
+  name: string,
+  sku: string,
+  master: ProductItem[]
+): ProductItem | null {
+  const result = findBestMatchProductWithScore(name, sku, master);
+  return result.product;
+}
+
+// ============================================================
+// PARSE SATU FILE LEMBAR SJ
+// ============================================================
+
+async function parseSingleFile(
   file: File,
   masterProducts: ProductItem[]
+): Promise<{
+  storeName: string;
+  noSJ: string;
+  items: ExtractedSJItem[];
+}> {
+  let base64: string;
+  let mimeType: string;
+
+  const isPDF = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+  if (isPDF) {
+    const raw = await fileToBase64Raw(file);
+    base64 = raw.base64;
+    mimeType = "application/pdf";
+  } else {
+    try {
+      const compressed = await compressImage(file);
+      base64 = compressed.base64;
+      mimeType = compressed.mimeType;
+    } catch (e) {
+      console.warn("Kompresi canvas gagal, fallback ke raw base64:", e);
+      const raw = await fileToBase64Raw(file);
+      base64 = raw.base64;
+      mimeType = raw.mimeType || "image/jpeg";
+    }
+  }
+
+  // Kirim daftar SKU & nama produk ke backend agar AI mencocokkan langsung
+  const masterList = masterProducts.slice(0, 250).map((p) => ({
+    sku: p.sku,
+    product: p.product,
+  }));
+
+  const result = await parseSJViaBackend(mimeType, base64, masterList);
+
+  if (!result.ok) {
+    throw new Error(result.error || `Gagal membaca file ${file.name}`);
+  }
+
+  const items: ExtractedSJItem[] = [];
+
+  if (Array.isArray(result.items)) {
+    for (const it of result.items) {
+      const claimQty = Number(it.claimQty) || 0;
+      if (claimQty <= 0) continue;
+
+      const rawProduct = String(it.product || "").trim();
+      const rawSku = String(it.sku || "").trim();
+
+      const match = findBestMatchProductWithScore(rawProduct, rawSku, masterProducts);
+      const matched = match.product;
+
+      items.push({
+        sku: matched?.sku || rawSku || normalizeSkuKey(rawSku, rawProduct),
+        product: matched?.product || rawProduct || "Produk Retur",
+        barcode: matched?.barcode || "",
+        claimQty,
+        rawProduct,
+        rawSku,
+        rawText: `${rawProduct} (${claimQty}x)`,
+        matchScore: match.score,
+        matchConfidence: match.confidence,
+        matchedFromMaster: !!matched,
+      });
+    }
+  }
+
+  return {
+    storeName: result.storeName || "",
+    noSJ: result.noSJ || "",
+    items,
+  };
+}
+
+// ============================================================
+// PARSE SJ DENGAN DUKUNGAN MULTI-GAMBAR / MULTI-HALAMAN
+// Menggabungkan beberapa foto SJ dan menjumlahkan klaimnya.
+// ============================================================
+
+export async function parseSJWithGemini(
+  input: File | File[],
+  masterProducts: ProductItem[],
+  onProgress?: (current: number, total: number, message: string) => void
 ): Promise<ExtractedSJResult> {
-  const apiKey = getGeminiApiKey();
-  if (!apiKey) {
-    return {
-      ok: false,
-      items: [],
-      error: "API Key Gemini belum diatur. Masukkan API key di pengaturan atau file .env.",
-    };
+  const files = Array.isArray(input) ? input : [input];
+  if (files.length === 0) {
+    return { ok: false, items: [], error: "Tidak ada file yang dipilih." };
   }
 
   try {
-    const { base64, mimeType } = await fileToBase64(file);
+    let finalStoreName = "";
+    let finalNoSJ = "";
+    const combinedMap = new Map<string, ExtractedSJItem>();
 
-    const prompt = `Anda adalah sistem pembaca dokumen gudang untuk brand kosmetik BLP Beauty (By Lizzie Parra).
-Tugas Anda adalah mengekstrak data dari foto/scan lembar "Surat Jalan (SJ) Retur" / "Form Retur Toko / Distributor":
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (onProgress) {
+        onProgress(
+          i + 1,
+          files.length,
+          files.length > 1
+            ? `Membaca halaman ${i + 1} dari ${files.length} (${file.name})...`
+            : `Menganalisis dokumen (${file.name})...`
+        );
+      }
 
-Harap cari dan ekstrak:
-1. "storeName": Nama toko, distributor, atau event (misal: "Watsons Grand Indonesia", "Sociolla PIM", "Guardian", dll). Jika tidak ditemukan, isi string kosong "".
-2. "noSJ": Nomor surat jalan atau nomor dokumen retur jika ada. Jika tidak ada, isi "".
-3. "items": Daftar barang retur yang diklaim. Setiap item harus memiliki:
-   - "product": Nama produk (misal: "Lip Coat Butter Fudge", "Face Powder Light", "Cover Cushion N20").
-   - "sku": Kode SKU jika tertulis di kertas, atau kosongkan "".
-   - "claimQty": Jumlah fisik barang yang diklaim retur (angka bulat positif).
+      const pageResult = await parseSingleFile(file, masterProducts);
 
-Keluarkan HANYA format JSON murni tanpa markdown triple backticks (atau di dalam blok json), dengan format:
-{
-  "storeName": "...",
-  "noSJ": "...",
-  "items": [
-    { "product": "...", "sku": "...", "claimQty": 10 }
-  ]
-}`;
+      if (!finalStoreName && pageResult.storeName) {
+        finalStoreName = pageResult.storeName;
+      }
+      if (!finalNoSJ && pageResult.noSJ) {
+        finalNoSJ = pageResult.noSJ;
+      }
 
-    // Coba gemini-2.5-flash terlebih dahulu, fallback ke gemini-3.8-flash
-    const models = ["gemini-2.5-flash", "gemini-3.8-flash"];
-    let lastError = "";
-    let data: any = null;
+      // Gabungkan dan jumlahkan item berdasarkan SKU / key unik
+      for (const item of pageResult.items) {
+        const itemKey = item.sku || normalizeSkuKey(item.sku, item.product);
+        const existing = combinedMap.get(itemKey);
 
-    for (const model of models) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
-          apiKey
-        )}`;
-
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: prompt },
-                  {
-                    inlineData: {
-                      mimeType: mimeType.startsWith("image/") ? mimeType : "image/jpeg",
-                      data: base64,
-                    },
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.1,
-              responseMimeType: "application/json",
-            },
-          }),
-        });
-
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`Gemini API Error (${response.status}): ${errText}`);
+        if (existing) {
+          existing.claimQty += item.claimQty;
+          // Perbarui score jika halaman berikutnya memiliki kecocokan yang lebih tinggi
+          if (item.matchScore > existing.matchScore) {
+            existing.product = item.product;
+            existing.barcode = item.barcode;
+            existing.matchScore = item.matchScore;
+            existing.matchConfidence = item.matchConfidence;
+            existing.matchedFromMaster = item.matchedFromMaster;
+          }
+        } else {
+          combinedMap.set(itemKey, { ...item });
         }
-
-        data = await response.json();
-        if (data) break;
-      } catch (err: any) {
-        lastError = err?.message || String(err);
       }
     }
 
-    if (!data) {
-      return {
-        ok: false,
-        items: [],
-        error: `Gagal membaca gambar: ${lastError}`,
-      };
-    }
-
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-    if (!rawText) {
-      return {
-        ok: false,
-        items: [],
-        error: "AI tidak menghasilkan teks dari gambar ini.",
-      };
-    }
-
-    // Bersihkan kemungkinan markdown code block ```json ... ```
-    const cleanJson = rawText.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
-    const parsed = JSON.parse(cleanJson);
-
-    const extractedItems: ExtractedSJResult["items"] = [];
-
-    if (Array.isArray(parsed.items)) {
-      for (const it of parsed.items) {
-        const claimQty = Number(it.claimQty) || 0;
-        if (claimQty <= 0) continue;
-
-        const rawProduct = String(it.product || "").trim();
-        const rawSku = String(it.sku || "").trim();
-
-        // Cocokkan dengan master data produk BLP Beauty
-        const matched = findBestMatchProduct(rawProduct, rawSku, masterProducts);
-
-        extractedItems.push({
-          sku: matched?.sku || rawSku || normalizeSkuKey(rawSku, rawProduct),
-          product: matched?.product || rawProduct || "Produk Retur",
-          barcode: matched?.barcode || "",
-          claimQty,
-          rawText: `${rawProduct} (${claimQty}x)`,
-        });
-      }
-    }
+    const items = Array.from(combinedMap.values());
 
     return {
       ok: true,
-      storeName: parsed.storeName || "",
-      noSJ: parsed.noSJ || "",
-      items: extractedItems,
+      storeName: finalStoreName,
+      noSJ: finalNoSJ,
+      items,
+      pageCount: files.length,
     };
   } catch (err: any) {
     return {
       ok: false,
       items: [],
-      error: `Terjadi kesalahan saat memproses gambar: ${err?.message || String(err)}`,
+      error: `Terjadi kesalahan saat memproses dokumen: ${err?.message || String(err)}`,
     };
   }
-}
-
-// Helper untuk mencocokkan nama produk dari kertas SJ ke master produk BLP
-function findBestMatchProduct(
-  name: string,
-  sku: string,
-  master: ProductItem[]
-): ProductItem | null {
-  if (master.length === 0) return null;
-
-  const nLower = name.toLowerCase().trim();
-  const skuLower = sku.toLowerCase().trim();
-
-  // 1. Cek kecocokan SKU eksak
-  if (skuLower) {
-    const bySku = master.find((m) => m.sku.toLowerCase() === skuLower);
-    if (bySku) return bySku;
-  }
-
-  // 2. Cek kecocokan nama produk eksak
-  const exact = master.find((m) => m.product.toLowerCase() === nLower);
-  if (exact) return exact;
-
-  // 3. Cek apakah nama master terkandung dalam teks atau sebaliknya
-  const partial = master.find(
-    (m) =>
-      nLower.includes(m.product.toLowerCase()) ||
-      m.product.toLowerCase().includes(nLower)
-  );
-  if (partial) return partial;
-
-  return null;
 }

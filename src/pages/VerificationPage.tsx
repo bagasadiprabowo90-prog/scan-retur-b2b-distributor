@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { fetchProducts, type ProductItem } from "../lib/api";
+import {
+  fetchProducts,
+  saveReconciliationToBackend,
+  fetchReconciliationHistory,
+  type ProductItem,
+} from "../lib/api";
 import {
   parseSJWithGemini,
-  getGeminiApiKey,
-  saveUserGeminiApiKey,
   type ExtractedSJResult,
 } from "../lib/gemini";
 import {
@@ -19,6 +22,9 @@ import {
   finishAndArchiveSession,
   getReconHistory,
   deleteReconReport,
+  removeScannedItemFromSession,
+  getSessionStoreConflict,
+  getTodayReceiveDate,
   formatWhatsAppSummary,
   type ReconcileItem,
   type SavedReconReport,
@@ -27,6 +33,7 @@ import {
 
 export default function VerificationPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<"current" | "history">("current");
@@ -47,13 +54,16 @@ export default function VerificationPage() {
   const [discrepancyNote, setDiscrepancyNote] = useState("");
 
   const [gatekeeperOpen, setGatekeeperOpen] = useState(false);
-  const [geminiKeyModalOpen, setGeminiKeyModalOpen] = useState(false);
-  const [geminiKeyInput, setGeminiKeyInput] = useState(() => getGeminiApiKey());
-  const [showKeyPassword, setShowKeyPassword] = useState(false);
+  const [scannedListModalOpen, setScannedListModalOpen] = useState(false);
+  const [storeConflictModalOpen, setStoreConflictModalOpen] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiProgressText, setAiProgressText] = useState("");
   const [aiPreviewOpen, setAiPreviewOpen] = useState(false);
   const [aiExtractedData, setAiExtractedData] = useState<ExtractedSJResult | null>(null);
   const [aiApplyMode, setAiApplyMode] = useState<"replace" | "add">("replace");
+  const [mappingItemIndex, setMappingItemIndex] = useState<number | null>(null);
+  const [mappingSearch, setMappingSearch] = useState("");
+  const [requireMappingConfirm, setRequireMappingConfirm] = useState(false);
   const [matchAllModalOpen, setMatchAllModalOpen] = useState(false);
   const [matchAllReason, setMatchAllReason] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,6 +83,17 @@ export default function VerificationPage() {
     })();
     return () => { alive = false; };
   }, []);
+
+  // Buka dialog file picker secara otomatis bila navigasi dari tombol "Baca SJ (AI)"
+  useEffect(() => {
+    if (location.state && (location.state as any).autoOpenScan) {
+      navigate(location.pathname, { replace: true, state: {} });
+      const timer = setTimeout(() => {
+        fileInputRef.current?.click();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [location.state, navigate, location.pathname]);
 
   const refreshSession = () => {
     setSession(getActiveSession());
@@ -128,70 +149,156 @@ export default function VerificationPage() {
       .slice(0, 20);
   }, [products, skuSearch]);
 
+  const filteredProductsForMapping = useMemo(() => {
+    const q = mappingSearch.trim().toLowerCase();
+    if (!q) return products.slice(0, 30);
+    return products
+      .filter(
+        (p) =>
+          p.product.toLowerCase().includes(q) ||
+          p.sku.toLowerCase().includes(q) ||
+          p.barcode.toLowerCase().includes(q)
+      )
+      .slice(0, 30);
+  }, [products, mappingSearch]);
+
   const showToast = (type: "success" | "error", msg: string) => {
     setToast({ type, msg });
     setTimeout(() => setToast(null), 3500);
   };
 
   const handleOpenAiScan = () => {
-    const key = getGeminiApiKey();
-    if (!key) {
-      setGeminiKeyModalOpen(true);
-      return;
-    }
     fileInputRef.current?.click();
   };
 
-  const handleSaveGeminiKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    saveUserGeminiApiKey(geminiKeyInput);
-    setGeminiKeyModalOpen(false);
-    showToast("success", "API Key Gemini berhasil disimpan secara privat di perangkat Anda.");
-    if (geminiKeyInput.trim()) {
-      setTimeout(() => fileInputRef.current?.click(), 300);
-    }
-  };
-
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length === 0) return;
 
     setAiLoading(true);
-    const result = await parseSJWithGemini(file, products);
-    setAiLoading(false);
+    setAiProgressText(
+      files.length > 1
+        ? `Mempersiapkan ${files.length} halaman dokumen...`
+        : "Membaca lembar SJ..."
+    );
 
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    try {
+      const result = await parseSJWithGemini(files, products, (_cur, _total, msg) => {
+        setAiProgressText(msg);
+      });
 
-    if (!result.ok) {
-      showToast("error", result.error || "Gagal membaca lembar SJ.");
-      return;
+      if (!result.ok) {
+        if (
+          result.error &&
+          (result.error.includes("Aksi tidak didukung") ||
+            result.error.includes("parsesj") ||
+            result.error.includes("Script Properties"))
+        ) {
+          showToast(
+            "error",
+            "Aksi 'parsesj' belum aktif di Apps Script. Buka Google Apps Script, perbarui Code.js, lalu klik 'Deploy' -> 'New deployment'."
+          );
+        } else if (
+          result.error &&
+          (result.error.includes("503") ||
+            result.error.includes("high demand") ||
+            result.error.includes("UNAVAILABLE"))
+        ) {
+          showToast(
+            "error",
+            "Server AI Google sedang mengalami lonjakan beban (503). Silakan coba klik tombol lagi dalam beberapa detik."
+          );
+        } else {
+          showToast("error", result.error || "Gagal membaca lembar SJ.");
+        }
+        return;
+      }
+
+      if (result.items.length === 0) {
+        showToast(
+          "error",
+          "AI tidak menemukan baris produk pada dokumen ini. Pastikan foto tegak lurus dan pencahayaan cukup."
+        );
+        return;
+      }
+
+      setAiExtractedData(result);
+      setAiApplyMode("replace");
+      setRequireMappingConfirm(false);
+      setAiPreviewOpen(true);
+    } catch (err: any) {
+      console.error("Gagal memproses file SJ:", err);
+      showToast("error", err?.message || "Terjadi kesalahan saat memproses file SJ.");
+    } finally {
+      setAiLoading(false);
+      setAiProgressText("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-
-    if (result.items.length === 0) {
-      showToast("error", "AI tidak menemukan baris produk pada gambar ini. Pastikan foto tegak lurus dan pencahayaan cukup.");
-      return;
-    }
-
-    setAiExtractedData(result);
-    setAiApplyMode("replace");
-    setAiPreviewOpen(true);
   };
 
-  const handleApplyAiClaims = () => {
+  const handleSelectProductForMapping = (product: ProductItem) => {
+    if (mappingItemIndex === null || !aiExtractedData) return;
+    const updated = [...aiExtractedData.items];
+    const target = updated[mappingItemIndex];
+    if (!target) return;
+
+    updated[mappingItemIndex] = {
+      ...target,
+      sku: product.sku,
+      product: product.product,
+      barcode: product.barcode,
+      matchScore: 1.0,
+      matchConfidence: "exact",
+      matchedFromMaster: true,
+    };
+
+    setAiExtractedData({ ...aiExtractedData, items: updated });
+    setMappingItemIndex(null);
+    setMappingSearch("");
+    showToast("success", `Dipetakan ke: ${product.product} (${product.sku})`);
+  };
+
+  const handleApplyAiClaims = (force = false) => {
     if (!aiExtractedData) return;
+
+    const unmappedCount = aiExtractedData.items.filter(
+      (it) => it.matchConfidence === "unmatched" || it.matchConfidence === "low"
+    ).length;
+
+    if (unmappedCount > 0 && !force) {
+      setRequireMappingConfirm(true);
+      showToast(
+        "error",
+        `Ada ${unmappedCount} produk belum dipetakan ke Master Data. Petakan atau klik Konfirmasi untuk melanjutkan.`
+      );
+      return;
+    }
 
     let currentSession = session || getActiveSession();
     if (!currentSession) {
       const storeName = aiExtractedData.storeName || "Toko Retur (dari SJ)";
       const noSJ = aiExtractedData.noSJ || "";
-      currentSession = startStoreSession(storeName, noSJ, "Bagas");
+      const defaultSheet = user?.displayName === "Dimas" ? "Dimas" : "Bagas";
+      currentSession = startStoreSession(
+        storeName,
+        noSJ,
+        defaultSheet,
+        getTodayReceiveDate()
+      );
       setSession(currentSession);
+    } else if (
+      aiExtractedData.storeName &&
+      getSessionStoreConflict(aiExtractedData.storeName)
+    ) {
+      setStoreConflictModalOpen(true);
+      return;
     }
 
     applyClaimItems(aiExtractedData.items, aiApplyMode);
 
     refreshSession();
     setAiPreviewOpen(false);
+    setRequireMappingConfirm(false);
     showToast(
       "success",
       aiApplyMode === "add"
@@ -314,10 +421,20 @@ export default function VerificationPage() {
     if (report) {
       setReconHistory(getReconHistory());
       setGatekeeperOpen(false);
+
+      // Simpan laporan ke Spreadsheet secara asinkron (audit trail permanen)
+      saveReconciliationToBackend(report)
+        .then((res) => {
+          if (!res.ok) {
+            console.warn("Gagal menyimpan rekon ke Cloud Sheet:", res.error);
+          }
+        })
+        .catch((err) => console.error("Error saveReconciliationToBackend:", err));
+
       navigate("/", {
         replace: true,
         state: {
-          successMessage: `Selesai verifikasi toko "${report.storeName}". Siap input toko berikutnya.`,
+          successMessage: `Selesai verifikasi toko "${report.storeName}". Laporan tersimpan ke Spreadsheet & Riwayat.`,
         },
       });
     }
@@ -334,6 +451,16 @@ export default function VerificationPage() {
 
   return (
     <div className="space-y-3 pb-12">
+      {/* Input File Kamera & Dokumen SJ (Selalu terpasang di DOM agar tombol foto berfungsi baik saat sesi aktif maupun belum ada sesi) */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        multiple
+        className="hidden"
+        onChange={handleFileSelected}
+      />
+
       {/* Toast Notification */}
       {toast && (
         <div
@@ -417,14 +544,6 @@ export default function VerificationPage() {
                   >
                     Mulai Scan Fisik
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setGeminiKeyModalOpen(true)}
-                    className="btn-outline py-2.5 px-3 text-xs font-bold text-purple-700 border-purple-200 hover:bg-purple-50"
-                    title="Pengaturan API Key"
-                  >
-                    ⚙️ Key AI
-                  </button>
                 </div>
               </div>
             </div>
@@ -445,13 +564,23 @@ export default function VerificationPage() {
                       {session.receiveDate || "Hari Ini"} · Sheet {session.targetSheet}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/")}
-                    className="shrink-0 text-xs font-semibold text-gray-500 hover:text-gray-800 bg-gray-100 px-2.5 py-1.5 rounded-lg"
-                  >
-                    + Scan Tambahan
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setScannedListModalOpen(true)}
+                      className="text-xs font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg border border-gray-200"
+                      title="Lihat & hapus item fisik yang sudah discan"
+                    >
+                      📋 Scan ({session.items.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/")}
+                      className="text-xs font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg border border-blue-200"
+                    >
+                      + Scan Tambahan
+                    </button>
+                  </div>
                 </div>
 
                 {/* Scorecards */}
@@ -549,14 +678,6 @@ export default function VerificationPage() {
                     <span>{aiLoading ? "⏳" : "📷"}</span>
                     <span>{aiLoading ? "Membaca..." : "Baca SJ (AI)"}</span>
                   </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,application/pdf"
-                    capture="environment"
-                    className="hidden"
-                    onChange={handleFileSelected}
-                  />
                 </div>
 
                 {/* Filter Pills */}
@@ -597,6 +718,7 @@ export default function VerificationPage() {
                     const isUnscanned = item.status === "unscanned";
                     const isUnder = item.status === "under";
                     const isOver = item.status === "over";
+                    const isNotInSj = item.status === "not_in_sj";
 
                     return (
                       <div
@@ -608,7 +730,9 @@ export default function VerificationPage() {
                             ? "border-red-300 bg-red-50/40"
                             : isUnder
                             ? "border-amber-300 bg-amber-50/30"
-                            : "border-purple-200 bg-purple-50/20"
+                            : isNotInSj
+                            ? "border-purple-300 bg-purple-50/30"
+                            : "border-amber-300 bg-amber-50/30"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -630,9 +754,14 @@ export default function VerificationPage() {
                                   🔴 KURANG {Math.abs(item.diff)} pcs
                                 </span>
                               )}
-                              {isOver && (
+                              {isNotInSj && (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-600 text-white">
-                                  🟡 LEBIH +{item.diff} pcs
+                                  🟣 TIDAK ADA DI SJ (+{item.physicalQty} pcs)
+                                </span>
+                              )}
+                              {isOver && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                                  🟡 LEBIH DARI KLAIM (+{item.diff} pcs)
                                 </span>
                               )}
 
@@ -794,6 +923,34 @@ export default function VerificationPage() {
       {/* ======================================================== */}
       {activeTab === "history" && (
         <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+              Riwayat Rekon ({reconHistory.length})
+            </span>
+            <button
+              type="button"
+              onClick={async () => {
+                showToast("success", "Menyinkronkan riwayat dari Cloud Spreadsheet...");
+                const res = await fetchReconciliationHistory();
+                if (res.ok && res.reports) {
+                  const local = getReconHistory();
+                  const existingIds = new Set(local.map((r) => r.id));
+                  const newFromRemote = res.reports.filter((r) => !existingIds.has(r.id));
+                  const merged = [...local, ...newFromRemote];
+                  localStorage.setItem("scan-retur-recon-history", JSON.stringify(merged.slice(0, 50)));
+                  setReconHistory(merged);
+                  showToast("success", `Sinkron selesai (${res.reports.length} laporan di Sheet).`);
+                } else {
+                  showToast("error", res.error || "Gagal mengambil data dari Google Sheets.");
+                }
+              }}
+              className="text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"
+            >
+              <span>☁️</span>
+              <span>Sinkron dari Sheet</span>
+            </button>
+          </div>
+
           {reconHistory.length === 0 ? (
             <div className="card p-8 text-center text-xs text-gray-400">
               Belum ada riwayat verifikasi toko yang tersimpan.
@@ -1166,16 +1323,6 @@ export default function VerificationPage() {
           </div>
         </div>
       )}
-          {/* Hidden File Input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,application/pdf"
-        capture="environment"
-        className="hidden"
-        onChange={handleFileSelected}
-      />
-
       {/* AI LOADING OVERLAY */}
       {aiLoading && (
         <div className="fixed inset-0 z-60 flex flex-col items-center justify-center p-4 bg-black/60 backdrop-blur-xs text-white text-center space-y-3">
@@ -1183,192 +1330,298 @@ export default function VerificationPage() {
           <div className="space-y-1">
             <h4 className="text-base font-bold">🤖 Gemini AI Membaca Lembar SJ...</h4>
             <p className="text-xs text-purple-200 max-w-xs">
-              Mendeteksi nama produk, SKU, dan jumlah klaim dari foto dokumen kertas. Mohon tunggu sebentar...
+              {aiProgressText || "Mendeteksi nama produk, SKU, dan jumlah klaim dari foto dokumen kertas. Mohon tunggu sebentar..."}
             </p>
           </div>
         </div>
       )}
 
-      {/* MODAL: INPUT GEMINI API KEY PRIVAT */}
-      {geminiKeyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="card max-w-sm w-full p-4 space-y-3 bg-white animate-scale-in">
-            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-              <div className="flex items-center gap-1.5">
-                <span className="text-lg">🔒</span>
-                <h3 className="text-sm font-bold text-gray-900">
-                  Pengaturan Gemini API Key
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setGeminiKeyModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
-              >
-                ×
-              </button>
-            </div>
+      {/* MODAL: PREVIEW HASIL EKSTRAKSI AI VISION */}
+      {aiPreviewOpen && aiExtractedData && (() => {
+        const unmappedCount = aiExtractedData.items.filter(
+          (it) => it.matchConfidence === "unmatched" || it.matchConfidence === "low"
+        ).length;
 
-            <div className="text-xs text-gray-600 space-y-2 bg-purple-50 border border-purple-100 rounded-xl p-3">
-              <p className="font-semibold text-purple-900">
-                🛡️ Privasi & Keamanan Terjamin:
-              </p>
-              <p>
-                API Key ini <strong>TIDAK PERNAH dikirim ke publik/repository</strong> dan hanya tersimpan aman di browser perangkat Anda atau file <code>.env</code> lokal.
-              </p>
-              <p className="text-[11px] text-gray-500">
-                Dapatkan gratis di <a href="https://aistudio.google.com" target="_blank" rel="noreferrer" className="text-purple-700 underline font-bold">aistudio.google.com</a> (login dengan akun Google Anda → Create API Key).
-              </p>
-            </div>
-
-            <form onSubmit={handleSaveGeminiKey} className="space-y-3">
-              <div>
-                <label className="label-field">Masukkan Gemini API Key</label>
-                <div className="relative">
-                  <input
-                    type={showKeyPassword ? "text" : "password"}
-                    value={geminiKeyInput}
-                    onChange={(e) => setGeminiKeyInput(e.target.value)}
-                    placeholder="AIzaSy..."
-                    className="input-field text-xs py-2 pr-10 font-mono"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowKeyPassword(!showKeyPassword)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
-                  >
-                    {showKeyPassword ? "🙈" : "👁️"}
-                  </button>
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+            <div className="card max-w-md w-full p-4 space-y-3 bg-white animate-scale-in max-h-[85vh] flex flex-col">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100 shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-lg">✨</span>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Hasil Baca Lembar SJ (AI Vision)
+                  </h3>
                 </div>
-              </div>
-
-              <div className="flex gap-2 pt-2 border-t border-gray-100">
                 <button
                   type="button"
-                  onClick={() => setGeminiKeyModalOpen(false)}
+                  onClick={() => setAiPreviewOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-xl p-2.5 shrink-0 space-y-1">
+                {aiExtractedData.storeName && (
+                  <p>📍 <strong>Toko terdeteksi:</strong> {aiExtractedData.storeName}</p>
+                )}
+                {aiExtractedData.noSJ && (
+                  <p>📄 <strong>No. SJ terdeteksi:</strong> {aiExtractedData.noSJ}</p>
+                )}
+                <p className="text-purple-700 font-bold">
+                  {aiExtractedData.pageCount && aiExtractedData.pageCount > 1
+                    ? `📄 ${aiExtractedData.pageCount} halaman digabung · `
+                    : ""}
+                  Ditemukan {aiExtractedData.items.length} produk pada lembar kertas.
+                </p>
+              </div>
+
+              {/* Warning jika ada produk yang belum cocok / low confidence */}
+              {unmappedCount > 0 && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-2.5 text-xs space-y-1 shrink-0">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <span>⚠️</span>
+                    <span>Ada {unmappedCount} produk perlu dicek / dipetakan</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Produk bertanda kuning/merah belum cocok persis dengan Master. Klik <strong>"Petakan"</strong> agar fisik scan nantinya cocok dan tidak muncul selisih dobel.
+                  </p>
+                </div>
+              )}
+
+              {/* List Items Extracted */}
+              <div className="overflow-y-auto flex-1 divide-y divide-gray-100 border border-gray-200 rounded-xl p-1 space-y-1">
+                {aiExtractedData.items.map((it, idx) => {
+                  const isUnmatched = it.matchConfidence === "unmatched";
+                  const isLow = it.matchConfidence === "low";
+                  const isExact = it.matchConfidence === "exact";
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-2 rounded-lg flex items-start justify-between gap-2 text-xs border ${
+                        isUnmatched
+                          ? "bg-red-50/60 border-red-200"
+                          : isLow
+                          ? "bg-amber-50/60 border-amber-200"
+                          : "bg-white border-gray-100"
+                      }`}
+                    >
+                      <div className="min-w-0 pr-2 flex-1 space-y-0.5">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {isExact && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              ✓ Master Eksak
+                            </span>
+                          )}
+                          {!isExact && !isLow && !isUnmatched && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              ✓ Cocok ({Math.round((it.matchScore || 1) * 100)}%)
+                            </span>
+                          )}
+                          {isLow && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900">
+                              ⚠️ Perlu Dicek ({Math.round(it.matchScore * 100)}%)
+                            </span>
+                          )}
+                          {isUnmatched && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
+                              🚫 Tidak di Master
+                            </span>
+                          )}
+                        </div>
+
+                        <span className="font-bold text-gray-900 block truncate leading-snug">
+                          {it.product}
+                        </span>
+
+                        {it.rawProduct && it.rawProduct.toLowerCase() !== it.product.toLowerCase() && (
+                          <span className="text-[10px] text-gray-500 block">
+                            Teks SJ: <em>"{it.rawProduct}"</em>
+                          </span>
+                        )}
+
+                        <div className="flex items-center gap-2 pt-0.5">
+                          <span className="text-[10px] text-gray-400 font-mono">
+                            SKU: {it.sku || "-"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMappingItemIndex(idx);
+                              setMappingSearch(it.rawProduct || it.product);
+                            }}
+                            className="text-[10px] font-bold text-blue-600 hover:text-blue-800 underline"
+                          >
+                            {isUnmatched || isLow ? "🗺️ Petakan..." : "Ubah..."}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 flex items-center gap-1 pt-1">
+                        <span className="text-[10px] text-gray-400 font-bold uppercase">Klaim:</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="1"
+                          value={it.claimQty}
+                          onChange={(e) => {
+                            const val = Math.max(0, Number(e.target.value) || 0);
+                            const updated = [...aiExtractedData.items];
+                            updated[idx].claimQty = val;
+                            setAiExtractedData({ ...aiExtractedData, items: updated });
+                          }}
+                          className="w-14 text-center text-xs font-bold text-purple-900 border border-gray-300 rounded-lg py-1 focus:outline-none"
+                        />
+                        <span className="text-xs text-gray-500 font-semibold">pcs</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {session && Object.keys(session.claims).length > 0 && (
+                <div className="shrink-0 grid grid-cols-2 gap-1.5 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setAiApplyMode("replace")}
+                    className={`py-1.5 rounded-lg border ${
+                      aiApplyMode === "replace"
+                        ? "bg-purple-600 text-white border-purple-600"
+                        : "bg-white text-gray-600 border-gray-300"
+                    }`}
+                  >
+                    Ganti klaim SKU ini
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiApplyMode("add")}
+                    className={`py-1.5 rounded-lg border ${
+                      aiApplyMode === "add"
+                        ? "bg-purple-600 text-white border-purple-600"
+                        : "bg-white text-gray-600 border-gray-300"
+                    }`}
+                  >
+                    Tambah (SJ halaman lanjutan)
+                  </button>
+                </div>
+              )}
+
+              {/* Konfirmasi jika masih ada item low/unmatched */}
+              {requireMappingConfirm && (
+                <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs space-y-1 shrink-0">
+                  <p className="font-bold text-red-800">
+                    Masih ada {unmappedCount} produk belum dipetakan.
+                  </p>
+                  <p className="text-[11px] text-red-600 leading-snug">
+                    Produk tanpa SKU master berisiko membuat selisih palsu saat barang fisik di-scan.
+                  </p>
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyAiClaims(true)}
+                      className="w-full btn-outline py-1.5 text-xs font-bold text-red-700 border-red-300 hover:bg-red-100"
+                    >
+                      Tetap Terapkan Tanpa Mapping
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2 border-t border-gray-100 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAiPreviewOpen(false);
+                    setRequireMappingConfirm(false);
+                  }}
                   className="flex-1 btn-outline py-2 text-xs font-bold"
                 >
                   Batal
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => handleApplyAiClaims(false)}
                   className="flex-1 btn-primary py-2 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white"
                 >
-                  Simpan & Lanjut
+                  ✓ Terapkan ke Rekonsiliasi
                 </button>
               </div>
-            </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
-      {/* MODAL: PREVIEW HASIL EKSTRAKSI AI VISION */}
-      {aiPreviewOpen && aiExtractedData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="card max-w-md w-full p-4 space-y-3 bg-white animate-scale-in max-h-[85vh] flex flex-col">
+      {/* MODAL: MANUAL MAPPING MASTER PRODUCT */}
+      {mappingItemIndex !== null && aiExtractedData && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="card max-w-sm w-full p-4 space-y-3 bg-white animate-scale-in max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-2 border-b border-gray-100 shrink-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-lg">✨</span>
+              <div>
                 <h3 className="text-sm font-bold text-gray-900">
-                  Hasil Baca Lembar SJ (AI Vision)
+                  Petakan ke Master Produk
                 </h3>
+                <p className="text-[11px] text-gray-500">
+                  Teks SJ: "<em>{aiExtractedData.items[mappingItemIndex]?.rawProduct || aiExtractedData.items[mappingItemIndex]?.product}</em>"
+                </p>
               </div>
               <button
                 type="button"
-                onClick={() => setAiPreviewOpen(false)}
+                onClick={() => setMappingItemIndex(null)}
                 className="text-gray-400 hover:text-gray-600 text-lg leading-none"
               >
                 ×
               </button>
             </div>
 
-            <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-xl p-2.5 shrink-0 space-y-1">
-              {aiExtractedData.storeName && (
-                <p>📍 <strong>Toko terdeteksi:</strong> {aiExtractedData.storeName}</p>
-              )}
-              {aiExtractedData.noSJ && (
-                <p>📄 <strong>No. SJ terdeteksi:</strong> {aiExtractedData.noSJ}</p>
-              )}
-              <p className="text-purple-700 font-bold">
-                Ditemukan {aiExtractedData.items.length} produk pada lembar kertas.
-              </p>
+            <div className="space-y-1 shrink-0">
+              <label className="label-field">Cari Produk Resmi BLP:</label>
+              <input
+                type="text"
+                value={mappingSearch}
+                onChange={(e) => setMappingSearch(e.target.value)}
+                placeholder="Ketik nama shade / produk / SKU..."
+                className="input-field text-xs py-2 w-full"
+                autoFocus
+              />
             </div>
 
-            {/* List Items Extracted */}
             <div className="overflow-y-auto flex-1 divide-y divide-gray-100 border border-gray-200 rounded-xl">
-              {aiExtractedData.items.map((it, idx) => (
-                <div key={idx} className="p-2.5 flex items-center justify-between gap-2 text-xs">
-                  <div className="min-w-0 pr-2">
-                    <span className="font-bold text-gray-900 block truncate">
-                      {it.product}
-                    </span>
-                    <span className="text-[10px] text-gray-400 font-mono">
-                      SKU: {it.sku}
-                    </span>
-                  </div>
-                  <div className="shrink-0 flex items-center gap-1">
-                    <span className="text-[10px] text-gray-400 font-bold uppercase">Klaim:</span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      value={it.claimQty}
-                      onChange={(e) => {
-                        const val = Math.max(0, Number(e.target.value) || 0);
-                        const updated = [...aiExtractedData.items];
-                        updated[idx].claimQty = val;
-                        setAiExtractedData({ ...aiExtractedData, items: updated });
-                      }}
-                      className="w-14 text-center text-xs font-bold text-purple-900 border border-gray-300 rounded-lg py-1 focus:outline-none"
-                    />
-                    <span className="text-xs text-gray-500 font-semibold">pcs</span>
-                  </div>
+              {filteredProductsForMapping.length === 0 ? (
+                <div className="p-4 text-center text-xs text-gray-400">
+                  Tidak ditemukan produk yang cocok.
                 </div>
-              ))}
+              ) : (
+                filteredProductsForMapping.map((p) => (
+                  <button
+                    key={p.barcode || p.sku}
+                    type="button"
+                    onClick={() => handleSelectProductForMapping(p)}
+                    className="w-full text-left p-2.5 hover:bg-blue-50/70 transition-colors flex items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <span className="font-bold text-xs text-gray-900 block truncate">
+                        {p.product}
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-mono">
+                        {p.sku} {p.barcode ? `· ${p.barcode}` : ""}
+                      </span>
+                    </div>
+                    <span className="text-xs font-bold text-blue-600 shrink-0">
+                      Pilih →
+                    </span>
+                  </button>
+                ))
+              )}
             </div>
 
-            {session && Object.keys(session.claims).length > 0 && (
-              <div className="shrink-0 grid grid-cols-2 gap-1.5 text-[11px] font-bold">
-                <button
-                  type="button"
-                  onClick={() => setAiApplyMode("replace")}
-                  className={`py-1.5 rounded-lg border ${
-                    aiApplyMode === "replace"
-                      ? "bg-purple-600 text-white border-purple-600"
-                      : "bg-white text-gray-600 border-gray-300"
-                  }`}
-                >
-                  Ganti klaim SKU ini
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAiApplyMode("add")}
-                  className={`py-1.5 rounded-lg border ${
-                    aiApplyMode === "add"
-                      ? "bg-purple-600 text-white border-purple-600"
-                      : "bg-white text-gray-600 border-gray-300"
-                  }`}
-                >
-                  Tambah (SJ halaman lanjutan)
-                </button>
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-2 border-t border-gray-100 shrink-0">
+            <div className="pt-2 border-t border-gray-100 shrink-0">
               <button
                 type="button"
-                onClick={() => setAiPreviewOpen(false)}
-                className="flex-1 btn-outline py-2 text-xs font-bold"
+                onClick={() => setMappingItemIndex(null)}
+                className="w-full btn-outline py-2 text-xs font-bold"
               >
                 Batal
-              </button>
-              <button
-                type="button"
-                onClick={handleApplyAiClaims}
-                className="flex-1 btn-primary py-2 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                ✓ Terapkan ke Rekonsiliasi
               </button>
             </div>
           </div>
@@ -1411,6 +1664,136 @@ export default function VerificationPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* MODAL: RINCIAN BARANG FISIK TER-SCAN & HAPUS SCAN */}
+      {scannedListModalOpen && session && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="card max-w-md w-full p-4 space-y-3 bg-white animate-scale-in max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100 shrink-0">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">
+                  Rincian Hasil Scan Fisik
+                </h3>
+                <p className="text-[11px] text-gray-500">
+                  {session.storeName} · Total {session.items.reduce((s, i) => s + i.qty, 0)} pcs ({session.items.length} scan)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScannedListModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 divide-y divide-gray-100 border border-gray-200 rounded-xl">
+              {session.items.length === 0 ? (
+                <div className="p-6 text-center text-xs text-gray-400">
+                  Belum ada barang fisik yang discan untuk sesi ini.
+                </div>
+              ) : (
+                session.items.map((it, idx) => (
+                  <div key={it.id || idx} className="p-2.5 flex items-center justify-between gap-2 text-xs hover:bg-gray-50">
+                    <div className="min-w-0 pr-2">
+                      <span className="font-bold text-gray-900 block truncate">
+                        {it.product}
+                      </span>
+                      <p className="text-[10px] text-gray-500 font-mono">
+                        Lot: {it.batch || "-"} · Exp: {it.expDate || "-"} · {it.qty} pcs
+                      </p>
+                      <p className="text-[10px] text-gray-400">
+                        {it.barcode} · {it.pic}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm(`Hapus scan ${it.product} (Lot: ${it.batch}, ${it.qty} pcs) dari sesi ini?`)) {
+                          removeScannedItemFromSession(it.id);
+                          refreshSession();
+                          showToast("success", "Scan barang berhasil dihapus dari sesi.");
+                        }
+                      }}
+                      className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg border border-gray-200 hover:border-red-200 shrink-0"
+                      title="Hapus scan ini"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-gray-100 shrink-0">
+              <button
+                type="button"
+                onClick={() => setScannedListModalOpen(false)}
+                className="w-full btn-outline py-2 text-xs font-bold"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: PERINGATAN KONFLIK NAMA TOKO */}
+      {storeConflictModalOpen && aiExtractedData && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="card max-w-sm w-full p-4 space-y-3 bg-white animate-scale-in text-center">
+            <div className="w-12 h-12 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto text-2xl">
+              ⚠️
+            </div>
+            <h3 className="text-sm font-bold text-gray-900">
+              Toko di Lembar SJ Berbeda!
+            </h3>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-left text-amber-900 space-y-1">
+              <p>📍 <strong>Sesi Aktif:</strong> {session?.storeName}</p>
+              <p>📄 <strong>Toko di Surat Jalan:</strong> {aiExtractedData.storeName}</p>
+              <p className="text-[11px] text-amber-800 pt-1">
+                Surat Jalan yang Anda baca terindikasi milik toko yang berbeda dari sesi scan yang sedang berjalan.
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const defaultSheet = user?.displayName === "Dimas" ? "Dimas" : "Bagas";
+                  const newSession = startStoreSession(
+                    aiExtractedData.storeName || "Toko Retur",
+                    aiExtractedData.noSJ || "",
+                    defaultSheet,
+                    getTodayReceiveDate()
+                  );
+                  setSession(newSession);
+                  applyClaimItems(aiExtractedData.items, "replace");
+                  refreshSession();
+                  setStoreConflictModalOpen(false);
+                  setAiPreviewOpen(false);
+                  showToast("success", `Sesi dialihkan ke toko "${newSession.storeName}".`);
+                }}
+                className="w-full btn-primary py-2.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                🔄 Buat Sesi Baru untuk Toko di SJ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStoreConflictModalOpen(false);
+                  applyClaimItems(aiExtractedData.items, aiApplyMode);
+                  refreshSession();
+                  setAiPreviewOpen(false);
+                  showToast("success", `Klaim diterapkan ke sesi toko "${session?.storeName}".`);
+                }}
+                className="w-full btn-outline py-2 text-xs font-bold text-gray-700 border-gray-300 hover:bg-gray-50"
+              >
+                Tetap Gabung ke Sesi Aktif ({session?.storeName})
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

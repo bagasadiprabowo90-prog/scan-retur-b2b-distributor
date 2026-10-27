@@ -570,3 +570,110 @@ export async function verifyUserWithBackend(
     return { ok: false, error: msg };
   }
 }
+
+export type ParseSJResponse =
+  | {
+      ok: true;
+      model?: string;
+      storeName: string;
+      noSJ: string;
+      items: { product?: string; sku?: string; claimQty?: number }[];
+    }
+  | { ok: false; error: string };
+
+// Gemini dipanggil lewat Apps Script agar API key tidak ada di browser.
+export async function parseSJViaBackend(
+  mimeType: string,
+  base64Data: string,
+  masterList?: { sku: string; product: string }[]
+): Promise<ParseSJResponse> {
+  try {
+    const base = getBaseUrl();
+    const payload: Record<string, any> = {
+      action: "parsesj",
+      token: getApiToken(),
+      mimeType,
+      data: base64Data,
+    };
+    if (masterList && masterList.length > 0) {
+      payload.masterList = masterList;
+    }
+
+    return await safeFetchJson<ParseSJResponse>(
+      base,
+      {
+        method: "POST",
+        redirect: "follow",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify(payload),
+      },
+      "Gagal membaca SJ",
+      // Cold start Apps Script + inferensi Gemini (+ fallback model) bisa lama.
+      90000,
+      0
+    );
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Gagal membaca SJ";
+    return { ok: false, error: msg };
+  }
+}
+
+export type SaveReconReportPayload = {
+  id: string;
+  storeName: string;
+  noSJ?: string;
+  targetSheet: string;
+  receiveDate: string;
+  pic: string;
+  totalPhysicalQty: number;
+  totalClaimQty: number;
+  totalSku: number;
+  matchSkuCount: number;
+  discrepancySkuCount: number;
+  hasDiscrepancy: boolean;
+  items: any[];
+};
+
+export async function saveReconciliationToBackend(
+  report: SaveReconReportPayload
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const base = getBaseUrl();
+    return await safeFetchJson<{ ok: boolean; error?: string }>(
+      base,
+      {
+        method: "POST",
+        redirect: "follow",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "saveReconReport",
+          token: getApiToken(),
+          report,
+        }),
+      },
+      "Gagal menyimpan laporan rekonsiliasi ke server",
+      25000,
+      1
+    );
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Gagal menyimpan laporan rekonsiliasi ke server";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function fetchReconciliationHistory(
+  limit = 50
+): Promise<{ ok: boolean; reports?: any[]; error?: string }> {
+  try {
+    const base = getBaseUrl();
+    const url = withApiToken(`${base}?action=reconreports&limit=${encodeURIComponent(String(limit))}`);
+    return await safeFetchJson<{ ok: boolean; reports?: any[]; error?: string }>(
+      url,
+      undefined,
+      "Gagal mengambil riwayat rekonsiliasi dari server"
+    );
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Gagal mengambil riwayat rekonsiliasi dari server";
+    return { ok: false, error: msg };
+  }
+}
