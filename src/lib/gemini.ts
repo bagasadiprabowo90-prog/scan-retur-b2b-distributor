@@ -94,8 +94,8 @@ Keluarkan HANYA format JSON murni tanpa markdown triple backticks (atau di dalam
   ]
 }`;
 
-    // Coba gemini-2.5-flash terlebih dahulu, fallback ke gemini-2.0-flash
-    const models = ["gemini-2.5-flash", "gemini-2.0-flash"];
+    // Coba gemini-2.5-flash terlebih dahulu, fallback ke gemini-3.8-flash
+    const models = ["gemini-2.5-flash", "gemini-3.8-flash"];
     let lastError = "";
     let data: any = null;
 
