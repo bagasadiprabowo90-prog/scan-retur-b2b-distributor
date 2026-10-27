@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import BatchPickerModal from "../components/BatchPickerModal";
+import { getActiveSession, addScannedItemToSession } from "../lib/session";
 import {
   createReturn,
   createReturnRequestId,
@@ -106,13 +107,17 @@ export default function ReturnFormPage() {
   const [batch, setBatch] = useState("");
   const [expDate, setExpDate] = useState("");
 
-  const [receiveDate, setReceiveDate] = useState(todayFormatted());
-  const [distriEvent, setDistriEvent] = useState("");
+  const activeSession = useMemo(() => getActiveSession(), []);
+
+  const [receiveDate, setReceiveDate] = useState(() => activeSession?.receiveDate || todayFormatted());
+  const [distriEvent, setDistriEvent] = useState(() => activeSession?.storeName || "");
   const [distriHistory] = useState<string[]>(getDistriHistory);
   const [qty, setQty] = useState("");
   const [keteranganList, setKeteranganList] = useState<string[]>(["Ok"]);
   const [pic, setPic] = useState(user?.displayName ?? "");
-  const [targetSheet, setTargetSheet] = useState<"Bagas" | "Dimas">(getSavedSheet);
+  const [targetSheet, setTargetSheet] = useState<"Bagas" | "Dimas">(
+    () => activeSession?.targetSheet || getSavedSheet()
+  );
 
   const [showDistriDropdown, setShowDistriDropdown] = useState(false);
   const [batchModal, setBatchModal] = useState(false);
@@ -316,11 +321,28 @@ export default function ReturnFormPage() {
         return;
       }
 
+      // Simpan ke sesi toko aktif untuk rekonsiliasi
+      const updatedSession = addScannedItemToSession({
+        receiveDate,
+        distriEvent,
+        product: selectedProduct?.product || "",
+        barcode: selectedProduct?.barcode || "",
+        sku: selectedProduct?.sku || selectedProduct?.barcode || "",
+        batch,
+        expDate,
+        qty: Number(qty),
+        keterangan: keteranganList.join("; "),
+        pic,
+        targetSheet,
+      });
+
+      const totalSessionPcs = updatedSession.items.reduce((acc, i) => acc + i.qty, 0);
+
       pendingSubmitRef.current = null;
       navigate("/", {
         replace: true,
         state: {
-          successMessage: `Data berhasil disimpan di sheet ${res.sheet} (row ${res.appendedRow}).`,
+          successMessage: `Data berhasil disimpan di sheet ${res.sheet} (row ${res.appendedRow})! Total toko "${distriEvent}": ${totalSessionPcs} pcs.`,
         },
       });
     } catch (err: unknown) {
@@ -356,6 +378,28 @@ export default function ReturnFormPage() {
             : "bg-red-50 text-red-600 border-red-200"
         }`}>
           {toast.msg}
+        </div>
+      )}
+
+      {/* Active Session Indicator */}
+      {activeSession && (
+        <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 text-xs">
+          <div className="min-w-0 pr-2">
+            <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block">
+              📍 Toko: {activeSession.storeName}
+            </span>
+            <p className="text-gray-600 truncate">
+              {activeSession.noSJ ? `SJ: ${activeSession.noSJ} · ` : ""}
+              Total Sesi: {activeSession.items.reduce((a, b) => a + b.qty, 0)} pcs ({activeSession.items.length} scan)
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/verification")}
+            className="shrink-0 text-xs font-bold text-blue-700 bg-white border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors"
+          >
+            Verifikasi SJ
+          </button>
         </div>
       )}
 

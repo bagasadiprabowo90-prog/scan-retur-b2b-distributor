@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Html5Qrcode,
@@ -6,6 +6,11 @@ import {
   Html5QrcodeSupportedFormats,
 } from "html5-qrcode";
 import { fetchProducts, type ProductItem } from "../lib/api";
+import {
+  getActiveSession,
+  startStoreSession,
+  type StoreSession,
+} from "../lib/session";
 
 // ============================================================
 // KONFIGURASI SCANNER
@@ -206,8 +211,44 @@ export default function ScanPage() {
   // Product search state
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
-  const [productSearch, setProductSearch] = useState("");
+    const [productSearch, setProductSearch] = useState("");
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+
+  // Store Session state
+  const [session, setSession] = useState<StoreSession | null>(getActiveSession);
+  const [showNewStoreModal, setShowNewStoreModal] = useState(false);
+  const [newStoreName, setNewStoreName] = useState("");
+  const [newStoreNoSJ, setNewStoreNoSJ] = useState("");
+  const [newStoreTargetSheet, setNewStoreTargetSheet] = useState<"Bagas" | "Dimas">(() => {
+    try {
+      const raw = localStorage.getItem("scan-retur-target-sheet");
+      if (raw === "Bagas" || raw === "Dimas") return raw;
+    } catch {}
+    return "Bagas";
+  });
+
+  const distriHistory: string[] = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("scan-retur-distri-history");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }, [showNewStoreModal]);
+
+  const handleStartSession = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStoreName.trim()) return;
+    const sess = startStoreSession(
+      newStoreName.trim(),
+      newStoreNoSJ.trim(),
+      newStoreTargetSheet
+    );
+    setSession(sess);
+    setShowNewStoreModal(false);
+    setNewStoreName("");
+    setNewStoreNoSJ("");
+  };
 
   // Load products on mount
   useEffect(() => {
@@ -225,6 +266,7 @@ export default function ScanPage() {
   }, []);
 
   useEffect(() => {
+    setSession(getActiveSession());
     const routeState = location.state as { successMessage?: string } | null;
     const message = routeState?.successMessage?.trim();
     if (!message) return;
@@ -570,6 +612,94 @@ export default function ScanPage() {
         </div>
       )}
 
+            {/* Sesi Toko Banner */}
+      {session ? (
+        <div className="card p-3.5 bg-linear-to-r from-gray-900 via-slate-900 to-gray-800 text-white shadow-lg">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                  Sesi Toko Berjalan
+                </span>
+              </div>
+              <h2 className="text-base font-bold truncate">{session.storeName}</h2>
+              <p className="text-xs text-gray-300">
+                {session.noSJ ? `SJ: ${session.noSJ} · ` : ""}
+                Sheet {session.targetSheet}
+              </p>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-xs font-semibold bg-white/10 px-2 py-0.5 rounded-md text-white">
+                  📦 {session.items.reduce((a, b) => a + b.qty, 0)} pcs (
+                  {new Set(session.items.map((i) => i.sku || i.barcode)).size} SKU)
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => navigate("/verification")}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs px-3 py-2 rounded-xl shadow-md transition-all flex items-center gap-1.5"
+              >
+                <span>🔍</span>
+                <span>Verifikasi SJ</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (session.items.length > 0) {
+                    if (
+                      confirm(
+                        `Toko "${session.storeName}" masih memiliki ${session.items.length} item scan.\n\nSangat disarankan melakukan verifikasi sebelum mengganti toko.\n\nYakin ingin ganti toko sekarang?`
+                      )
+                    ) {
+                      setShowNewStoreModal(true);
+                    }
+                  } else {
+                    setShowNewStoreModal(true);
+                  }
+                }}
+                className="text-[11px] font-medium text-gray-400 hover:text-white text-center py-1"
+              >
+                Ganti Toko ⚙️
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="card p-3.5 bg-blue-50/70 border border-blue-200">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-base">🏪</span>
+                <h3 className="text-xs font-bold text-gray-900">Belum Memilih Toko Retur</h3>
+              </div>
+              <p className="text-[11px] text-gray-600 mt-0.5">
+                Tentukan nama toko & No. SJ agar verifikasi fisik vs klaim SJ otomatis terhubung.
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => navigate("/verification")}
+                className="btn-outline py-1.5 px-2.5 text-xs font-bold text-purple-700 border-purple-300 hover:bg-purple-50 flex items-center gap-1"
+              >
+                <span>📷</span>
+                <span>Baca SJ (AI)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowNewStoreModal(true)}
+                className="btn-primary py-1.5 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700"
+              >
+                + Mulai Toko
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Scan Card */}
       <div className="card">
         <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -671,6 +801,105 @@ export default function ScanPage() {
           )}
         </div>
       </div>
+          {/* Modal: Mulai / Ganti Sesi Toko */}
+      {showNewStoreModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+          <div className="card max-w-sm w-full p-4 space-y-3 bg-white animate-scale-in">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-900">
+                🏪 {session ? "Ganti Sesi Toko" : "Mulai Sesi Toko Retur"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowNewStoreModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleStartSession} className="space-y-3">
+              <div>
+                <label className="label-field">Nama Toko / Distributor / Event</label>
+                <input
+                  type="text"
+                  value={newStoreName}
+                  onChange={(e) => setNewStoreName(e.target.value)}
+                  placeholder="Mis: Sociolla PIM, Watsons GI..."
+                  className="input-field text-xs py-2 font-semibold"
+                  autoFocus
+                  required
+                />
+                {distriHistory.length > 0 && !newStoreName && (
+                  <div className="mt-1.5">
+                    <span className="text-[10px] text-gray-400 block mb-1">Riwayat Toko:</span>
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                      {distriHistory.slice(0, 8).map((h, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setNewStoreName(h)}
+                          className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-0.5 rounded-md truncate max-w-[150px]"
+                        >
+                          {h}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="label-field">Nomor SJ Retur (Opsional)</label>
+                <input
+                  type="text"
+                  value={newStoreNoSJ}
+                  onChange={(e) => setNewStoreNoSJ(e.target.value)}
+                  placeholder="Mis: SJ-RET-2026-001"
+                  className="input-field text-xs py-2 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="label-field">Sheet Tujuan</label>
+                <div className="flex bg-gray-100 p-0.5 rounded-xl">
+                  {(["Bagas", "Dimas"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setNewStoreTargetSheet(s)}
+                      className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all ${
+                        newStoreTargetSheet === s
+                          ? "bg-gray-900 text-white shadow-xs"
+                          : "text-gray-500 hover:text-gray-800"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowNewStoreModal(false)}
+                  className="flex-1 btn-outline py-2 text-xs font-bold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newStoreName.trim()}
+                  className="flex-1 btn-primary py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Mulai Toko Ini
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

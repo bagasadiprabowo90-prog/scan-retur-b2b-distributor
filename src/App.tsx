@@ -5,6 +5,7 @@ import LoginPage from "./pages/LoginPage";
 import ScanPage from "./pages/ScanPage";
 import ReturnFormPage from "./pages/ReturnFormPage";
 import HistoryPage from "./pages/HistoryPage";
+import VerificationPage from "./pages/VerificationPage";
 
 function UserAvatar({ user, size = "sm" }: { user: AppUser; size?: "sm" | "lg" }) {
   const [hasError, setHasError] = useState(false);
@@ -41,7 +42,8 @@ export default function App() {
   const [logoutConfirm, setLogoutConfirm] = useState(false);
   const isHome = location.pathname === "/" || location.pathname === "";
   const isHistory = location.pathname === "/history";
-  const showBottomNav = isHome || isHistory;
+  const isVerification = location.pathname === "/verification";
+  const showBottomNav = isHome || isHistory || isVerification;
 
   if (!user) return <LoginPage />;
 
@@ -123,15 +125,17 @@ export default function App() {
         <Routes>
           <Route path="/" element={<ScanPage />} />
           <Route path="/return-form" element={<ReturnFormPage />} />
+          <Route path="/verification" element={<VerificationPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
 
       {showBottomNav && (
-        <nav className="fixed bottom-0 inset-x-0 z-50 bg-white border-t border-gray-100">
-          <div className="max-w-lg mx-auto grid grid-cols-2 gap-1.5 px-4 py-2.5">
+        <nav className="fixed bottom-0 inset-x-0 z-50 bg-white border-t border-gray-100 shadow-lg">
+          <div className="max-w-lg mx-auto grid grid-cols-3 gap-1.5 px-3 py-2">
             <NavTab active={isHome} label="Scan" icon="📷" onClick={() => navigate("/")} />
+            <NavTab active={isVerification} label="Verifikasi" icon="🔍" onClick={() => navigate("/verification")} />
             <NavTab active={isHistory} label="Riwayat" icon="🕘" onClick={() => navigate("/history")} />
           </div>
         </nav>
