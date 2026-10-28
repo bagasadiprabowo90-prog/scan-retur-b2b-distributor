@@ -10,7 +10,7 @@ Catatan kerja untuk perbaikan bertahap. Baca file ini dulu sebelum membuka kode.
 | `src/lib/gemini.ts` | `parseSJWithGemini(file, masterProducts)`: foto SJ -> base64 -> Gemini REST (`gemini-2.5-flash`, fallback `gemini-3.8-flash`) -> JSON -> `findBestMatchProduct` ke master. Key dari `VITE_GEMINI_API_KEY` atau localStorage `scan-retur-user-gemini-key`. |
 | `src/pages/VerificationPage.tsx` | UI rekonsiliasi: upload SJ (`handleFileSelected`), preview AI (`handleApplyAiClaims`), Samakan Semua (`handleMatchAll`), tambah SKU manual, catatan selisih, gatekeeper sebelum `finishAndArchiveSession`. |
 | `src/pages/ReturnFormPage.tsx` | `onSubmit`: `createReturn` ke Apps Script, lalu `addScannedItemToSession`. |
-| `src/pages/ScanPage.tsx` | Scanner kamera + tombol Baca SJ / Mulai Toko, modal mulai sesi toko. Geometri decode diatur `STAGE_WIDTH`/`STAGE_HEIGHT`; lifecycle kamera via `runIdRef` + `disposeScanner`. |
+| `src/pages/ScanPage.tsx` | Tombol Baca SJ / Mulai Toko, modal mulai sesi toko. |
 | `src/test/session.test.ts` | Vitest untuk session.ts. |
 | `apps-script/Code.js` | Backend Google Sheets. |
 
@@ -94,25 +94,3 @@ Perintah: `npm test`, `npx tsc -b`.
   3. `handleFileSelected` dibungkus `try / catch / finally` untuk memastikan `aiLoading` dan `aiProgressText` selalu di-reset. Ditambahkan deteksi pesan jika backend Apps Script belum diperbarui.
   4. Kompresi gambar canvas di `src/lib/gemini.ts` diberikan fallback aman ke `fileToBase64Raw(file)` jika decoding canvas gagal pada format gambar tertentu.
 - Test: 27 passed, build clean.
-
-### 2026-10-29: Bugfix scanner iOS (tidak ada respons) & rekonsiliasi spec
-- **Root cause**: html5-qrcode menghitung `qrRegion` SEKALI saat event `playing` dari `video.clientWidth/clientHeight`, lalu `foreverScan` menghitung ulang `videoWidth/clientWidth` dan `videoHeight/clientHeight` SETIAP frame. `#scanner-container video` memakai `height: auto`, jadi `clientHeight` bergantung pada kapan WebKit menerapkan ukuran intrinsik stream. Di iOS Safari `playing` datang sebelum layout intrinsik selesai: `heightRatio` (mis. 4.8) jauh lebih besar dari `widthRatio` (1.31), area sumber dipadatkan anisotropik ke canvas pendek, barcode tidak pernah terbaca. Error callback diabaikan dan `foreverScan` tidak menangkap error, jadi gejalanya "kamera hidup, nol respons, tanpa pesan".
-- **Fix geometri**: `STAGE_WIDTH = 1280` / `STAGE_HEIGHT = 720` (tetap, tidak lagi `devicePixelRatio x lebar layar`, `MAX_DECODE_SCALE`/`MAX_STAGE_WIDTH` dihapus). `#scanner-container video { height: 100%; object-fit: fill }` (bukan `height: auto`) sehingga `clientWidth/clientHeight` bernilai tetap. Canvas decode naik ~877px -> ~1152px.
-- **Konversi kotak panduan**: `scale` berubah arti dari faktor pembesar (stage dibesarkan 2.5x lalu diperkecil) menjadi `displayScale` = faktor pengecil. Rumus `box.width / layout.scale` harus menjadi `box.width * layout.displayScale`, kalau tidak kotak panduan 5x terlalu besar.
-- **Lifecycle**: `runIdRef` sebagai token pembatalan; `disposeScanner()` hanya memanggil `stop()` pada state `SCANNING`/`PAUSED` lalu menghentikan track `MediaStream` manual; `skipClear` saat start masih berjalan (dulu `clear()` menghapus video sehingga promise `start()` menggantung dan stream bocor -> `NotReadableError` di scan berikutnya). `waitForScannerContainer()` menggantikan `setTimeout(100)`. Watchdog 6 detik menampilkan error bila tidak ada frame terproses.
-- **Konfigurasi**: `fps` 15 -> 24 (shim html5-qrcode bergantian BarcodeDetector/ZXing, jadi tiap decoder ~12fps), `aspectRatio: { ideal: 16/9 }` di `videoConstraints` dan di `applyVideoConstraints` agar rasio tidak berubah saat zoom.
-- **Spec**: `.kiro/specs/scanner-mode-improvements/` (bugfix/design/tasks) ditulis untuk Quagga2 yang tidak ada di `package.json`; sudah direkonsiliasi ke html5-qrcode dengan tabel pemetaan konsep.
-- Test: 27 passed, `tsc -b` bersih.
-- Berikutnya: uji manual di iPhone (EAN-13 kecil) dan Android (deteksi < 2 detik).
-
-#### Hotfix setelah deploy (regresi saya sendiri)
-- **Gejala**: setelah deploy, setiap sesi gagal dengan "Kamera aktif tetapi frame video belum siap" — scanner tidak pernah terbuka sama sekali, di semua perangkat.
-- **Sebab**: `Html5Qrcode.start()` resolve **tepat setelah** `video.play()` dipanggil, bukan setelah event `playing`. Di `RenderedCameraImpl.create`, `setupSurface()` dipanggil lalu `renderedCamera` langsung dikembalikan; `play()` tidak di-await. Jadi kode sesudah `await scanner.start()` selalu melihat `videoWidth === 0`. Validasi pasca-start yang saya tulis memakai satu kali cek `!surface.videoWidth`, sehingga kondisinya deterministik gagal — bukan bug iOS yang tersisa.
-- **Fix**: `waitForSurfaceReady()` — polling `requestAnimationFrame` sampai `videoWidth > 0 && videoHeight > 0 && clientHeight > 0`, batas 3 detik, bisa dibatalkan lewat `runIdRef`. Pesan error lama hanya muncul kalau batas waktu itu benar-benar habis.
-- **Pelajaran**: jangan pernah menggantungkan alur start pada nilai yang baru terisi setelah event `playing`; dan jangan pernah memblokir kamera yang sudah hidup hanya karena metrik kesiapan belum terisi. Geometri decode sudah dipatok CSS, jadi `videoWidth` bukan syarat.
-
-#### Hotfix kedua: preview kamera memipih dan blur
-- **Gejala**: gambar kamera gepeng/memipih dan terlihat blur, tidak seperti sebelum perbaikan.
-- **Sebab**: stage dikunci 16:9 (`1280 x 720`) sementara kamera melapor frame 4:3, sehingga `object-fit: fill` memampatkan gambar secara vertikal sekitar 25% (4/3 -> 16/9). Pemampatan itu sekaligus menghilangkan detail vertikal sehingga tampak blur.
-- **Fix**: `fitStageHeight(videoWidth, videoHeight)` — tinggi stage disamakan dengan rasio frame kamera yang sebenarnya setelah `waitForSurfaceReady()`. Kotak panduan ikut dikoreksi memakai fraksi area decode (`qrRegion` selalu dipusatkan library), jadi kotak hijau tetap sama persis dengan area yang di-decode tanpa perlu menyentuh konfigurasi decoder.
-- **Efek samping yang diterima**: saat kamera aktif, stage berubah tinggi satu kali (±200 ms) sehingga preview sempat "melompat" sedikit. Ini disengaja: alternatifnya adalah memaksa `object-fit: contain/cover` yang membuat kotak hijau tidak lagi cocok dengan area decode.

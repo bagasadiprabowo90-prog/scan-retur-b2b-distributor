@@ -33,35 +33,17 @@ const SCAN_FORMATS = [
 // 640x480) sehingga garis barcode kecil pecah dan tidak terbaca.
 const CAMERA_WIDTH = 1920;
 const CAMERA_HEIGHT = 1080;
-// Rasio ini juga mengunci tinggi stage. html5-qrcode menghitung area decode
-// dari clientWidth/clientHeight video, jadi tinggi harus nilai tetap, bukan
-// hasil layout intrinsik video.
-const CAMERA_ASPECT_RATIO = CAMERA_WIDTH / CAMERA_HEIGHT;
 
 // Kotak scan lebar dan pendek, sesuai bentuk barcode batang.
 const SCAN_BOX_WIDTH_RATIO = 0.9;
 const SCAN_BOX_HEIGHT_RATIO = 0.4; // tinggi kotak = 40% dari lebarnya
 
-// html5-qrcode menyalin kotak scan ke canvas seukuran kotak itu dalam CSS
-// pixel, lalu memperkecil piksel kamera ke canvas tersebut. Jadi resolusi
-// decode ditentukan ukuran stage, bukan devicePixelRatio: stage 1280px
-// menghasilkan canvas ~1152px. Stage diperkecil lewat transform agar tetap
-// muat di layar.
-const STAGE_WIDTH = 1280;
-const STAGE_HEIGHT = Math.round(STAGE_WIDTH / CAMERA_ASPECT_RATIO);
-// Stage hanya diberi ukuran sementara 16:9 sebelum kamera hidup. Setelah rasio
-// stream diketahui, tingginya disamakan dengan rasio itu; tanpa itu video dengan
-// object-fit: fill memipihkan gambar kamera (frame 4:3 dipaksa jadi 16:9).
-// Batas ini menjaga stage tetap wajar bila kamera melapor frame portrait.
-const MIN_STAGE_HEIGHT = Math.round(STAGE_WIDTH * 0.5);
-const MAX_STAGE_HEIGHT = Math.round(STAGE_WIDTH * 1.4);
-
-// Loop decode menjadwalkan frame berikutnya setelah decode selesai, jadi
-// angka ini batas atas kecepatan, bukan beban kerja yang dipaksakan.
-const SCAN_FPS = 24;
-// Tanpa satu pun frame terproses dalam rentang ini, loop decode mati diam-diam.
-const SCANNER_WATCHDOG_MS = 6000;
-const SCANNER_CONTAINER_ID = "scanner-container";
+// html5-qrcode mendecode canvas seukuran kotak scan dalam CSS pixel,
+// bukan resolusi asli kamera. Stage kamera dirender `scale` kali lebih
+// besar lalu diperkecil dengan CSS transform: tampilan tetap sama, tetapi
+// canvas decode mendekati resolusi asli kamera.
+const MAX_DECODE_SCALE = 2.5;
+const MAX_STAGE_WIDTH = 1280;
 
 const ZOOM_PRESETS = [1, 2, 3, 4, 5];
 // Zoom 2x membuat barcode kecil tampak besar dari jarak ±20 cm, jarak
@@ -69,9 +51,7 @@ const ZOOM_PRESETS = [1, 2, 3, 4, 5];
 const DEFAULT_ZOOM = 2;
 const ZOOM_STORAGE_KEY = "scan-retur-scan-zoom";
 
-// width/height dalam CSS pixel; displayScale = faktor transform agar stage
-// (1280px) tampil selebar layar.
-type StageLayout = { width: number; height: number; displayScale: number };
+type StageLayout = { width: number; scale: number };
 type GuideBox = { width: number; height: number };
 type ZoomRange = { min: number; max: number; step: number };
 type CameraFeatures = { zoom: ZoomRange | null; continuousFocus: boolean };
@@ -87,24 +67,13 @@ type CameraConstraintSet = MediaTrackConstraintSet & {
 };
 
 function computeStageLayout(): StageLayout {
-  const viewportWidth = Math.max(
+  const width = Math.max(
     1,
     Math.round(document.documentElement.clientWidth || window.innerWidth)
   );
-  // Ukuran stage tetap; hanya skala tampil yang mengikuti lebar layar.
-  // devicePixelRatio tidak dipakai: canvas decode memakai CSS pixel.
-  return {
-    width: STAGE_WIDTH,
-    height: STAGE_HEIGHT,
-    displayScale: viewportWidth / STAGE_WIDTH,
-  };
-}
-
-// Tinggi stage mengikuti rasio frame kamera yang sebenarnya.
-function fitStageHeight(streamWidth: number, streamHeight: number): number {
-  if (!streamWidth || !streamHeight) return STAGE_HEIGHT;
-  const fitted = Math.round(STAGE_WIDTH / (streamWidth / streamHeight));
-  return Math.min(Math.max(fitted, MIN_STAGE_HEIGHT), MAX_STAGE_HEIGHT);
+  const dpr = window.devicePixelRatio || 1;
+  const scale = Math.max(1, Math.min(dpr, MAX_DECODE_SCALE, MAX_STAGE_WIDTH / width));
+  return { width, scale };
 }
 
 function scanBoxFor(viewfinderWidth: number, viewfinderHeight: number): GuideBox {
@@ -204,13 +173,10 @@ async function applyCameraTuning(
   if (tuning.zoom === undefined && tuning.focusMode === undefined) return false;
 
   await scanner.applyVideoConstraints({
-    // applyConstraints mengganti seluruh constraint aktif. Resolusi dan rasio
-    // diulang supaya kamera tidak turun ke default (dan tidak berubah rasio)
-    // saat zoom diubah — perubahan rasio di tengah scan membuat pemetaan area
-    // decode meleset.
+    // applyConstraints mengganti seluruh constraint aktif. Resolusi diulang
+    // supaya kamera tidak turun ke resolusi default saat zoom diubah.
     width: { ideal: CAMERA_WIDTH },
     height: { ideal: CAMERA_HEIGHT },
-    aspectRatio: { ideal: CAMERA_ASPECT_RATIO },
     advanced: [tuning],
   });
   return true;
@@ -218,101 +184,6 @@ async function applyCameraTuning(
 
 function formatZoom(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
-
-// ============================================================
-// LIFECYCLE KAMERA
-// ============================================================
-
-function getSurfaceVideo(): HTMLVideoElement | null {
-  return document.querySelector<HTMLVideoElement>(`#${SCANNER_CONTAINER_ID} video`);
-}
-
-// html5-qrcode membaca clientWidth/clientHeight element root saat start.
-// Root berukuran 0 membuat qrbox di bawah batas minimum sehingga start()
-// melempar error, jadi tunggu sampai container benar-benar punya ukuran.
-async function waitForScannerContainer(timeoutMs = 1500): Promise<HTMLElement | null> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const el = document.getElementById(SCANNER_CONTAINER_ID);
-    if (el && el.clientWidth > 0 && el.clientHeight > 0) return el;
-    await new Promise((resolve) => window.requestAnimationFrame(resolve));
-  }
-  return null;
-}
-
-// start() SELESAI tepat setelah video.play() dipanggil, jauh sebelum event
-// "playing" dan sebelum metadata stream terpasang — jadi videoWidth masih 0 di
-// titik itu pada semua browser, bukan tanda kamera rusak. Tunggu frame pertama
-// benar-benar siap sebelum menilai apa pun.
-async function waitForSurfaceReady(
-  isCancelled: () => boolean,
-  timeoutMs = 3000
-): Promise<HTMLVideoElement | null> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (isCancelled()) return null;
-    const video = getSurfaceVideo();
-    if (video && video.videoWidth > 0 && video.videoHeight > 0 && video.clientHeight > 0) {
-      return video;
-    }
-    await new Promise((resolve) => window.requestAnimationFrame(resolve));
-  }
-  return null;
-}
-
-// stop() menolak bila state belum SCANNING (mis. start masih berjalan), dan
-// clear() membuang video dari DOM. Stream yang belum dihentikan tetap memegang
-// kamera, sehingga scan berikutnya gagal NotReadableError — di iOS kamera bisa
-// tampak "mati" sampai tab ditutup.
-async function disposeScanner(
-  scanner: Html5Qrcode,
-  options: { skipClear?: boolean } = {}
-): Promise<void> {
-  const state = scanner.getState();
-  try {
-    if (
-      state === Html5QrcodeScannerState.SCANNING ||
-      state === Html5QrcodeScannerState.PAUSED
-    ) {
-      await scanner.stop();
-    }
-  } catch (e) {
-    console.error("Error stopping scanner:", e);
-  }
-
-  // Track dimatikan manual: satu-satunya cara melepas kamera saat start belum
-  // selesai, karena scanner.stop() belum diizinkan pada state tersebut.
-  const surface = getSurfaceVideo();
-  const stream = surface?.srcObject;
-  if (stream instanceof MediaStream) {
-    stream.getTracks().forEach((track) => track.stop());
-    surface!.srcObject = null;
-  }
-
-  // Saat start masih berjalan, clear() justru membuat event "playing" tidak
-  // pernah datang dan promise start() menggantung selamanya. Biarkan React
-  // yang membuang DOM-nya lewat unmount.
-  if (!options.skipClear) {
-    try {
-      scanner.clear();
-    } catch (e) {
-      console.error("Error clearing scanner:", e);
-    }
-  }
-}
-
-function describeStartError(raw: string): string {
-  if (/permission|notallowed/i.test(raw)) {
-    return "❌ Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser.";
-  }
-  if (/notreadable|could not start|camera.*in use/i.test(raw)) {
-    return "❌ Kamera sedang dipakai aplikasi lain. Tutup aplikasi tersebut lalu coba lagi.";
-  }
-  if (/notfound|requested/i.test(raw)) {
-    return "❌ Tidak ada perangkat kamera yang ditemukan.";
-  }
-  return "❌ Error membuka kamera: " + raw;
 }
 
 export default function ScanPage() {
@@ -323,12 +194,6 @@ export default function ScanPage() {
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const cameraFeaturesRef = useRef<CameraFeatures | null>(null);
   const zoomBusyRef = useRef(false);
-  // Naik setiap kali scanner dihentikan. Start yang masih berjalan membandingkan
-  // nilainya untuk tahu dirinya sudah dibatalkan (unmount / tombol tutup).
-  const runIdRef = useRef(0);
-  const startInFlightRef = useRef(false);
-  const frameCountRef = useRef(0);
-  const watchdogRef = useRef<number | null>(null);
 
   // Scanner state
   const [scanning, setScanning] = useState(false);
@@ -337,11 +202,7 @@ export default function ScanPage() {
   const [error, setError] = useState("");
   const [successToast, setSuccessToast] = useState("");
   const [successFlash, setSuccessFlash] = useState(false);
-  const [stage, setStage] = useState<StageLayout>(() => ({
-    width: STAGE_WIDTH,
-    height: STAGE_HEIGHT,
-    displayScale: 1,
-  }));
+  const [stage, setStage] = useState<StageLayout>({ width: 360, scale: 1 });
   const [guideBox, setGuideBox] = useState<GuideBox>({ width: 324, height: 130 });
   const [zoomOptions, setZoomOptions] = useState<number[]>([]);
   const [zoomLevel, setZoomLevel] = useState<number | null>(null);
@@ -421,20 +282,19 @@ export default function ScanPage() {
   }, [location.pathname, location.state, navigate]);
 
   const stopScanner = useCallback(async () => {
-    // Batalkan start yang masih berjalan sebelum melepas scanner.
-    runIdRef.current += 1;
-
     const scanner = scannerRef.current;
     scannerRef.current = null;
     cameraFeaturesRef.current = null;
 
-    if (watchdogRef.current !== null) {
-      window.clearTimeout(watchdogRef.current);
-      watchdogRef.current = null;
-    }
-
-    if (scanner) {
-      await disposeScanner(scanner, { skipClear: startInFlightRef.current });
+    try {
+      if (scanner) {
+        if (scanner.getState() === Html5QrcodeScannerState.SCANNING) {
+          await scanner.stop();
+        }
+        scanner.clear();
+      }
+    } catch (e) {
+      console.error("Error stopping scanner:", e);
     }
 
     zoomBusyRef.current = false;
@@ -514,54 +374,40 @@ export default function ScanPage() {
 
   const startScanner = useCallback(async () => {
     const layout = computeStageLayout();
-    const initialBox = scanBoxFor(layout.width, layout.height);
-
     setError("");
     setStarting(true);
     setStage(layout);
     setGuideBox({
-      width: initialBox.width * layout.displayScale,
-      height: initialBox.height * layout.displayScale,
+      width: layout.width * SCAN_BOX_WIDTH_RATIO,
+      height: layout.width * SCAN_BOX_WIDTH_RATIO * SCAN_BOX_HEIGHT_RATIO,
     });
     setZoomOptions([]);
     setZoomLevel(null);
     cameraFeaturesRef.current = null;
     setStarted(true);
     detectedRef.current = false;
-    frameCountRef.current = 0;
 
-    const runId = runIdRef.current;
+    // Tunggu container ter-render dengan lebar stage yang benar.
+    await new Promise((r) => setTimeout(r, 100));
 
-    // Stage baru ter-render setelah setStarted(true); pastikan container sudah
-    // punya ukuran sebelum html5-qrcode membaca clientWidth/clientHeight-nya.
-    const container = await waitForScannerContainer();
-    if (runIdRef.current !== runId) return;
-    if (!container) {
-      setError("❌ Area kamera tidak siap. Tutup lalu coba lagi.");
-      await stopScanner();
-      return;
-    }
-
-    const scanner = new Html5Qrcode(SCANNER_CONTAINER_ID, {
-      verbose: false,
-      formatsToSupport: SCAN_FORMATS,
-      useBarCodeDetectorIfSupported: true,
-    });
-    scannerRef.current = scanner;
-
-    let startError: unknown = null;
-    startInFlightRef.current = true;
     try {
+      const scanner = new Html5Qrcode("scanner-container", {
+        verbose: false,
+        formatsToSupport: SCAN_FORMATS,
+        useBarCodeDetectorIfSupported: true,
+      });
+      scannerRef.current = scanner;
+
       await scanner.start(
         { facingMode: "environment" },
         {
-          fps: SCAN_FPS,
+          fps: 15,
           qrbox: (viewfinderWidth, viewfinderHeight) => {
             const box = scanBoxFor(viewfinderWidth, viewfinderHeight);
             // Kotak panduan di layar = area decode yang sebenarnya.
             setGuideBox({
-              width: box.width * layout.displayScale,
-              height: box.height * layout.displayScale,
+              width: box.width / layout.scale,
+              height: box.height / layout.scale,
             });
             return box;
           },
@@ -572,14 +418,11 @@ export default function ScanPage() {
             facingMode: { ideal: "environment" },
             width: { ideal: CAMERA_WIDTH },
             height: { ideal: CAMERA_HEIGHT },
-            // Soft constraint: samakan rasio kamera dengan stage 16:9 supaya
-            // gambar tidak tertarik. Nilai 'ideal' tidak pernah menolak.
-            aspectRatio: { ideal: CAMERA_ASPECT_RATIO },
           },
         },
         // Success callback
         (decodedText) => {
-          if (runIdRef.current !== runId || detectedRef.current) return;
+          if (detectedRef.current) return;
           if (!decodedText || decodedText.trim().length < 3) return;
 
           detectedRef.current = true;
@@ -599,92 +442,32 @@ export default function ScanPage() {
           // Stop scanner and navigate
           setTimeout(async () => {
             setSuccessFlash(false);
-            if (runIdRef.current !== runId) return;
             await stopScanner();
             handleScanResult(decodedText.trim());
           }, 200);
         },
-        // Dipanggil untuk setiap frame tanpa barcode. Hitungan ini jadi bukti
-        // loop decode masih hidup (lihat watchdog di bawah).
-        () => {
-          frameCountRef.current += 1;
-        }
+        // Error callback (called on every frame without detection - ignore)
+        () => {}
       );
+
+      setScanning(true);
+      setStarting(false);
+      void tuneCamera(scanner);
     } catch (err) {
-      startError = err;
-    } finally {
-      startInFlightRef.current = false;
-    }
-
-    if (startError) {
-      // Bila start dibatalkan (tutup/unmount), jangan tampilkan error ke user
-      // yang sudah keluar dari layar kamera.
-      if (runIdRef.current !== runId) {
-        await disposeScanner(scanner);
-        return;
-      }
-      const msg = startError instanceof Error ? startError.message : String(startError);
+      const msg = err instanceof Error ? err.message : String(err);
       console.error("Scanner start error:", msg);
-      setError(describeStartError(msg));
-      await stopScanner();
-      return;
-    }
 
-    // Start selesai setelah scanner ditutup / halaman berpindah: lepas kamera
-    // sekarang, jangan biarkan stream menggantung.
-    if (runIdRef.current !== runId) {
-      await disposeScanner(scanner);
-      return;
-    }
-
-    // start() resolve sebelum frame pertama ada, jadi kehadiran videoWidth di
-    // sini hanya bisa dipastikan dengan menunggu — bukan dengan satu kali cek.
-    const surface = await waitForSurfaceReady(() => runIdRef.current !== runId);
-    if (runIdRef.current !== runId) {
-      await disposeScanner(scanner);
-      return;
-    }
-    if (!surface) {
-      console.error("Scanner surface tidak pernah siap: videoWidth/clientHeight tetap tidak valid.");
-      setError("❌ Kamera aktif tetapi frame video belum siap. Tutup lalu coba lagi.");
-      await stopScanner();
-      return;
-    }
-
-    // html5-qrcode mengunci area decode (qrRegion) saat event "playing" memakai
-    // ukuran video waktu itu — STAGE_WIDTH x STAGE_HEIGHT — dan selalu
-    // memusatkannya. Jadi area yang benar-benar di-decode adalah fraksi
-    // (lebar kotak / STAGE_WIDTH) x (tinggi kotak / STAGE_HEIGHT) dari frame.
-    // Rasio stream baru diketahui sekarang, jadi stage disamakan dengan rasio
-    // itu agar gambar tidak dipipihkan; kotak panduan dikoreksi dengan fraksi
-    // yang sama supaya tetap sama persis dengan area decode.
-    const fittedHeight = fitStageHeight(surface.videoWidth, surface.videoHeight);
-    if (Math.abs(fittedHeight - layout.height) >= 2) {
-      const decodeBox = scanBoxFor(layout.width, layout.height);
-      setStage({
-        width: STAGE_WIDTH,
-        height: fittedHeight,
-        displayScale: layout.displayScale,
-      });
-      setGuideBox({
-        width: decodeBox.width * layout.displayScale,
-        height: decodeBox.height * (fittedHeight / layout.height) * layout.displayScale,
-      });
-    }
-
-    setScanning(true);
-    setStarting(false);
-    void tuneCamera(scanner);
-
-    // Loop decode html5-qrcode bisa berhenti diam-diam (mis. drawImage gagal
-    // di tengah loop) sehingga layar kamera tampak beku tanpa pesan apa pun.
-    // Tanpa satu pun frame terproses, tampilkan penyebabnya ke user.
-    watchdogRef.current = window.setTimeout(() => {
-      watchdogRef.current = null;
-      if (scannerRef.current === scanner && frameCountRef.current === 0) {
-        setError("❌ Kamera tidak mengirim frame. Tutup lalu buka ulang scanner.");
+      if (/permission|notallowed/i.test(msg)) {
+        setError(
+          "❌ Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser."
+        );
+      } else if (/notfound|requested/i.test(msg)) {
+        setError("❌ Tidak ada perangkat kamera yang ditemukan.");
+      } else {
+        setError("❌ Error membuka kamera: " + msg);
       }
-    }, SCANNER_WATCHDOG_MS);
+      await stopScanner();
+    }
   }, [handleScanResult, stopScanner, tuneCamera]);
 
   const changeZoom = useCallback(async (value: number) => {
@@ -711,15 +494,13 @@ export default function ScanPage() {
   if (started) {
     return (
       <div className="scanner-fullscreen">
-        {/* Stage berukuran tetap (tinggi eksplisit) lalu diperkecil: tampilan
-            sama dengan layar, tetapi html5-qrcode mendapat clientWidth/
-            clientHeight yang tidak bergantung pada layout intrinsik video. */}
+        {/* Stage dirender `scale` kali lebih besar lalu diperkecil: tampilan
+            sama, tetapi html5-qrcode mendecode dengan resolusi lebih tinggi. */}
         <div
           className="scanner-stage"
           style={{
-            width: `${stage.width}px`,
-            height: `${stage.height}px`,
-            transform: `translate(-50%, -50%) scale(${stage.displayScale})`,
+            width: `${stage.width * stage.scale}px`,
+            transform: `translate(-50%, -50%) scale(${1 / stage.scale})`,
           }}
         >
           {/* html5-qrcode renders into this div */}
