@@ -64,8 +64,11 @@ body {
    setiap frame; height: auto membuat tinggi bergantung pada layout intrinsik
    yang di iOS Safari belum tentu sudah diterapkan saat event "playing" —
    akibatnya area decode jatuh ke strip tipis di luar barcode.
-   object-fit: cover/contain juga tidak dipakai karena memotong gambar sehingga
-   kotak hijau di layar tidak lagi sama dengan area yang benar-benar di-decode. */
+   object-fit: fill dipakai karena ScanPage menyesuaikan tinggi stage dengan
+   rasio frame kamera yang sebenarnya (fitStageHeight), jadi kotak dan gambar
+   selalu serasio dan tidak ada yang dipipihkan. cover/contain tetap tidak
+   dipakai: keduanya memotong atau memberi letterbox sehingga kotak hijau di
+   layar tidak lagi sama dengan area yang benar-benar di-decode. */
 #scanner-container video {
   display: block !important;
   width: 100% !important;

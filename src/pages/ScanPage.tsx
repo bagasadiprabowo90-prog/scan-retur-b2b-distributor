@@ -49,6 +49,12 @@ const SCAN_BOX_HEIGHT_RATIO = 0.4; // tinggi kotak = 40% dari lebarnya
 // muat di layar.
 const STAGE_WIDTH = 1280;
 const STAGE_HEIGHT = Math.round(STAGE_WIDTH / CAMERA_ASPECT_RATIO);
+// Stage hanya diberi ukuran sementara 16:9 sebelum kamera hidup. Setelah rasio
+// stream diketahui, tingginya disamakan dengan rasio itu; tanpa itu video dengan
+// object-fit: fill memipihkan gambar kamera (frame 4:3 dipaksa jadi 16:9).
+// Batas ini menjaga stage tetap wajar bila kamera melapor frame portrait.
+const MIN_STAGE_HEIGHT = Math.round(STAGE_WIDTH * 0.5);
+const MAX_STAGE_HEIGHT = Math.round(STAGE_WIDTH * 1.4);
 
 // Loop decode menjadwalkan frame berikutnya setelah decode selesai, jadi
 // angka ini batas atas kecepatan, bukan beban kerja yang dipaksakan.
@@ -92,6 +98,13 @@ function computeStageLayout(): StageLayout {
     height: STAGE_HEIGHT,
     displayScale: viewportWidth / STAGE_WIDTH,
   };
+}
+
+// Tinggi stage mengikuti rasio frame kamera yang sebenarnya.
+function fitStageHeight(streamWidth: number, streamHeight: number): number {
+  if (!streamWidth || !streamHeight) return STAGE_HEIGHT;
+  const fitted = Math.round(STAGE_WIDTH / (streamWidth / streamHeight));
+  return Math.min(Math.max(fitted, MIN_STAGE_HEIGHT), MAX_STAGE_HEIGHT);
 }
 
 function scanBoxFor(viewfinderWidth: number, viewfinderHeight: number): GuideBox {
@@ -636,6 +649,27 @@ export default function ScanPage() {
       setError("❌ Kamera aktif tetapi frame video belum siap. Tutup lalu coba lagi.");
       await stopScanner();
       return;
+    }
+
+    // html5-qrcode mengunci area decode (qrRegion) saat event "playing" memakai
+    // ukuran video waktu itu — STAGE_WIDTH x STAGE_HEIGHT — dan selalu
+    // memusatkannya. Jadi area yang benar-benar di-decode adalah fraksi
+    // (lebar kotak / STAGE_WIDTH) x (tinggi kotak / STAGE_HEIGHT) dari frame.
+    // Rasio stream baru diketahui sekarang, jadi stage disamakan dengan rasio
+    // itu agar gambar tidak dipipihkan; kotak panduan dikoreksi dengan fraksi
+    // yang sama supaya tetap sama persis dengan area decode.
+    const fittedHeight = fitStageHeight(surface.videoWidth, surface.videoHeight);
+    if (Math.abs(fittedHeight - layout.height) >= 2) {
+      const decodeBox = scanBoxFor(layout.width, layout.height);
+      setStage({
+        width: STAGE_WIDTH,
+        height: fittedHeight,
+        displayScale: layout.displayScale,
+      });
+      setGuideBox({
+        width: decodeBox.width * layout.displayScale,
+        height: decodeBox.height * (fittedHeight / layout.height) * layout.displayScale,
+      });
     }
 
     setScanning(true);
