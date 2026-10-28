@@ -10,7 +10,7 @@ Catatan kerja untuk perbaikan bertahap. Baca file ini dulu sebelum membuka kode.
 | `src/lib/gemini.ts` | `parseSJWithGemini(file, masterProducts)`: foto SJ -> base64 -> Gemini REST (`gemini-2.5-flash`, fallback `gemini-3.8-flash`) -> JSON -> `findBestMatchProduct` ke master. Key dari `VITE_GEMINI_API_KEY` atau localStorage `scan-retur-user-gemini-key`. |
 | `src/pages/VerificationPage.tsx` | UI rekonsiliasi: upload SJ (`handleFileSelected`), preview AI (`handleApplyAiClaims`), Samakan Semua (`handleMatchAll`), tambah SKU manual, catatan selisih, gatekeeper sebelum `finishAndArchiveSession`. |
 | `src/pages/ReturnFormPage.tsx` | `onSubmit`: `createReturn` ke Apps Script, lalu `addScannedItemToSession`. |
-| `src/pages/ScanPage.tsx` | Tombol Baca SJ / Mulai Toko, modal mulai sesi toko. |
+| `src/pages/ScanPage.tsx` | Scanner kamera + tombol Baca SJ / Mulai Toko, modal mulai sesi toko. Geometri decode diatur `STAGE_WIDTH`/`STAGE_HEIGHT`; lifecycle kamera via `runIdRef` + `disposeScanner`. |
 | `src/test/session.test.ts` | Vitest untuk session.ts. |
 | `apps-script/Code.js` | Backend Google Sheets. |
 
@@ -94,3 +94,13 @@ Perintah: `npm test`, `npx tsc -b`.
   3. `handleFileSelected` dibungkus `try / catch / finally` untuk memastikan `aiLoading` dan `aiProgressText` selalu di-reset. Ditambahkan deteksi pesan jika backend Apps Script belum diperbarui.
   4. Kompresi gambar canvas di `src/lib/gemini.ts` diberikan fallback aman ke `fileToBase64Raw(file)` jika decoding canvas gagal pada format gambar tertentu.
 - Test: 27 passed, build clean.
+
+### 2026-10-29: Bugfix scanner iOS (tidak ada respons) & rekonsiliasi spec
+- **Root cause**: html5-qrcode menghitung `qrRegion` SEKALI saat event `playing` dari `video.clientWidth/clientHeight`, lalu `foreverScan` menghitung ulang `videoWidth/clientWidth` dan `videoHeight/clientHeight` SETIAP frame. `#scanner-container video` memakai `height: auto`, jadi `clientHeight` bergantung pada kapan WebKit menerapkan ukuran intrinsik stream. Di iOS Safari `playing` datang sebelum layout intrinsik selesai: `heightRatio` (mis. 4.8) jauh lebih besar dari `widthRatio` (1.31), area sumber dipadatkan anisotropik ke canvas pendek, barcode tidak pernah terbaca. Error callback diabaikan dan `foreverScan` tidak menangkap error, jadi gejalanya "kamera hidup, nol respons, tanpa pesan".
+- **Fix geometri**: `STAGE_WIDTH = 1280` / `STAGE_HEIGHT = 720` (tetap, tidak lagi `devicePixelRatio x lebar layar`, `MAX_DECODE_SCALE`/`MAX_STAGE_WIDTH` dihapus). `#scanner-container video { height: 100%; object-fit: fill }` (bukan `height: auto`) sehingga `clientWidth/clientHeight` bernilai tetap. Canvas decode naik ~877px -> ~1152px.
+- **Konversi kotak panduan**: `scale` berubah arti dari faktor pembesar (stage dibesarkan 2.5x lalu diperkecil) menjadi `displayScale` = faktor pengecil. Rumus `box.width / layout.scale` harus menjadi `box.width * layout.displayScale`, kalau tidak kotak panduan 5x terlalu besar.
+- **Lifecycle**: `runIdRef` sebagai token pembatalan; `disposeScanner()` hanya memanggil `stop()` pada state `SCANNING`/`PAUSED` lalu menghentikan track `MediaStream` manual; `skipClear` saat start masih berjalan (dulu `clear()` menghapus video sehingga promise `start()` menggantung dan stream bocor -> `NotReadableError` di scan berikutnya). `waitForScannerContainer()` menggantikan `setTimeout(100)`. Watchdog 6 detik menampilkan error bila tidak ada frame terproses.
+- **Konfigurasi**: `fps` 15 -> 24 (shim html5-qrcode bergantian BarcodeDetector/ZXing, jadi tiap decoder ~12fps), `aspectRatio: { ideal: 16/9 }` di `videoConstraints` dan di `applyVideoConstraints` agar rasio tidak berubah saat zoom.
+- **Spec**: `.kiro/specs/scanner-mode-improvements/` (bugfix/design/tasks) ditulis untuk Quagga2 yang tidak ada di `package.json`; sudah direkonsiliasi ke html5-qrcode dengan tabel pemetaan konsep.
+- Test: 27 passed, `tsc -b` bersih.
+- Berikutnya: uji manual di iPhone (EAN-13 kecil) dan Android (deteksi < 2 detik).

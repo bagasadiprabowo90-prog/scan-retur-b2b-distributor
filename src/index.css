@@ -44,8 +44,9 @@ body {
   overflow: hidden;
 }
 
-/* Stage kamera: dirender lebih besar lalu diperkecil via transform
-   (lihat ScanPage). Pusat layar = pusat area decode. */
+/* Stage kamera: ukuran CSS-nya menentukan resolusi canvas decode (lihat
+   STAGE_WIDTH di ScanPage), lalu diperkecil via transform agar muat di layar.
+   Tinggi stage di-set inline dan HARUS berupa nilai tetap. */
 .scanner-stage {
   position: absolute;
   top: 50%;
@@ -55,15 +56,21 @@ body {
 
 #scanner-container {
   width: 100%;
+  height: 100%;
 }
 
-/* Video mengikuti rasio asli kamera. Jangan pakai object-fit: cover:
-   html5-qrcode memetakan area decode dengan asumsi video tidak terpotong,
-   sehingga cover membuat kotak di layar berbeda dari area decode. */
+/* Video diisi penuh ke stage, bukan height: auto. html5-qrcode menghitung
+   qrRegion sekali dari clientWidth/clientHeight video lalu memakainya ulang di
+   setiap frame; height: auto membuat tinggi bergantung pada layout intrinsik
+   yang di iOS Safari belum tentu sudah diterapkan saat event "playing" —
+   akibatnya area decode jatuh ke strip tipis di luar barcode.
+   object-fit: cover/contain juga tidak dipakai karena memotong gambar sehingga
+   kotak hijau di layar tidak lagi sama dengan area yang benar-benar di-decode. */
 #scanner-container video {
   display: block !important;
   width: 100% !important;
-  height: auto !important;
+  height: 100% !important;
+  object-fit: fill;
 }
 
 /* Hide html5-qrcode's built-in scan region border */
