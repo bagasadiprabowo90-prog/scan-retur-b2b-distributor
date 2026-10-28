@@ -104,3 +104,9 @@ Perintah: `npm test`, `npx tsc -b`.
 - **Spec**: `.kiro/specs/scanner-mode-improvements/` (bugfix/design/tasks) ditulis untuk Quagga2 yang tidak ada di `package.json`; sudah direkonsiliasi ke html5-qrcode dengan tabel pemetaan konsep.
 - Test: 27 passed, `tsc -b` bersih.
 - Berikutnya: uji manual di iPhone (EAN-13 kecil) dan Android (deteksi < 2 detik).
+
+#### Hotfix setelah deploy (regresi saya sendiri)
+- **Gejala**: setelah deploy, setiap sesi gagal dengan "Kamera aktif tetapi frame video belum siap" — scanner tidak pernah terbuka sama sekali, di semua perangkat.
+- **Sebab**: `Html5Qrcode.start()` resolve **tepat setelah** `video.play()` dipanggil, bukan setelah event `playing`. Di `RenderedCameraImpl.create`, `setupSurface()` dipanggil lalu `renderedCamera` langsung dikembalikan; `play()` tidak di-await. Jadi kode sesudah `await scanner.start()` selalu melihat `videoWidth === 0`. Validasi pasca-start yang saya tulis memakai satu kali cek `!surface.videoWidth`, sehingga kondisinya deterministik gagal — bukan bug iOS yang tersisa.
+- **Fix**: `waitForSurfaceReady()` — polling `requestAnimationFrame` sampai `videoWidth > 0 && videoHeight > 0 && clientHeight > 0`, batas 3 detik, bisa dibatalkan lewat `runIdRef`. Pesan error lama hanya muncul kalau batas waktu itu benar-benar habis.
+- **Pelajaran**: jangan pernah menggantungkan alur start pada nilai yang baru terisi setelah event `playing`; dan jangan pernah memblokir kamera yang sudah hidup hanya karena metrik kesiapan belum terisi. Geometri decode sudah dipatok CSS, jadi `videoWidth` bukan syarat.

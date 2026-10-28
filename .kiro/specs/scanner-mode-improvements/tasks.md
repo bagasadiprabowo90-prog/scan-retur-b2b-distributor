@@ -126,7 +126,8 @@ Tasks untuk bugfix scanner-mode-improvements mengikuti exploratory bugfix workfl
   - [x] 10.2 `disposeScanner()`: `stop()` hanya pada `SCANNING`/`PAUSED`, lalu track `MediaStream` dihentikan manual
   - [x] 10.3 `skipClear` saat start masih berjalan (mencegah promise `start()` menggantung)
   - [x] 10.4 `waitForScannerContainer()` menggantikan `setTimeout(100)` acak; gagal cepat bila container 0x0
-  - [x] 10.5 Pemeriksaan pasca-start: `videoWidth > 0` dan `clientHeight != 0`
+  - [x] 10.5 Tunggu frame pertama siap: `waitForSurfaceReady()` (batas 3 detik) menunggu `videoWidth > 0` dan `clientHeight != 0`. Jangan diganti satu kali cek — `start()` resolve tepat setelah `video.play()`, sebelum event `playing`, jadi `videoWidth` masih 0 di titik itu di semua browser (regresi v1, lihat 10.5a)
+  - [x] 10.5a Regresi yang sudah diperbaiki: v1 memakai satu kali cek `!surface.videoWidth` tepat setelah `start()`, sehingga setiap sesi gagal dengan pesan "frame video belum siap" dan scanner tidak pernah terbuka
   - [x] 10.6 Watchdog 6 detik: tidak ada frame terproses -> tampilkan pesan error
   - [x] 10.7 `describeStartError()` menambah kasus `NotReadableError` (kamera dipakai aplikasi lain)
   - [x] 10.8 Cleanup on unmount tetap memanggil `stopScanner()`, kini aman terhadap start yang berjalan

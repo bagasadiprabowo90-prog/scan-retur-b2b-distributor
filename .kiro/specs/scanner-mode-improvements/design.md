@@ -235,6 +235,25 @@ await scanner.start(
 
 **Kenapa bukan video readyState check**: pemeriksaan `video.readyState` tidak menyelesaikan masalahnya, karena `qrRegion` dihitung dari ukuran CSS, bukan dari kesiapan video. Yang harus dijamin adalah ukuran CSS itu sendiri.
 
+#### 3b. Kesiapan Frame Pertama
+
+**File**: `src/pages/ScanPage.tsx`
+
+**Urutan yang harus diingat**: `start()` resolve **tepat setelah** `video.play()` dipanggil, bukan setelah event `playing`. Di `RenderedCameraImpl.create` library memanggil `setupSurface()` lalu langsung mengembalikan `renderedCamera`; `play()` tidak di-await. Akibatnya, kode yang berjalan sesudah `await scanner.start()` melihat `videoWidth === 0` dan bisa saja `clientHeight` yang belum stabil — di semua browser, bukan hanya iOS.
+
+Konsekuensinya, validasi pasca-start **tidak boleh** berupa satu kali cek:
+
+```ts
+// SALAH: selalu gagal, karena videoWidth memang 0 di titik ini
+if (!surface.videoWidth) { /* tampilkan error */ }
+
+// BENAR: tunggu frame pertama, dengan batas waktu dan bisa dibatalkan
+const surface = await waitForSurfaceReady(() => runIdRef.current !== runId);
+```
+
+`waitForSurfaceReady()` melakukan polling `requestAnimationFrame` sampai `videoWidth > 0 && videoHeight > 0 && video.clientHeight > 0`, dengan batas 3 detik. Bila habis, itu baru kegagalan nyata dan pesannya ditampilkan. Nilai `videoWidth` hanya dipakai sebagai bukti frame sudah mengalir — geometri decode tidak bergantung padanya, karena `qrRegion` dihitung dari ukuran CSS yang sudah dipatok.
+
+
 
 #### 4. Enhanced Feedback
 

@@ -228,6 +228,26 @@ async function waitForScannerContainer(timeoutMs = 1500): Promise<HTMLElement | 
   return null;
 }
 
+// start() SELESAI tepat setelah video.play() dipanggil, jauh sebelum event
+// "playing" dan sebelum metadata stream terpasang — jadi videoWidth masih 0 di
+// titik itu pada semua browser, bukan tanda kamera rusak. Tunggu frame pertama
+// benar-benar siap sebelum menilai apa pun.
+async function waitForSurfaceReady(
+  isCancelled: () => boolean,
+  timeoutMs = 3000
+): Promise<HTMLVideoElement | null> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (isCancelled()) return null;
+    const video = getSurfaceVideo();
+    if (video && video.videoWidth > 0 && video.videoHeight > 0 && video.clientHeight > 0) {
+      return video;
+    }
+    await new Promise((resolve) => window.requestAnimationFrame(resolve));
+  }
+  return null;
+}
+
 // stop() menolak bila state belum SCANNING (mis. start masih berjalan), dan
 // clear() membuang video dari DOM. Stream yang belum dihentikan tetap memegang
 // kamera, sehingga scan berikutnya gagal NotReadableError — di iOS kamera bisa
@@ -604,8 +624,15 @@ export default function ScanPage() {
       return;
     }
 
-    const surface = getSurfaceVideo();
-    if (!surface || !surface.videoWidth || surface.clientHeight === 0) {
+    // start() resolve sebelum frame pertama ada, jadi kehadiran videoWidth di
+    // sini hanya bisa dipastikan dengan menunggu — bukan dengan satu kali cek.
+    const surface = await waitForSurfaceReady(() => runIdRef.current !== runId);
+    if (runIdRef.current !== runId) {
+      await disposeScanner(scanner);
+      return;
+    }
+    if (!surface) {
+      console.error("Scanner surface tidak pernah siap: videoWidth/clientHeight tetap tidak valid.");
       setError("❌ Kamera aktif tetapi frame video belum siap. Tutup lalu coba lagi.");
       await stopScanner();
       return;
