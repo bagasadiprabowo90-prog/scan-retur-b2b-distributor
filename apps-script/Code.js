@@ -541,8 +541,16 @@ function getMasterData_(force) {
   if (!force) {
     var cachedProducts = cacheGetLarge_(CACHE_KEY_PRODUCTS);
     var cachedBatches = cacheGetLarge_(CACHE_KEY_BATCHES);
-    if (cachedProducts && cachedBatches) {
-      return { products: cachedProducts, batches: cachedBatches };
+    var cachedByBarcode = cacheGetLarge_(CACHE_KEY_BATCHES_BY_BARCODE);
+    // Ketiganya ditulis dari satu pembacaan sheet yang sama. Chunk cache
+    // bisa kedaluwarsa sendiri-sendiri; kalau salah satu hilang (mis.
+    // batchesByBarcode) baca penuh ulang supaya respons tidak parsial.
+    if (cachedProducts && cachedBatches && cachedByBarcode) {
+      return {
+        products: cachedProducts,
+        batches: cachedBatches,
+        batchesByBarcode: cachedByBarcode,
+      };
     }
   }
 
