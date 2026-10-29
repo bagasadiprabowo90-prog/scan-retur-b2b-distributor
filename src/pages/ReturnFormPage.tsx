@@ -106,6 +106,7 @@ export default function ReturnFormPage() {
 
   const [batches, setBatches] = useState<BatchItem[]>([]);
   const [productBatches, setProductBatches] = useState<BatchItem[]>([]);
+  const [batchesLoadedFor, setBatchesLoadedFor] = useState("");
   const [loadingProductBatches, setLoadingProductBatches] = useState(false);
   const [batch, setBatch] = useState("");
   const [expDate, setExpDate] = useState("");
@@ -211,6 +212,7 @@ export default function ReturnFormPage() {
   useEffect(() => {
     if (!selectedProduct) {
       setProductBatches([]);
+      setBatchesLoadedFor("");
       setLoadingProductBatches(false);
       return;
     }
@@ -221,17 +223,32 @@ export default function ReturnFormPage() {
       if (!alive) return;
       setLoadingProductBatches(false);
       setProductBatches(res.ok ? res.batches : []);
+      setBatchesLoadedFor(selectedProduct.barcode);
     })();
     return () => { alive = false; };
   }, [selectedProduct]);
 
-  // Setelah produk dipilih (hasil scan/ketik), langsung buka picker chip batch.
+  // Ganti produk = reset batch; batch produk sebelumnya tidak boleh ikut.
   useEffect(() => {
-    if (selectedProduct && !batch) {
+    setBatch("");
+    setExpDate("");
+  }, [selectedBarcode]);
+
+  // Setelah batch produk selesai dimuat:
+  // - ada batch  -> langsung buka picker chip (hasil scan/ketik)
+  // - tanpa batch (mis. merchandise) -> isi "-" supaya retur bisa langsung disimpan
+  useEffect(() => {
+    if (!selectedProduct || loadingProductBatches) return;
+    if (batchesLoadedFor !== selectedProduct.barcode) return;
+    if (batch) return;
+    if (productBatches.length > 0) {
       setBatchModal(true);
+    } else {
+      setBatch("-");
+      setExpDate("-");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProduct?.barcode]);
+  }, [selectedProduct?.barcode, loadingProductBatches, batchesLoadedFor]);
 
   const canSubmit = useMemo(() => {
     const q = Number(qty);
@@ -562,7 +579,7 @@ export default function ReturnFormPage() {
                   batch ? "text-gray-900 font-bold bg-white border-gray-300" : "text-gray-400"
                 }`}
               >
-                <span className="truncate">{batch || "Pilih Batch..."}</span>
+                <span className="truncate">{batch ? (batch === "-" ? "Tanpa batch" : batch) : "Pilih Batch..."}</span>
                 <svg className="w-4 h-4 text-gray-400 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>

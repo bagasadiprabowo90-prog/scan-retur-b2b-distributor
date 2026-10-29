@@ -216,22 +216,38 @@ export default function BatchPickerModal({
                   <p className="text-gray-400 text-xs font-medium">
                     {chips.length === 0
                       ? hasProduct
-                        ? "Produk ini belum punya batch di master data"
+                        ? "Produk ini tidak punya batch di master data"
                         : "Belum ada batch"
                       : "Batch tidak ditemukan"}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (q.trim()) setNewLot(q.trim().toUpperCase());
-                      setMode("new");
-                    }}
-                    className="text-xs font-bold text-blue-600 hover:underline"
-                  >
-                    {q.trim()
-                      ? `+ Buat batch "${q.trim().toUpperCase()}"`
-                      : "+ Buat batch baru"}
-                  </button>
+                  {chips.length === 0 && hasProduct && (
+                    <p className="text-[11px] text-gray-400">
+                      Untuk merchandise/produk tanpa batch, lanjutkan tanpa batch.
+                    </p>
+                  )}
+                  <div className="flex flex-col items-center gap-1.5 pt-1">
+                    {chips.length === 0 && hasProduct && (
+                      <button
+                        type="button"
+                        onClick={() => onPickExisting({ lot: "-", expDate: "-" })}
+                        className="text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors"
+                      >
+                        Lanjut tanpa batch
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (q.trim()) setNewLot(q.trim().toUpperCase());
+                        setMode("new");
+                      }}
+                      className="text-xs font-bold text-blue-600 hover:underline"
+                    >
+                      {q.trim()
+                        ? `+ Buat batch "${q.trim().toUpperCase()}"`
+                        : "+ Buat batch baru"}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-1.5 max-h-[55vh] overflow-y-auto pr-0.5 py-0.5">
