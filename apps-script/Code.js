@@ -200,6 +200,7 @@ function jsonOut(obj) {
 var CACHE_TTL_SECONDS = 21600; // 6 jam (maksimum CacheService)
 var CACHE_KEY_PRODUCTS = "products_v3";
 var CACHE_KEY_BATCHES = "batches_v3";
+var CACHE_KEY_BATCHES_BY_BARCODE = "batches_by_barcode_v3";
 var IDEM_TTL_SECONDS = 21600; // 6 jam
 
 // Master data dicache singkat supaya perubahan manual di Google Sheets terlihat
@@ -561,6 +562,7 @@ function getMasterData_(force) {
 
   var products = [];
   var batches = [];
+  var batchesByBarcode = {};
   var lastRow = sh.getLastRow();
 
   if (lastRow >= 2) {
@@ -569,6 +571,7 @@ function getMasterData_(force) {
     var values = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
     var seenBarcode = {};
     var seenLot = {};
+    var seenLotPerBarcode = {};
 
     for (var i = 0; i < values.length; i++) {
       var row = values[i];
@@ -590,10 +593,29 @@ function getMasterData_(force) {
         } else if (!seenLot[lot].expDate && expDate) {
           seenLot[lot].expDate = expDate;
         }
+
+        // Peta lot -> exp per barcode supaya aplikasi bisa menampilkan
+        // chip batch milik produk yang baru di-scan tanpa request tambahan.
+        if (barcode) {
+          if (!seenLotPerBarcode[barcode]) seenLotPerBarcode[barcode] = {};
+          var perLot = seenLotPerBarcode[barcode];
+          if (!perLot[lot]) {
+            perLot[lot] = { lot: lot, expDate: expDate };
+          } else if (!perLot[lot].expDate && expDate) {
+            perLot[lot].expDate = expDate;
+          }
+        }
       }
     }
 
     batches = Object.values(seenLot);
+    Object.keys(seenLotPerBarcode).forEach(function (bc) {
+      var list = Object.values(seenLotPerBarcode[bc]);
+      list.sort(function (a, b) {
+        return parseExpDate_(a.expDate) - parseExpDate_(b.expDate);
+      });
+      batchesByBarcode[bc] = list;
+    });
     products.sort(function (a, b) {
       return a.product.localeCompare(b.product);
     });
@@ -607,9 +629,10 @@ function getMasterData_(force) {
   if (getMasterGeneration_() === generationBefore) {
     cachePutLarge_(CACHE_KEY_PRODUCTS, products, MASTER_CACHE_TTL_SECONDS);
     cachePutLarge_(CACHE_KEY_BATCHES, batches, MASTER_CACHE_TTL_SECONDS);
+    cachePutLarge_(CACHE_KEY_BATCHES_BY_BARCODE, batchesByBarcode, MASTER_CACHE_TTL_SECONDS);
   }
 
-  return { products: products, batches: batches };
+  return { products: products, batches: batches, batchesByBarcode: batchesByBarcode };
 }
 
 function listBatches_(force) {
@@ -712,9 +735,10 @@ function listReturnHistory_(limit) {
   };
 }
 
-function appendBatch_(lot, expDate) {
+function appendBatch_(lot, expDate, barcode, sku, product) {
   var lotTrimmed = String(lot || "").trim().toUpperCase();
   var expTrimmed = String(expDate || "").trim();
+  var bcTrimmed = String(barcode || "").trim();
   if (!lotTrimmed) throw new Error("Lot tidak boleh kosong");
   if (!expTrimmed) throw new Error("Exp Date tidak boleh kosong");
 
@@ -726,6 +750,9 @@ function appendBatch_(lot, expDate) {
 
     var colLot = map["lots"];
     var colExp = map["exp date"];
+    var colBarcode = map["barcode"];
+    var colSku = map["sku"];
+    var colProduct = map["product"];
     if (!colLot) throw new Error("MASTER sheet must have header: Lots");
     if (!colExp) throw new Error("MASTER sheet must have header: Exp Date");
 
@@ -735,25 +762,45 @@ function appendBatch_(lot, expDate) {
     // Idempoten: kalau lot sudah ada dengan Exp Date yang SAMA, anggap sukses.
     // Ini penting karena client boleh mengulang request setelah timeout;
     // tanpa ini retry akan memunculkan error "sudah ada" yang menyesatkan.
+    // Jika barcode produk diketahui, pencocokan hanya per baris produk itu
+    // (master baru membolehkan lot yang sama dipakai lintas SKU).
+    var lotExistsOtherProduct = false;
     if (lastRow >= 2) {
       var lotRange = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
       for (var r = 0; r < lotRange.length; r++) {
         var existLot = String(lotRange[r][colLot - 1] || "").trim().toUpperCase();
         if (existLot !== lotTrimmed) continue;
 
+        var rowBarcode = colBarcode ? String(lotRange[r][colBarcode - 1] || "").trim() : "";
+        var matchesProduct = !bcTrimmed || rowBarcode === bcTrimmed;
         var existExp = formatExpDate_(lotRange[r][colExp - 1]);
-        if (existExp === expTrimmed) {
-          return r + 2; // sudah tercatat identik -> kembalikan row yang ada
+
+        if (matchesProduct) {
+          if (existExp === expTrimmed) {
+            return r + 2; // sudah tercatat identik -> kembalikan row yang ada
+          }
+          throw new Error(
+            "Batch/Lot '" + lotTrimmed + "' sudah ada di Master dengan Exp Date '" + existExp + "'."
+          );
         }
-        throw new Error(
-          "Batch/Lot '" + lotTrimmed + "' sudah ada di Master dengan Exp Date '" + existExp + "'."
-        );
+        lotExistsOtherProduct = true;
       }
+    }
+
+    // Tanpa informasi produk, lot yang sudah ada di SKU lain tetap dianggap
+    // duplikat global (perilaku lama) supaya data master tidak menumpuk buta.
+    if (!bcTrimmed && lotExistsOtherProduct) {
+      throw new Error(
+        "Batch/Lot '" + lotTrimmed + "' sudah ada di Master. Pilih produk dulu sebelum membuat batch."
+      );
     }
 
     var targetRow = lastRow + 1;
     var newRow = new Array(lastCol);
     for (var c = 0; c < lastCol; c++) newRow[c] = "";
+    if (colSku) newRow[colSku - 1] = sanitizeSheetValue_(String(sku || "").trim());
+    if (colBarcode) newRow[colBarcode - 1] = sanitizeSheetValue_(bcTrimmed);
+    if (colProduct) newRow[colProduct - 1] = sanitizeSheetValue_(String(product || "").trim());
     newRow[colLot - 1] = sanitizeSheetValue_(lotTrimmed);
     newRow[colExp - 1] = sanitizeSheetValue_(expTrimmed);
 
@@ -765,6 +812,7 @@ function appendBatch_(lot, expDate) {
     // mempublikasikan snapshot sebelum append ini.
     bumpMasterGeneration_();
     cacheInvalidateLarge_(CACHE_KEY_BATCHES);
+    cacheInvalidateLarge_(CACHE_KEY_BATCHES_BY_BARCODE);
 
     return targetRow;
   } finally {
@@ -1110,12 +1158,20 @@ function doGet(e) {
         ok: true,
         products: masterData.products,
         batches: masterData.batches,
+        batchesByBarcode: masterData.batchesByBarcode,
       });
     }
 
     if (action === "batches") {
       const batches = listBatches_(force);
       return jsonOut({ ok: true, batches });
+    }
+
+    // Daftar batch untuk SATU produk (dipakai chip batch setelah scan barcode).
+    if (action === "batchesforproduct") {
+      const bc = String((e.parameter && e.parameter.barcode) || "").trim();
+      const byBc = getMasterData_(force).batchesByBarcode || {};
+      return jsonOut({ ok: true, batches: byBc[bc] || [] });
     }
 
     if (action === "sheets") {
@@ -1131,6 +1187,7 @@ function doGet(e) {
     if (action === "refreshcache") {
       cacheInvalidateLarge_(CACHE_KEY_PRODUCTS);
       cacheInvalidateLarge_(CACHE_KEY_BATCHES);
+      cacheInvalidateLarge_(CACHE_KEY_BATCHES_BY_BARCODE);
       try {
         var headerKeys = ["headers_v3_" + MASTER_SHEET_NAME];
         for (var h = 0; h < ALLOWED_RETURN_SHEETS.length; h++) {
@@ -1335,7 +1392,10 @@ function doPost(e) {
     if (action === "addbatch") {
       var lot = String(body.lot || "").trim();
       var expDate = String(body.expDate || "").trim();
-      var batchRow = appendBatch_(lot, expDate);
+      var batchBarcode = String(body.barcode || "").trim();
+      var batchSku = String(body.sku || "").trim();
+      var batchProduct = String(body.product || "").trim();
+      var batchRow = appendBatch_(lot, expDate, batchBarcode, batchSku, batchProduct);
       return jsonOut({ ok: true, appendedRow: batchRow, lot: lot.toUpperCase(), expDate: expDate });
     }
 

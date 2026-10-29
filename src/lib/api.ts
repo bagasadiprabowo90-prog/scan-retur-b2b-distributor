@@ -21,8 +21,13 @@ export type ProductsResponse =
   | { ok: true; products: ProductItem[] }
   | { ok: false; error: string };
 
+// Peta barcode -> daftar lot produk tersebut. Master baru punya ratusan baris
+// batch tapi hanya ±100 SKU, sehingga memetakan lot per barcode tetap kecil
+// dan cukup untuk menampilkan chip batch tanpa request tambahan.
+export type BatchesByBarcode = Record<string, BatchItem[]>;
+
 type MasterDataResponse =
-  | { ok: true; products: ProductItem[]; batches: BatchItem[] }
+  | { ok: true; products: ProductItem[]; batches: BatchItem[]; batchesByBarcode?: BatchesByBarcode }
   | { ok: false; error: string };
 
 export type ReturnHistoryItem = {
@@ -187,6 +192,7 @@ async function safeFetchJson<T>(
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 menit
 const LS_PRODUCTS = "scan-retur-cache-products-v2";
 const LS_BATCHES = "scan-retur-cache-batches-v2";
+const LS_BATCHES_BY_BARCODE = "scan-retur-cache-batches-by-barcode-v1";
 
 type CacheEnvelope<T> = { t: number; d: T };
 
@@ -216,6 +222,13 @@ function clearCache(key: string): void {
   } catch {
     // abaikan
   }
+}
+
+// Ambil isi cache tanpa peduli umur, khusus untuk kasus "key pasti ada di peta
+// master" supaya produk tanpa batch tidak memicu request jaringan berulang.
+function readCacheData<T>(key: string): T | null {
+  const entry = readCache<T>(key);
+  return entry ? entry.data : null;
 }
 
 export async function fetchMasterByBarcode(barcode: string): Promise<MasterLookupResponse> {
@@ -267,6 +280,7 @@ async function fetchMasterDataNetwork(force: boolean): Promise<MasterDataRespons
     if (data.ok) {
       writeCache(LS_PRODUCTS, data.products);
       writeCache(LS_BATCHES, data.batches);
+      if (data.batchesByBarcode) writeCache(LS_BATCHES_BY_BARCODE, data.batchesByBarcode);
     }
     return data;
   } finally {
@@ -324,10 +338,39 @@ export async function fetchProducts(force = false): Promise<ProductsResponse> {
   }
 }
 
+// Batch milik satu produk. Dipenuhi dari hasil masterdata yang sudah ada
+// (cache lokal / request in-flight) supaya scan tidak memicu fetch baru.
+export async function fetchBatchesForBarcode(barcode: string): Promise<BatchesResponse> {
+  const bc = barcode.trim();
+  if (!bc) return { ok: true, batches: [] };
+
+  const cached = readCache<BatchesByBarcode>(LS_BATCHES_BY_BARCODE);
+  if (cached?.fresh && bc in cached.data) return { ok: true, batches: cached.data[bc] };
+
+  try {
+    // Reuse masterdata yang sedang berjalan agar tidak dobel request.
+    if (masterDataInFlight) {
+      const data = await masterDataInFlight.promise;
+      if (data.ok) return { ok: true, batches: data.batchesByBarcode?.[bc] ?? [] };
+    }
+    const after = readCacheData<BatchesByBarcode>(LS_BATCHES_BY_BARCODE);
+    if (after && bc in after) return { ok: true, batches: after[bc] };
+
+    const data = await fetchMasterDataNetwork(false);
+    if (data.ok) return { ok: true, batches: data.batchesByBarcode?.[bc] ?? [] };
+    return data;
+  } catch (e: unknown) {
+    if (cached) return { ok: true, batches: cached.data[bc] ?? [] };
+    const msg = e instanceof Error ? e.message : "Gagal fetch batch produk";
+    return { ok: false, error: msg };
+  }
+}
+
 // Paksa ambil ulang master data dari sheet (buang cache lokal + cache server).
 export async function refreshMasterData(): Promise<void> {
   clearCache(LS_PRODUCTS);
   clearCache(LS_BATCHES);
+  clearCache(LS_BATCHES_BY_BARCODE);
   const base = getBaseUrl();
   const result = await safeFetchJson<{ ok: boolean; error?: string }>(
     withApiToken(`${base}?action=refreshcache`),
@@ -522,7 +565,11 @@ export async function deleteReturn(
   }
 }
 
-export async function addBatch(lot: string, expDate: string): Promise<AddBatchResponse> {
+export async function addBatch(
+  lot: string,
+  expDate: string,
+  product?: { barcode?: string; sku?: string; product?: string }
+): Promise<AddBatchResponse> {
   try {
     const base = getBaseUrl();
     const data = await safeFetchJson<AddBatchResponse>(
@@ -531,13 +578,24 @@ export async function addBatch(lot: string, expDate: string): Promise<AddBatchRe
         method: "POST",
         redirect: "follow",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "addbatch", token: getApiToken(), lot, expDate }),
+        body: JSON.stringify({
+          action: "addbatch",
+          token: getApiToken(),
+          lot,
+          expDate,
+          barcode: product?.barcode || "",
+          sku: product?.sku || "",
+          product: product?.product || "",
+        }),
       },
       "Gagal menyimpan batch baru",
       20000,
       1
     );
-    if (data.ok) clearCache(LS_BATCHES);
+    if (data.ok) {
+      clearCache(LS_BATCHES);
+      clearCache(LS_BATCHES_BY_BARCODE);
+    }
     return data;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Gagal menyimpan batch baru";

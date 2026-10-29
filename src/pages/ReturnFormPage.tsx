@@ -7,6 +7,7 @@ import {
   createReturn,
   createReturnRequestId,
   fetchBatches,
+  fetchBatchesForBarcode,
   fetchProducts,
   type BatchItem,
   type ProductItem,
@@ -104,6 +105,8 @@ export default function ReturnFormPage() {
   const [highlightedIdx, setHighlightedIdx] = useState(-1);
 
   const [batches, setBatches] = useState<BatchItem[]>([]);
+  const [productBatches, setProductBatches] = useState<BatchItem[]>([]);
+  const [loadingProductBatches, setLoadingProductBatches] = useState(false);
   const [batch, setBatch] = useState("");
   const [expDate, setExpDate] = useState("");
 
@@ -203,6 +206,32 @@ export default function ReturnFormPage() {
     })();
     return () => { alive = false; };
   }, []);
+
+  // Batch milik produk terpilih (chip picker setelah scan)
+  useEffect(() => {
+    if (!selectedProduct) {
+      setProductBatches([]);
+      setLoadingProductBatches(false);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      setLoadingProductBatches(true);
+      const res = await fetchBatchesForBarcode(selectedProduct.barcode);
+      if (!alive) return;
+      setLoadingProductBatches(false);
+      setProductBatches(res.ok ? res.batches : []);
+    })();
+    return () => { alive = false; };
+  }, [selectedProduct]);
+
+  // Setelah produk dipilih (hasil scan/ketik), langsung buka picker chip batch.
+  useEffect(() => {
+    if (selectedProduct && !batch) {
+      setBatchModal(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProduct?.barcode]);
 
   const canSubmit = useMemo(() => {
     const q = Number(qty);
@@ -680,7 +709,11 @@ export default function ReturnFormPage() {
       <BatchPickerModal
         open={batchModal}
         onClose={() => setBatchModal(false)}
+        product={selectedProduct}
+        productBatches={productBatches}
+        productBatchesLoading={loadingProductBatches}
         batches={batches}
+        currentLot={batch}
         onPickExisting={handleBatchPicked}
         onCreateNew={handleBatchCreated}
       />
