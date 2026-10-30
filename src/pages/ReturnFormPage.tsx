@@ -74,7 +74,7 @@ function HighlightText({ text, query }: { text: string; query: string }) {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="bg-[#FDE047] text-[#0B0E14] rounded-xs px-0.5 font-bold">{text.slice(idx, idx + query.length)}</mark>
+      <mark className="bg-sky-200/80 text-slate-900 rounded-xs px-0.5 font-bold">{text.slice(idx, idx + query.length)}</mark>
       {text.slice(idx + query.length)}
     </>
   );
@@ -471,10 +471,10 @@ export default function ReturnFormPage() {
       {/* Toast Notification */}
       {toast && (
         <div
-          className={`rounded-2xl px-4 py-3 text-xs font-bold border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] ${
+          className={`rounded-2xl px-4 py-3 text-xs font-semibold backdrop-blur-xl border shadow-xs ${
             toast.type === "success"
-              ? "bg-[#16C784] text-[#0B0E14]"
-              : "bg-red-100 text-red-900"
+              ? "bg-emerald-50/90 text-emerald-900 border-emerald-200/80"
+              : "bg-red-50/90 text-red-900 border-red-200/80"
           }`}
         >
           {toast.msg}
@@ -484,17 +484,17 @@ export default function ReturnFormPage() {
       {/* Mode & Session Banner */}
       {activeSession ? (
         isVerifyMode ? (
-          <div className="bg-[#FEF0C7] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl px-4 py-3 flex items-center justify-between gap-2.5">
+          <div className="card px-4 py-3 flex items-center justify-between gap-2.5">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="bg-[#0B0E14] text-[#16C784] text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">
+                <span className="bg-[#0F172A] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0">
                   Verifikasi SJ
                 </span>
-                <span className="text-xs font-extrabold text-[#0B0E14] leading-snug break-words">
+                <span className="text-xs font-extrabold text-slate-900 leading-snug break-words">
                   {activeSession.storeName}
                 </span>
               </div>
-              <p className="text-[11px] text-gray-700 font-semibold mt-0.5">
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                 {activeSession.noSJ ? `SJ: ${activeSession.noSJ} • ` : ""}
                 Total Sesi: {activeSession.items.reduce((a, b) => a + b.qty, 0)} pcs ({activeSession.items.length} scan)
               </p>
@@ -503,33 +503,33 @@ export default function ReturnFormPage() {
               <button
                 type="button"
                 onClick={() => handleToggleVerifyMode(false)}
-                className="text-xs font-bold text-[#0B0E14] bg-white border-2 border-[#0B0E14] px-2.5 py-1.5 rounded-xl hover:bg-gray-50 transition-colors"
+                className="text-xs font-semibold text-slate-700 bg-white/85 border border-white/90 px-3 py-1.5 rounded-full hover:bg-white transition-colors"
               >
                 Ke Sheet Saja
               </button>
               <button
                 type="button"
                 onClick={() => navigate("/verification")}
-                className="text-xs font-bold text-white bg-[#0B0E14] border-2 border-[#0B0E14] px-2.5 py-1.5 rounded-xl hover:bg-gray-800 transition-colors"
+                className="text-xs font-semibold text-white bg-[#0F172A] px-3 py-1.5 rounded-full hover:bg-slate-800 transition-colors"
               >
                 Cek SJ
               </button>
             </div>
           </div>
         ) : (
-          <div className="bg-white border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl px-4 py-3 flex items-center justify-between gap-2.5">
+          <div className="card px-4 py-3 flex items-center justify-between gap-2.5">
             <div className="min-w-0 flex-1">
-              <span className="bg-[#0B0E14] text-[#FDE047] text-[10px] font-bold px-2 py-0.5 rounded-md inline-block">
-                Input ke Sheet Saja
+              <span className="bg-slate-200/90 text-slate-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full inline-block">
+                Input Manual (Sheet)
               </span>
-              <p className="text-[11px] text-gray-600 font-medium mt-1">
+              <p className="text-[11px] text-slate-500 font-medium mt-1">
                 Simpan tanpa masuk sesi "{activeSession.storeName}".
               </p>
             </div>
             <button
               type="button"
               onClick={() => handleToggleVerifyMode(true)}
-              className="shrink-0 text-xs font-bold text-[#0B0E14] bg-[#FDE047] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] px-3 py-1.5 rounded-xl"
+              className="shrink-0 text-xs font-semibold text-white bg-[#0F172A] px-3.5 py-1.5 rounded-full hover:bg-slate-800 transition-colors"
             >
               Ikut Verifikasi
             </button>
@@ -541,27 +541,27 @@ export default function ReturnFormPage() {
       <form onSubmit={onSubmit} className="card overflow-hidden">
         {/* Loading Progress Bar */}
         {(loadingProducts || loadingBatches) && (
-          <div className="h-1.5 bg-[#F4F3EE] overflow-hidden border-b-2 border-[#0B0E14]">
-            <div className="h-full w-1/3 bg-[#16C784] animate-pulse" />
+          <div className="h-1 bg-white/50 overflow-hidden">
+            <div className="h-full w-1/3 bg-[#0F172A] animate-pulse" />
           </div>
         )}
 
         <div className="p-4 space-y-4">
           {/* Header Bar: Title + Sheet Switcher */}
-          <div className="flex items-center justify-between pb-3 border-b-2 border-[#0B0E14]">
-            <span className="text-xs font-extrabold text-[#0B0E14]">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200/70">
+            <span className="text-xs font-bold text-slate-800">
               Sheet Tujuan
             </span>
-            <div className="flex gap-1.5">
+            <div className="flex gap-1 bg-white/60 p-0.5 rounded-full border border-white/80">
               {(["Bagas", "Dimas"] as const).map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => { setTargetSheet(s); saveSheet(s); }}
-                  className={`px-3.5 py-1 rounded-lg text-xs font-bold border-2 border-[#0B0E14] transition-all ${
+                  className={`px-3.5 py-1 rounded-full text-xs font-semibold transition-all ${
                     targetSheet === s
-                      ? "bg-[#0B0E14] text-white shadow-[0_2px_0_#0B0E14]"
-                      : "bg-[#F4F3EE] text-[#0B0E14] hover:bg-gray-200"
+                      ? "bg-[#0F172A] text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   {s}
@@ -574,12 +574,12 @@ export default function ReturnFormPage() {
           <div>
             <label className="label-field">Produk Retur</label>
             {selectedProduct ? (
-              <div className="flex items-start justify-between gap-3 bg-[#16C784]/20 border-2 border-[#0B0E14] rounded-xl px-3.5 py-3">
+              <div className="flex items-start justify-between gap-3 bg-white/80 border border-white rounded-xl px-3.5 py-3 shadow-2xs">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-extrabold text-[#0B0E14] leading-snug break-words">
+                  <p className="text-xs font-bold text-slate-900 leading-snug break-words">
                     {selectedProduct.product}
                   </p>
-                  <p className="text-[11px] text-[#0B0E14] font-mono font-bold mt-1">
+                  <p className="text-[11px] text-slate-500 font-mono font-semibold mt-1">
                     {selectedProduct.sku} • {selectedProduct.barcode}
                   </p>
                 </div>
@@ -590,7 +590,7 @@ export default function ReturnFormPage() {
                     setProductSearch("");
                     setTimeout(() => productInputRef.current?.focus(), 60);
                   }}
-                  className="shrink-0 text-xs font-bold text-[#0B0E14] bg-white border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none px-3 py-1 rounded-lg transition-all"
+                  className="shrink-0 text-xs font-semibold text-slate-700 bg-slate-100/90 hover:bg-slate-200/80 px-3 py-1 rounded-full transition-all"
                 >
                   Ganti
                 </button>
@@ -616,7 +616,7 @@ export default function ReturnFormPage() {
                 {showProductDropdown && displayedProducts.length > 0 && (
                   <div
                     ref={dropdownRef}
-                    className="absolute z-30 left-0 right-0 mt-1.5 bg-white border-2 border-[#0B0E14] rounded-xl shadow-[0_4px_0_#0B0E14] max-h-56 overflow-y-auto divide-y border-gray-200"
+                    className="absolute z-30 left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl shadow-lg max-h-56 overflow-y-auto divide-y divide-slate-100"
                   >
                     {displayedProducts.map((item, idx) => (
                       <button
@@ -626,13 +626,13 @@ export default function ReturnFormPage() {
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => selectProduct(item)}
                         className={`w-full text-left px-3.5 py-2.5 transition-colors ${
-                          idx === highlightedIdx ? "bg-[#FEF0C7]" : "hover:bg-[#FEF0C7]"
+                          idx === highlightedIdx ? "bg-sky-50/80" : "hover:bg-slate-50"
                         }`}
                       >
-                        <span className="text-xs font-bold text-[#0B0E14] block leading-snug break-words">
+                        <span className="text-xs font-bold text-slate-900 block leading-snug break-words">
                           <HighlightText text={item.product} query={debouncedSearch} />
                         </span>
-                        <span className="text-[11px] text-gray-500 block font-mono font-semibold mt-0.5">
+                        <span className="text-[11px] text-slate-500 block font-mono font-medium mt-0.5">
                           <HighlightText text={item.barcode} query={debouncedSearch} />
                           {" • "}
                           <HighlightText text={item.sku} query={debouncedSearch} />
@@ -653,12 +653,12 @@ export default function ReturnFormPage() {
                 ref={batchBtnRef}
                 type="button"
                 onClick={() => setBatchModal(true)}
-                className={`w-full text-left input-field py-2.5 flex items-center justify-between font-mono text-sm ${
-                  batch ? "text-[#0B0E14] font-bold bg-white" : "text-gray-400"
+                className={`w-full text-left input-field py-2.5 flex items-center justify-between font-mono text-xs ${
+                  batch ? "text-slate-900 font-bold" : "text-slate-400"
                 }`}
               >
-                <span className="truncate">{batch ? (batch === "-" ? "Tanpa batch" : batch) : "Pilih Batch..."}</span>
-                <svg className="w-4 h-4 text-[#0B0E14] shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <span className="break-all leading-snug">{batch ? (batch === "-" ? "Tanpa batch" : batch) : "Pilih Batch..."}</span>
+                <svg className="w-4 h-4 text-slate-500 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
@@ -670,7 +670,7 @@ export default function ReturnFormPage() {
                 value={expDate}
                 onChange={(e) => setExpDate(e.target.value)}
                 placeholder="Mis: Sep 2027"
-                className="input-field text-sm py-2.5 font-semibold"
+                className="input-field text-xs py-2.5 font-semibold"
               />
             </div>
           </div>
@@ -683,7 +683,7 @@ export default function ReturnFormPage() {
                 value={receiveDate}
                 onChange={(e) => setReceiveDate(e.target.value)}
                 placeholder="DD-Mon-YYYY"
-                className="input-field text-sm py-2.5 font-semibold"
+                className="input-field text-xs py-2.5 font-semibold"
               />
             </div>
             <div>
@@ -702,7 +702,7 @@ export default function ReturnFormPage() {
                 }}
                 placeholder="0"
                 min="1"
-                className="input-field text-sm py-2.5 font-extrabold"
+                className="input-field text-sm py-2.5 font-bold"
               />
             </div>
           </div>
@@ -721,10 +721,10 @@ export default function ReturnFormPage() {
                 onFocus={() => setShowDistriDropdown(true)}
                 onBlur={() => setTimeout(() => setShowDistriDropdown(false), 150)}
                 placeholder="Ketik distri..."
-                className="input-field text-sm py-2.5 font-semibold"
+                className="input-field text-xs py-2.5 font-semibold"
               />
               {showDistriDropdown && distriHistory.length > 0 && (
-                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border-2 border-[#0B0E14] rounded-xl shadow-[0_4px_0_#0B0E14] max-h-40 overflow-y-auto divide-y border-gray-200">
+                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-xl shadow-lg max-h-40 overflow-y-auto divide-y divide-slate-100">
                   {distriHistory
                     .filter((h) => !distriEvent.trim() || h.toLowerCase().includes(distriEvent.toLowerCase()))
                     .map((item, idx) => (
@@ -736,7 +736,7 @@ export default function ReturnFormPage() {
                           setDistriEvent(item);
                           setShowDistriDropdown(false);
                         }}
-                        className="w-full text-left px-3 py-2 text-xs font-bold text-[#0B0E14] hover:bg-[#FEF0C7] break-words"
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 break-words"
                       >
                         {item}
                       </button>
@@ -751,12 +751,12 @@ export default function ReturnFormPage() {
                 value={pic}
                 onChange={(e) => setPic(e.target.value)}
                 placeholder="PIC"
-                className="input-field text-sm py-2.5 font-semibold"
+                className="input-field text-xs py-2.5 font-semibold"
               />
             </div>
           </div>
 
-          {/* Section 5: Keterangan (Tactile Pill Chips) */}
+          {/* Section 5: Keterangan (Soft Frosted Pill Chips) */}
           <div>
             <label className="label-field">Kondisi / Keterangan</label>
             <div className="flex flex-wrap gap-1.5 pt-0.5">
@@ -767,10 +767,10 @@ export default function ReturnFormPage() {
                     key={opt}
                     type="button"
                     onClick={() => toggleKeterangan(opt)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-2 border-[#0B0E14] ${
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
                       active
-                        ? "bg-[#0B0E14] text-[#FDE047] shadow-[0_2px_0_#0B0E14]"
-                        : "bg-[#F4F3EE] text-[#0B0E14] hover:bg-gray-200"
+                        ? "bg-[#0F172A] text-white border-[#0F172A] shadow-xs"
+                        : "bg-white/75 text-slate-700 border-white/90 hover:bg-white"
                     }`}
                   >
                     {active ? "✓ " : ""}{opt}
@@ -781,18 +781,18 @@ export default function ReturnFormPage() {
           </div>
 
           {/* Buttons */}
-          <div className="flex gap-3 pt-3 border-t-2 border-[#0B0E14]">
+          <div className="flex gap-2.5 pt-3 border-t border-slate-200/70">
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="flex-1 btn-outline py-2.5 text-xs"
+              className="flex-1 btn-outline py-3 text-xs"
             >
               Kembali
             </button>
             <button
               type="submit"
               disabled={!canSubmit || submitting || loadingProducts || loadingBatches}
-              className="flex-1 bg-[#16C784] hover:bg-[#10B981] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none py-2.5 px-4 rounded-xl text-xs font-bold disabled:opacity-40 transition-all"
+              className="flex-1 btn-primary py-3 px-4 text-xs"
             >
               {submitting
                 ? "Menyimpan..."

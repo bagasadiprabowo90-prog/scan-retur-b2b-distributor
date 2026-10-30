@@ -139,12 +139,14 @@ export default function HistoryPage() {
   }, [toast]);
 
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-3.5 pb-8">
       {/* Toast */}
       {toast && (
         <div
-          className={`rounded-2xl px-4 py-3 text-xs font-bold border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] ${
-            toast.type === "ok" ? "bg-[#16C784] text-[#0B0E14]" : "bg-red-100 text-red-900"
+          className={`rounded-2xl px-4 py-3 text-xs font-semibold backdrop-blur-xl border shadow-xs ${
+            toast.type === "ok"
+              ? "bg-emerald-50/90 text-emerald-900 border-emerald-200/80"
+              : "bg-red-50/90 text-red-900 border-red-200/80"
           }`}
         >
           {toast.msg}
@@ -155,19 +157,19 @@ export default function HistoryPage() {
       <div className="card p-4 space-y-3">
         <div className="flex items-center justify-between gap-2.5">
           <div className="grid grid-cols-2 gap-2.5 flex-1">
-            <div className="bg-[#FEF0C7] border-2 border-[#0B0E14] rounded-xl px-3 py-2">
-              <p className="text-base font-extrabold text-[#0B0E14] leading-none tabular-nums">
+            <div className="bg-white/75 border border-white/90 rounded-2xl px-3.5 py-2.5 shadow-2xs">
+              <p className="text-base font-extrabold text-slate-900 leading-none tabular-nums">
                 {filteredHistory.length}
               </p>
-              <p className="text-[11px] text-gray-600 font-bold mt-1">
+              <p className="text-[11px] text-slate-500 font-semibold mt-1">
                 Baris Data
               </p>
             </div>
-            <div className="bg-[#38BDF8] border-2 border-[#0B0E14] rounded-xl px-3 py-2">
-              <p className="text-base font-extrabold text-[#0B0E14] leading-none tabular-nums">
+            <div className="bg-white/75 border border-white/90 rounded-2xl px-3.5 py-2.5 shadow-2xs">
+              <p className="text-base font-extrabold text-slate-900 leading-none tabular-nums">
                 {totalQty.toLocaleString()}
               </p>
-              <p className="text-[11px] text-[#0B0E14] font-bold mt-1">
+              <p className="text-[11px] text-slate-500 font-semibold mt-1">
                 Total Pcs
               </p>
             </div>
@@ -177,10 +179,10 @@ export default function HistoryPage() {
             type="button"
             onClick={() => void loadHistory()}
             disabled={loading}
-            className="h-12 px-3.5 flex items-center justify-center gap-1.5 rounded-xl bg-white border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none text-xs font-bold disabled:opacity-40 transition-all shrink-0"
+            className="h-11 px-4 flex items-center justify-center gap-1.5 rounded-full bg-white/85 hover:bg-white border border-white/90 shadow-xs text-xs font-semibold text-slate-800 disabled:opacity-40 transition-all shrink-0"
             title="Refresh"
           >
-            <svg className={`w-4 h-4 text-[#0B0E14] ${loading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.3}>
+            <svg className={`w-4 h-4 text-slate-700 ${loading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             <span>Refresh</span>
@@ -188,7 +190,7 @@ export default function HistoryPage() {
         </div>
 
         <div className="relative">
-          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
@@ -196,30 +198,30 @@ export default function HistoryPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Cari produk, distri, atau batch..."
-            className="input-field pl-10 py-2.5 text-sm"
+            className="input-field pl-10 py-2.5 text-xs"
           />
         </div>
       </div>
 
       {error && (
-        <div className="rounded-2xl px-4 py-3 text-xs font-bold bg-red-100 text-red-900 border-2 border-[#0B0E14]">
+        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-red-50/90 text-red-900 border border-red-200">
           {error}
         </div>
       )}
 
       {!error && warnings.length > 0 && (
-        <div className="rounded-2xl px-4 py-3 text-xs font-bold bg-[#FEF0C7] text-[#0B0E14] border-2 border-[#0B0E14] space-y-0.5">
+        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-amber-50/90 text-amber-900 border border-amber-200 space-y-0.5">
           {warnings.map((w, i) => <p key={i}>{w}</p>)}
         </div>
       )}
 
       {/* List */}
       {loading && history.length === 0 ? (
-        <div className="card px-4 py-12 text-center text-xs font-bold text-gray-500 animate-pulse">
+        <div className="card px-4 py-12 text-center text-xs font-semibold text-slate-500 animate-pulse">
           Memuat riwayat...
         </div>
       ) : !error && filteredHistory.length === 0 && !loading ? (
-        <div className="card px-4 py-12 text-center text-xs font-bold text-gray-500">
+        <div className="card px-4 py-12 text-center text-xs font-semibold text-slate-500">
           Tidak ada data riwayat
         </div>
       ) : (
@@ -230,69 +232,69 @@ export default function HistoryPage() {
               <div key={key} className="card p-4 space-y-2.5">
                 {/* Top: Full Product Name (No Truncate) + Qty Badge */}
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-xs font-extrabold text-[#0B0E14] leading-snug break-words flex-1">
+                  <p className="text-xs font-bold text-slate-900 leading-snug break-words flex-1">
                     {item.product || "-"}
                   </p>
-                  <span className="bg-[#0B0E14] text-[#16C784] font-mono text-xs font-bold px-2.5 py-1 rounded-lg whitespace-nowrap tabular-nums shrink-0">
-                    {item.qty.toLocaleString()} pcs
+                  <span className="bg-[#0F172A] text-white font-mono text-[11px] font-bold px-3 py-1 rounded-full whitespace-nowrap tabular-nums shrink-0">
+                    {item.qty.toLocaleString()} Pcs
                   </span>
                 </div>
 
                 {/* Metadata Badges */}
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] font-bold text-[#0B0E14] bg-[#F4F3EE] border border-[#0B0E14] px-2 py-0.5 rounded-md">
+                  <span className="text-[11px] font-semibold text-slate-700 bg-white/80 border border-white/90 px-2.5 py-0.5 rounded-full">
                     {item.receiveDate || "-"}
                   </span>
                   <span
-                    className={`text-[11px] font-bold px-2 py-0.5 rounded-md border border-[#0B0E14] ${
+                    className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
                       item.sheet === "Bagas"
-                        ? "bg-[#38BDF8] text-[#0B0E14]"
-                        : "bg-[#FDE047] text-[#0B0E14]"
+                        ? "bg-sky-50/90 text-sky-900 border-sky-200/80"
+                        : "bg-indigo-50/90 text-indigo-900 border-indigo-200/80"
                     }`}
                   >
                     Sheet {item.sheet}
                   </span>
                   {item.pic && (
-                    <span className="text-[11px] font-bold text-gray-700 bg-[#F4F3EE] border border-[#0B0E14] px-2 py-0.5 rounded-md">
+                    <span className="text-[11px] font-semibold text-slate-600 bg-white/80 border border-white/90 px-2.5 py-0.5 rounded-full">
                       PIC: {item.pic}
                     </span>
                   )}
                 </div>
 
                 {/* Structured Details Grid (Well-spaced columns, no truncated barcode or distri) */}
-                <div className="bg-[#F8F7F3] border-2 border-[#0B0E14] rounded-xl p-3 space-y-2">
+                <div className="bg-white/60 border border-white/80 rounded-xl p-3 space-y-2">
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <span className="block text-[10px] font-bold text-gray-500 uppercase">
+                      <span className="block text-[10px] font-semibold text-slate-400 uppercase">
                         Barcode
                       </span>
-                      <span className="font-mono text-xs font-bold text-[#0B0E14] break-all">
+                      <span className="font-mono text-xs font-bold text-slate-800 break-all">
                         {item.barcode || "-"}
                       </span>
                     </div>
                     <div>
-                      <span className="block text-[10px] font-bold text-gray-500 uppercase">
+                      <span className="block text-[10px] font-semibold text-slate-400 uppercase">
                         Batch
                       </span>
-                      <span className="font-mono text-xs font-bold text-[#0B0E14] break-words">
+                      <span className="font-mono text-xs font-bold text-slate-800 break-words">
                         {item.batch || "-"}
                       </span>
                     </div>
                     <div>
-                      <span className="block text-[10px] font-bold text-gray-500 uppercase">
+                      <span className="block text-[10px] font-semibold text-slate-400 uppercase">
                         Exp Date
                       </span>
-                      <span className="text-xs font-bold text-[#0B0E14] break-words">
+                      <span className="text-xs font-bold text-slate-800 break-words">
                         {item.expDate || "-"}
                       </span>
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-gray-200 flex items-baseline justify-between gap-3">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase shrink-0">
+                  <div className="pt-2 border-t border-slate-200/60 flex items-baseline justify-between gap-3">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase shrink-0">
                       Distri / Event
                     </span>
-                    <span className="text-xs font-bold text-[#0B0E14] text-right break-words">
+                    <span className="text-xs font-bold text-slate-800 text-right break-words">
                       {item.distriEvent || "-"}
                     </span>
                   </div>
@@ -300,8 +302,8 @@ export default function HistoryPage() {
 
                 {/* Keterangan */}
                 {item.keterangan && (
-                  <div className="text-xs font-semibold text-[#0B0E14] bg-[#FEF0C7] border border-[#0B0E14] rounded-xl px-3 py-1.5">
-                    Kondisi: <span className="font-bold">{item.keterangan}</span>
+                  <div className="text-xs font-medium text-slate-700 bg-white/75 border border-white/90 rounded-xl px-3 py-1.5 break-words">
+                    Kondisi: <span className="font-bold text-slate-900">{item.keterangan}</span>
                   </div>
                 )}
 
@@ -310,14 +312,14 @@ export default function HistoryPage() {
                   <button
                     type="button"
                     onClick={() => openEdit(item)}
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-[#0B0E14] bg-white border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none hover:bg-gray-50 transition-all"
+                    className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-700 bg-white/85 border border-white/90 hover:bg-white shadow-2xs transition-all"
                   >
                     Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeleteItem(item)}
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-red-700 bg-red-50 border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none hover:bg-red-100 transition-all"
+                    className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-red-700 bg-red-50/80 border border-red-200/80 hover:bg-red-100/80 transition-all"
                   >
                     Hapus
                   </button>
@@ -338,7 +340,7 @@ export default function HistoryPage() {
           )}
 
           {!hasMore && filteredHistory.length > 0 && (
-            <p className="text-center text-xs font-semibold text-gray-500 py-2">
+            <p className="text-center text-xs font-medium text-slate-500 py-2">
               {filteredHistory.length} data ditampilkan
             </p>
           )}
@@ -348,11 +350,11 @@ export default function HistoryPage() {
       {/* Edit Modal */}
       {editItem && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-12 overflow-y-auto">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setEditItem(null)} />
-          <div className="relative card p-4 max-w-sm w-full space-y-3.5 mb-8 bg-white">
-            <div className="flex items-center justify-between pb-2.5 border-b-2 border-[#0B0E14]">
-              <h3 className="font-extrabold text-sm text-[#0B0E14]">Edit Data Sheet</h3>
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-lg bg-[#FDE047] text-[#0B0E14] border border-[#0B0E14]">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setEditItem(null)} />
+          <div className="relative card p-4 max-w-sm w-full space-y-3.5 mb-8 bg-white/95">
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/70">
+              <h3 className="font-bold text-sm text-slate-900">Edit Data Sheet</h3>
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800">
                 {editItem.sheet} • Row {editItem.rowNumber}
               </span>
             </div>
@@ -391,9 +393,9 @@ export default function HistoryPage() {
               </EField>
             </div>
 
-            <div className="flex gap-2.5 pt-2 border-t-2 border-[#0B0E14]">
+            <div className="flex gap-2.5 pt-2 border-t border-slate-200/70">
               <button onClick={() => setEditItem(null)} className="flex-1 btn-outline">Batal</button>
-              <button onClick={handleEditSave} disabled={editSaving} className="flex-1 bg-[#16C784] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] py-2.5 rounded-xl text-xs font-bold">
+              <button onClick={handleEditSave} disabled={editSaving} className="flex-1 btn-primary py-2.5 text-xs">
                 {editSaving ? "Menyimpan..." : "Simpan"}
               </button>
             </div>
@@ -404,17 +406,17 @@ export default function HistoryPage() {
       {/* Delete Confirm */}
       {deleteItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setDeleteItem(null)} />
-          <div className="relative card p-5 max-w-xs w-full space-y-4 bg-white">
-            <h3 className="font-extrabold text-base text-[#0B0E14] text-center">Hapus Data Ini?</h3>
-            <div className="bg-[#FEF0C7] border-2 border-[#0B0E14] rounded-xl p-3 space-y-1 text-xs">
-              <p className="font-extrabold text-[#0B0E14] leading-snug break-words">{deleteItem.product}</p>
-              <p className="text-gray-700 font-semibold">Sheet {deleteItem.sheet} • Row {deleteItem.rowNumber} • Qty {deleteItem.qty}</p>
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setDeleteItem(null)} />
+          <div className="relative card p-5 max-w-xs w-full space-y-4 bg-white/95">
+            <h3 className="font-bold text-base text-slate-900 text-center">Hapus Data Ini?</h3>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1 text-xs">
+              <p className="font-bold text-slate-900 leading-snug break-words">{deleteItem.product}</p>
+              <p className="text-slate-600 font-medium">Sheet {deleteItem.sheet} • Row {deleteItem.rowNumber} • Qty {deleteItem.qty}</p>
             </div>
-            <p className="text-xs text-gray-500 text-center">Data yang dihapus dari Sheet tidak bisa dikembalikan.</p>
+            <p className="text-xs text-slate-500 text-center">Data yang dihapus dari Sheet tidak bisa dikembalikan.</p>
             <div className="flex gap-2.5">
               <button onClick={() => setDeleteItem(null)} className="flex-1 btn-outline">Batal</button>
-              <button onClick={handleDelete} disabled={deleteLoading} className="flex-1 bg-red-500 text-white border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] py-2.5 rounded-xl text-xs font-bold hover:bg-red-600 disabled:opacity-40 transition-all">
+              <button onClick={handleDelete} disabled={deleteLoading} className="flex-1 bg-red-600 text-white py-2.5 rounded-full text-xs font-bold hover:bg-red-700 disabled:opacity-40 transition-all">
                 {deleteLoading ? "Menghapus..." : "Hapus"}
               </button>
             </div>

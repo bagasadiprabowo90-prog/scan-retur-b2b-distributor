@@ -4,25 +4,25 @@
 
 @layer components {
   .input-field {
-    @apply w-full border-2 border-[#0B0E14] rounded-xl px-3.5 py-2.5 text-sm bg-[#F8F7F3] text-[#0B0E14] placeholder:text-gray-400 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#16C784]/30 transition-all;
+    @apply w-full border border-white/80 rounded-xl px-3.5 py-2.5 text-sm bg-white/85 text-slate-900 placeholder:text-slate-400 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/25 focus:border-sky-300 transition-all shadow-sm;
   }
   .label-field {
-    @apply block text-xs font-bold text-gray-700 mb-1.5;
+    @apply block text-xs font-semibold text-slate-600 mb-1.5;
   }
   .card {
-    @apply bg-white rounded-2xl border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14];
+    @apply bg-white/65 backdrop-blur-xl rounded-2xl border border-white/80 shadow-[0_4px_20px_rgba(15,23,42,0.05)];
   }
   .card-header {
-    @apply px-4 py-3 flex items-center justify-between border-b-2 border-[#0B0E14];
+    @apply px-4 py-3 flex items-center justify-between border-b border-slate-200/60;
   }
   .card-body {
     @apply p-4;
   }
   .btn-primary {
-    @apply bg-[#0B0E14] text-white border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] py-2.5 px-4 rounded-xl text-xs font-bold hover:bg-gray-800 active:translate-y-[1px] active:shadow-none disabled:opacity-40 transition-all;
+    @apply bg-[#0F172A] text-white py-2.5 px-4 rounded-full text-xs font-bold hover:bg-slate-800 active:scale-[0.98] disabled:opacity-40 transition-all shadow-sm;
   }
   .btn-outline {
-    @apply bg-white text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] py-2.5 px-4 rounded-xl text-xs font-bold hover:bg-gray-50 active:translate-y-[1px] active:shadow-none disabled:opacity-40 transition-all;
+    @apply bg-white/80 backdrop-blur-md border border-white/90 text-slate-800 py-2.5 px-4 rounded-full text-xs font-bold hover:bg-white active:scale-[0.98] disabled:opacity-40 transition-all shadow-sm;
   }
 }
 
@@ -30,11 +30,38 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html,
 body {
-  background-color: #F4F3EE;
-  color: #0B0E14;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  min-height: 100%;
+  background: linear-gradient(180deg, #DCE5EA 0%, #CBD7DF 52%, #BCCBD4 100%);
+  background-attachment: fixed;
+  color: #0F172A;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* 3D Glossy Blue Scan Orb (Glacier Sage Reference) */
+.scan-orb-btn {
+  background: radial-gradient(
+    circle at 36% 28%,
+    #7CC6FF 0%,
+    #2B8AE8 42%,
+    #115BB0 80%,
+    #0A3C78 100%
+  );
+  box-shadow:
+    inset 0 6px 14px rgba(255, 255, 255, 0.7),
+    inset 0 -8px 16px rgba(6, 34, 70, 0.65),
+    0 14px 28px -6px rgba(14, 75, 143, 0.45),
+    0 0 0 4px rgba(255, 255, 255, 0.45);
+}
+
+.scan-orb-btn:hover {
+  filter: brightness(1.04);
+}
+
+.scan-orb-btn:active {
+  transform: scale(0.96);
 }
 
 /* Fullscreen scanner styles */
@@ -85,7 +112,7 @@ body {
   position: absolute;
   width: 24px;
   height: 24px;
-  border-color: #16C784;
+  border-color: #38BDF8;
   border-style: solid;
   border-width: 0;
 }
@@ -126,8 +153,8 @@ body {
   top: 50%;
   height: 2px;
   margin-top: -1px;
-  background: linear-gradient(90deg, transparent, #16C784 15%, #16C784 85%, transparent);
-  box-shadow: 0 0 8px #16C784;
+  background: linear-gradient(90deg, transparent, #38BDF8 15%, #38BDF8 85%, transparent);
+  box-shadow: 0 0 8px #38BDF8;
   animation: scanLinePulse 1.6s ease-in-out infinite;
 }
 
@@ -150,7 +177,7 @@ body {
 .scanner-success-flash {
   position: absolute;
   inset: 0;
-  background-color: rgba(22, 199, 132, 0.4);
+  background-color: rgba(56, 189, 248, 0.35);
   animation: flashSuccess 0.3s ease-out;
   pointer-events: none;
 }
