@@ -470,10 +470,10 @@ export default function VerificationPage() {
       {/* Toast Notification */}
       {toast && (
         <div
-          className={`rounded-xl px-3.5 py-2.5 text-xs font-semibold border ${
+          className={`rounded-2xl px-3.5 py-2.5 font-mono text-xs font-bold border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] ${
             toast.type === "success"
-              ? "bg-green-50 text-green-700 border-green-200"
-              : "bg-red-50 text-red-600 border-red-200"
+              ? "bg-[#16C784] text-[#0B0E14]"
+              : "bg-red-100 text-red-900"
           }`}
         >
           {toast.msg}
@@ -481,20 +481,20 @@ export default function VerificationPage() {
       )}
 
       {/* Tabs Switcher: Sesi Toko Aktif vs Riwayat Verifikasi */}
-      <div className="flex bg-gray-200/80 p-1 rounded-xl">
+      <div className="grid grid-cols-2 gap-2.5">
         <button
           type="button"
           onClick={() => setActiveTab("current")}
-          className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+          className={`py-2.5 px-3 rounded-xl font-mono text-xs font-bold uppercase tracking-wider border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] active:translate-y-[2px] active:shadow-none transition-all ${
             activeTab === "current"
-              ? "bg-white text-gray-900 shadow-xs"
-              : "text-gray-600 hover:text-gray-900"
+              ? "bg-[#0B0E14] text-white"
+              : "bg-white text-[#0B0E14] hover:bg-gray-100"
           }`}
         >
-          🔍 Verifikasi Toko Aktif
+          SESI AKTIF
           {session && session.items.length > 0 && (
-            <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800">
-              {session.items.length} scan
+            <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] bg-[#16C784] text-[#0B0E14]">
+              {session.items.length}
             </span>
           )}
         </button>
@@ -504,13 +504,13 @@ export default function VerificationPage() {
             setActiveTab("history");
             setReconHistory(getReconHistory());
           }}
-          className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+          className={`py-2.5 px-3 rounded-xl font-mono text-xs font-bold uppercase tracking-wider border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] active:translate-y-[2px] active:shadow-none transition-all ${
             activeTab === "history"
-              ? "bg-white text-gray-900 shadow-xs"
-              : "text-gray-600 hover:text-gray-900"
+              ? "bg-[#0B0E14] text-white"
+              : "bg-white text-[#0B0E14] hover:bg-gray-100"
           }`}
         >
-          📜 Riwayat Rekon Toko ({reconHistory.length})
+          RIWAYAT REKON ({reconHistory.length})
         </button>
       </div>
 
@@ -521,25 +521,27 @@ export default function VerificationPage() {
         <>
           {!session ? (
             <div className="card p-6 text-center space-y-4">
-              <div className="w-16 h-16 bg-purple-100 text-purple-700 rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-xs">
+              <div className="w-16 h-16 bg-[#FEF0C7] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl flex items-center justify-center mx-auto text-3xl">
                 📄
               </div>
               <div className="space-y-1">
-                <h3 className="text-base font-bold text-gray-900">Mulai Verifikasi & Rekonsiliasi Toko</h3>
-                <p className="text-xs text-gray-500 max-w-xs mx-auto">
+                <h3 className="text-base font-black text-[#0B0E14] uppercase">
+                  MULAI VERIFIKASI & REKONSILIASI TOKO
+                </h3>
+                <p className="text-xs text-gray-600 max-w-xs mx-auto">
                   Belum ada sesi toko aktif. Anda bisa langsung <strong>foto lembar kertas SJ</strong> agar AI membaca data otomatis, atau mulai scan fisik terlebih dahulu.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-2 max-w-xs mx-auto pt-1">
+              <div className="flex flex-col gap-2.5 max-w-xs mx-auto pt-1">
                 <button
                   type="button"
                   onClick={handleOpenAiScan}
                   disabled={aiLoading}
-                  className="w-full btn-primary py-3 px-4 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
+                  className="w-full py-3 px-4 font-mono text-xs font-bold uppercase bg-[#16C784] hover:bg-[#10B981] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_4px_0_#0B0E14] active:translate-y-[2px] active:shadow-none rounded-xl flex items-center justify-center gap-2 transition-all"
                 >
                   <span className="text-base">📷</span>
-                  <span>{aiLoading ? "Membaca Dokumen..." : "Foto / Upload Lembar SJ (AI)"}</span>
+                  <span>{aiLoading ? "MEMBACA DOKUMEN..." : "BACA LEMBAR SJ (OCR)"}</span>
                 </button>
 
                 <div className="flex gap-2">
@@ -551,9 +553,9 @@ export default function VerificationPage() {
                       } catch {}
                       navigate("/");
                     }}
-                    className="flex-1 btn-outline py-2.5 text-xs font-bold"
+                    className="flex-1 btn-outline py-2.5 text-xs"
                   >
-                    Mulai Scan Fisik
+                    MULAI SCAN FISIK
                   </button>
                 </div>
               </div>
@@ -562,27 +564,27 @@ export default function VerificationPage() {
             <>
               {/* Store Metadata & Summary Card */}
               <div className="card p-3.5 space-y-3">
-                <div className="flex items-start justify-between gap-2 border-b border-gray-100 pb-2.5">
+                <div className="flex items-start justify-between gap-2 border-b-2 border-[#0B0E14] pb-2.5">
                   <div className="min-w-0">
-                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 uppercase tracking-wider mb-1">
-                      Sesi Toko Berjalan
+                    <span className="inline-block px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-[#0B0E14] text-[#FDE047] uppercase tracking-wider mb-1">
+                      SESI TOKO BERJALAN
                     </span>
-                    <h2 className="text-base font-bold text-gray-900 truncate">
+                    <h2 className="text-base font-black text-[#0B0E14] uppercase truncate">
                       {session.storeName}
                     </h2>
-                    <p className="text-xs text-gray-500">
-                      {session.noSJ ? `No. SJ: ${session.noSJ} · ` : ""}
-                      {session.receiveDate || "Hari Ini"} · Sheet {session.targetSheet}
+                    <p className="font-mono text-xs text-gray-600 font-semibold">
+                      {session.noSJ ? `NO. SJ: ${session.noSJ} • ` : ""}
+                      {session.receiveDate || "HARI INI"} • SHEET {session.targetSheet.toUpperCase()}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
                       onClick={() => setScannedListModalOpen(true)}
-                      className="text-xs font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg border border-gray-200"
+                      className="font-mono text-[11px] font-bold text-[#0B0E14] bg-[#F4F3EE] hover:bg-gray-200 px-2.5 py-1.5 rounded-xl border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14]"
                       title="Lihat & hapus item fisik yang sudah discan"
                     >
-                      📋 Scan ({session.items.length})
+                      📋 SCAN ({session.items.length})
                     </button>
                     <button
                       type="button"
@@ -592,73 +594,73 @@ export default function VerificationPage() {
                         } catch {}
                         navigate("/");
                       }}
-                      className="text-xs font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg border border-blue-200"
+                      className="font-mono text-[11px] font-bold text-[#0B0E14] bg-[#16C784] hover:bg-[#10B981] px-2.5 py-1.5 rounded-xl border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14]"
                     >
-                      + Scan Tambahan
+                      + SCAN
                     </button>
                   </div>
                 </div>
 
                 {/* Scorecards */}
                 <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-blue-50 border border-blue-100 p-2 rounded-xl">
-                    <span className="text-[10px] font-bold text-blue-600 block uppercase">
-                      Total Fisik
+                  <div className="bg-[#38BDF8] border-2 border-[#0B0E14] p-2 rounded-xl">
+                    <span className="font-mono text-[10px] font-bold text-[#0B0E14] block uppercase">
+                      FISIK
                     </span>
-                    <span className="text-lg font-black text-blue-900">
-                      {totalPhysical} <span className="text-[10px] font-normal">pcs</span>
+                    <span className="font-mono text-lg font-black text-[#0B0E14]">
+                      {totalPhysical} <span className="text-[10px] font-bold">PCS</span>
                     </span>
                   </div>
 
-                  <div className="bg-purple-50 border border-purple-100 p-2 rounded-xl">
-                    <span className="text-[10px] font-bold text-purple-600 block uppercase">
-                      Klaim SJ
+                  <div className="bg-[#F4F3EE] border-2 border-[#0B0E14] p-2 rounded-xl">
+                    <span className="font-mono text-[10px] font-bold text-[#0B0E14] block uppercase">
+                      KLAIM SJ
                     </span>
-                    <span className="text-lg font-black text-purple-900">
-                      {totalClaim} <span className="text-[10px] font-normal">pcs</span>
+                    <span className="font-mono text-lg font-black text-[#0B0E14]">
+                      {totalClaim} <span className="text-[10px] font-bold">PCS</span>
                     </span>
                   </div>
 
                   <div
-                    className={`p-2 rounded-xl border ${
+                    className={`p-2 rounded-xl border-2 border-[#0B0E14] ${
                       totalPhysical === totalClaim && diffCount === 0
-                        ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                        : "bg-amber-50 border-amber-200 text-amber-900"
+                        ? "bg-[#16C784] text-[#0B0E14]"
+                        : "bg-[#FDE047] text-[#0B0E14]"
                     }`}
                   >
-                    <span className="text-[10px] font-bold block uppercase">
-                      Selisih Total
+                    <span className="font-mono text-[10px] font-bold block uppercase">
+                      SELISIH
                     </span>
-                    <span className="text-lg font-black">
+                    <span className="font-mono text-lg font-black">
                       {totalPhysical - totalClaim === 0
                         ? "0"
                         : totalPhysical - totalClaim > 0
                         ? `+${totalPhysical - totalClaim}`
                         : `${totalPhysical - totalClaim}`}
-                      <span className="text-[10px] font-normal"> pcs</span>
+                      <span className="text-[10px] font-bold"> PCS</span>
                     </span>
                   </div>
                 </div>
 
                 {/* Status Bar */}
                 <div
-                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border ${
+                  className={`flex items-center justify-between px-3 py-2 rounded-xl font-mono text-xs font-bold border-2 border-[#0B0E14] ${
                     diffCount === 0 && reconItems.length > 0
-                      ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                      : "bg-red-50 border-red-200 text-red-800"
+                      ? "bg-[#16C784]/30 text-[#0B0E14]"
+                      : "bg-[#FEF0C7] text-[#0B0E14]"
                   }`}
                 >
                   <div className="flex items-center gap-1.5">
                     <span>{diffCount === 0 && reconItems.length > 0 ? "✅" : "⚠️"}</span>
                     <span>
                       {diffCount === 0 && reconItems.length > 0
-                        ? "Semua SKU Sesuai dengan Lembar SJ"
-                        : `${diffCount} dari ${reconItems.length} SKU Mengalami Selisih`}
+                        ? "SEMUA SKU SESUAI LEMBAR SJ"
+                        : `${diffCount} DARI ${reconItems.length} SKU SELISIH`}
                     </span>
                   </div>
                   {diffCount > 0 && (
-                    <span className="text-[11px] font-medium text-red-600">
-                      ({unconfirmedDiffCount} belum konfirmasi)
+                    <span className="text-[11px] font-bold text-red-700">
+                      ({unconfirmedDiffCount} BELUM KONFIRMASI)
                     </span>
                   )}
                 </div>
@@ -670,9 +672,9 @@ export default function VerificationPage() {
                   <button
                     type="button"
                     onClick={handleMatchAll}
-                    className="flex-1 min-w-[130px] btn-outline py-2 text-xs font-bold text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                    className="flex-1 min-w-[130px] btn-outline py-2 text-xs bg-[#F4F3EE]"
                   >
-                    ✓ Samakan Semua Klaim
+                    ✓ SAMAKAN KLAIM
                   </button>
                   <button
                     type="button"
@@ -681,41 +683,41 @@ export default function VerificationPage() {
                       setSkuSearch("");
                       setSelectedProductToAdd(null);
                     }}
-                    className="flex-1 min-w-[110px] btn-outline py-2 text-xs font-bold text-blue-700 border-blue-300 hover:bg-blue-50"
+                    className="flex-1 min-w-[110px] btn-outline py-2 text-xs bg-[#38BDF8] hover:bg-[#0EA5E9]"
                   >
-                    + Tambah SKU
+                    + TAMBAH SKU
                   </button>
                   <button
                     type="button"
                     onClick={handleOpenAiScan}
                     disabled={aiLoading}
-                    className="flex-1 min-w-[120px] btn-outline py-2 text-xs font-bold text-purple-700 border-purple-300 hover:bg-purple-50 flex items-center justify-center gap-1"
+                    className="flex-1 min-w-[120px] btn-outline py-2 text-xs bg-[#FDE047] hover:bg-[#FACC15] flex items-center justify-center gap-1"
                   >
                     <span>{aiLoading ? "⏳" : "📷"}</span>
-                    <span>{aiLoading ? "Membaca..." : "Baca SJ (AI)"}</span>
+                    <span>{aiLoading ? "MEMBACA..." : "BACA SJ (OCR)"}</span>
                   </button>
                 </div>
 
                 {/* Filter Pills */}
-                <div className="flex items-center justify-between pt-1 border-t border-gray-100 text-xs">
-                  <span className="text-[11px] font-bold text-gray-400 uppercase">Tampilkan:</span>
-                  <div className="flex gap-1">
+                <div className="flex items-center justify-between pt-2 border-t-2 border-gray-200 text-xs">
+                  <span className="font-mono text-[11px] font-bold text-gray-600 uppercase">FILTER:</span>
+                  <div className="flex gap-1.5">
                     {(["all", "diff", "match"] as const).map((tab) => (
                       <button
                         key={tab}
                         type="button"
                         onClick={() => setFilterStatus(tab)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                        className={`px-2.5 py-1 rounded-lg font-mono text-xs font-bold border-2 border-[#0B0E14] transition-all ${
                           filterStatus === tab
-                            ? "bg-gray-900 text-white"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            ? "bg-[#0B0E14] text-white"
+                            : "bg-[#F4F3EE] text-[#0B0E14] hover:bg-gray-200"
                         }`}
                       >
                         {tab === "all"
-                          ? `Semua (${reconItems.length})`
+                          ? `SEMUA (${reconItems.length})`
                           : tab === "diff"
-                          ? `Selisih (${diffCount})`
-                          : `Sesuai (${matchCount})`}
+                          ? `SELISIH (${diffCount})`
+                          : `SESUAI (${matchCount})`}
                       </button>
                     ))}
                   </div>
@@ -911,24 +913,24 @@ export default function VerificationPage() {
               </div>
 
               {/* Bottom Sticky Action Bar */}
-              <div className="sticky bottom-3 z-40 bg-white/95 backdrop-blur-md p-3 rounded-2xl border border-gray-200 shadow-xl space-y-2">
-                <div className="flex gap-2">
+              <div className="sticky bottom-16 z-40 bg-white p-3 rounded-2xl border-2 border-[#0B0E14] shadow-[0_4px_0_#0B0E14] space-y-2">
+                <div className="flex gap-2.5">
                   <button
                     type="button"
                     onClick={() => handleCopyWhatsApp()}
-                    className="flex-1 btn-outline py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                    className="flex-1 btn-outline py-2.5 text-xs flex items-center justify-center gap-1.5"
                   >
                     <span>📋</span>
-                    <span>Salin WhatsApp</span>
+                    <span>SALIN WHATSAPP</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleFinishStoreClick}
-                    className="flex-1 btn-primary py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 bg-gray-900 hover:bg-black text-white"
+                    className="flex-1 py-2.5 px-3 rounded-xl font-mono text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 bg-[#16C784] hover:bg-[#10B981] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] active:translate-y-[2px] active:shadow-none transition-all"
                   >
                     <span>🔒</span>
-                    <span>Selesai & Lanjut Toko</span>
+                    <span>SELESAI & ARSIP →</span>
                   </button>
                 </div>
               </div>

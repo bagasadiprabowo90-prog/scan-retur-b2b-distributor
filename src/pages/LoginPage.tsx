@@ -82,52 +82,53 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-100 to-gray-50 flex items-center justify-center px-5">
+    <div className="min-h-screen bg-[#F4F3EE] flex items-center justify-center px-5">
       <div className="w-full max-w-sm">
         {/* Logo & Branding */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-900 rounded-2xl shadow-lg mb-3">
-            <span className="text-3xl">📦</span>
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#16C784] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_4px_0_#0B0E14] rounded-2xl mb-3">
+            <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 7V5a1 1 0 011-1h2M20 7V5a1 1 0 00-1-1h-2M4 17v2a1 1 0 001 1h2M20 17v2a1 1 0 01-1 1h-2M7 12h10" />
+            </svg>
           </div>
-          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Scan Retur</h1>
-          <p className="text-xs text-gray-400 mt-0.5 font-medium tracking-wide">
-            B2B Distributor — BLP Beauty
+          <h1 className="text-xl font-black text-[#0B0E14] uppercase tracking-tight">
+            SCAN RETUR B2B
+          </h1>
+          <p className="font-mono text-xs text-gray-600 mt-1 font-bold uppercase tracking-wider">
+            WAREHOUSE UTILITY • BLP BEAUTY
           </p>
         </div>
 
         {/* Session Expired Alert */}
         {isSessionExpired && !error && (
-          <div className="mb-4 rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 text-amber-800 border border-amber-200 text-center">
-            ⚠️ Sesi Anda telah berakhir demi keamanan. Silakan login kembali.
+          <div className="mb-4 rounded-2xl px-3.5 py-2.5 font-mono text-xs font-bold bg-[#FEF0C7] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] text-center">
+            ⚠️ SESI BERAKHIR. SILAKAN LOGIN KEMBALI.
           </div>
         )}
 
         {/* Login Card */}
-        <div className="card p-6 space-y-6 text-center">
+        <div className="card p-6 space-y-5 text-center">
+          <div className="pb-2 border-b-2 border-[#0B0E14] flex items-center justify-between">
+            <span className="font-mono text-xs font-bold text-[#0B0E14] uppercase">
+              OTENTIKASI OPERATOR
+            </span>
+            <span className="bg-[#0B0E14] text-[#FDE047] font-mono text-[10px] font-bold px-2 py-0.5 rounded">
+              JKT-WH
+            </span>
+          </div>
+
           {/* Error Alert */}
           {error && (
-            <div className="rounded-xl px-3.5 py-2.5 text-xs bg-red-50 text-red-600 border border-red-100 text-left leading-relaxed">
+            <div className="rounded-xl px-3.5 py-2.5 font-mono text-xs font-bold bg-red-100 text-red-900 border-2 border-[#0B0E14] text-left leading-relaxed">
               {error}
             </div>
           )}
 
           {/* Loading indicator */}
           {loading && (
-            <div className="flex items-center justify-center gap-2 text-sm text-gray-600 py-2">
-              <svg
-                className="animate-spin h-5 w-5 text-gray-800"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              <span>Memverifikasi akun...</span>
+            <div className="flex items-center justify-center gap-2 font-mono text-xs font-bold text-[#0B0E14] py-2">
+              <div className="h-4 w-4 border-2 border-[#0B0E14] border-t-transparent rounded-full animate-spin" />
+              <span>MEMVERIFIKASI AKUN...</span>
             </div>
           )}
 
@@ -138,16 +139,18 @@ export default function LoginPage() {
             </div>
           ) : (
             <div className="space-y-4 text-left">
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
-                <p className="font-bold mb-1">⚙️ Setup Google Sign-In</p>
+              <div className="p-3 bg-[#FEF0C7] border-2 border-[#0B0E14] rounded-xl font-mono text-[11px] text-[#0B0E14] leading-relaxed">
+                <p className="font-bold mb-1">⚙️ SETUP GOOGLE SIGN-IN</p>
                 <p>
-                  Tambahkan <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[10px]">VITE_GOOGLE_CLIENT_ID</code> di file <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[10px]">.env</code> untuk mengaktifkan tombol Google resmi.
+                  Tambahkan <code className="bg-white border border-[#0B0E14] px-1 py-0.5 rounded font-mono text-[10px]">VITE_GOOGLE_CLIENT_ID</code> di file <code className="bg-white border border-[#0B0E14] px-1 py-0.5 rounded font-mono text-[10px]">.env</code> untuk tombol Google resmi.
                 </p>
               </div>
 
               {/* Dev Quick Test Area */}
-              <div className="pt-2 border-t border-gray-100 space-y-3">
-                <p className="text-xs font-semibold text-gray-700">Uji Coba Cepat (Dev Mode):</p>
+              <div className="pt-2 border-t-2 border-[#0B0E14] space-y-3">
+                <p className="font-mono text-xs font-bold text-[#0B0E14] uppercase">
+                  PILIH OPERATOR (DEV MODE):
+                </p>
                 <div className="grid grid-cols-2 gap-2">
                   {["bagas", "dimas", "nur", "irwan"].map((name) => (
                     <button
@@ -155,10 +158,10 @@ export default function LoginPage() {
                       type="button"
                       disabled={loading}
                       onClick={() => handleDevLogin(`${name}@${REQUIRED_DOMAIN}`)}
-                      className="px-3 py-2 text-xs font-semibold rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 transition-colors capitalize text-left flex items-center justify-between"
+                      className="px-3 py-2 font-mono text-xs font-bold rounded-xl bg-[#F4F3EE] hover:bg-[#FEF0C7] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none transition-all uppercase text-left flex items-center justify-between"
                     >
                       <span>{name}</span>
-                      <span className="text-[10px] text-gray-400">@{REQUIRED_DOMAIN.split(".")[0]}</span>
+                      <span className="text-[10px] text-gray-500">→</span>
                     </button>
                   ))}
                 </div>
@@ -169,15 +172,15 @@ export default function LoginPage() {
                     value={devEmail}
                     onChange={(e) => setDevEmail(e.target.value)}
                     placeholder={`email@${REQUIRED_DOMAIN}`}
-                    className="input-field text-xs mb-2"
+                    className="input-field font-mono text-xs mb-2"
                   />
                   <button
                     type="button"
                     disabled={loading || !devEmail}
                     onClick={() => handleDevLogin(devEmail)}
-                    className="w-full btn-primary text-xs py-2 disabled:opacity-50"
+                    className="w-full btn-primary text-xs py-2.5 disabled:opacity-50"
                   >
-                    Masuk dengan Email Di Atas
+                    MASUK DENGAN EMAIL →
                   </button>
                 </div>
               </div>
