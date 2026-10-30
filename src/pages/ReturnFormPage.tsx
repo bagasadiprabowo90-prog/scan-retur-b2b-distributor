@@ -1,8 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  ChevronDown,
+  ChevronUp,
+  Store,
+  Check,
+  ClipboardCheck,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useAuth } from "../lib/auth";
 import BatchPickerModal from "../components/BatchPickerModal";
-import { getActiveSession, addScannedItemToSession, getSessionStoreConflict } from "../lib/session";
+import Toast from "../components/ui/Toast";
+import Button from "../components/ui/Button";
+import {
+  getActiveSession,
+  addScannedItemToSession,
+  getSessionStoreConflict,
+} from "../lib/session";
 import {
   createReturn,
   createReturnRequestId,
@@ -73,7 +87,9 @@ function HighlightText({ text, query }: { text: string; query: string }) {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="bg-yellow-200 text-gray-900 rounded-xs px-0.5 font-bold">{text.slice(idx, idx + query.length)}</mark>
+      <mark className="bg-yellow-200 text-gray-900 rounded-xs px-0.5 font-bold">
+        {text.slice(idx, idx + query.length)}
+      </mark>
       {text.slice(idx + query.length)}
     </>
   );
@@ -112,8 +128,11 @@ export default function ReturnFormPage() {
   const [expDate, setExpDate] = useState("");
 
   const activeSession = useMemo(() => getActiveSession(), []);
+  const [showSessionMeta, setShowSessionMeta] = useState(false);
 
-  const [receiveDate, setReceiveDate] = useState(() => activeSession?.receiveDate || todayFormatted());
+  const [receiveDate, setReceiveDate] = useState(
+    () => activeSession?.receiveDate || todayFormatted()
+  );
   const [distriEvent, setDistriEvent] = useState(() => activeSession?.storeName || "");
   const [distriHistory] = useState<string[]>(getDistriHistory);
   const [qty, setQty] = useState("");
@@ -179,7 +198,10 @@ export default function ReturnFormPage() {
 
   useEffect(() => {
     if (!selectedProduct && selectedBarcode && products.length > 0) {
-      setToast({ type: "error", msg: `Barcode ${selectedBarcode} tidak ditemukan di master data.` });
+      setToast({
+        type: "error",
+        msg: `Barcode ${selectedBarcode} tidak ditemukan di master data.`,
+      });
     }
   }, [products, selectedBarcode, selectedProduct]);
 
@@ -331,7 +353,6 @@ export default function ReturnFormPage() {
     setToast(null);
 
     try {
-      // Cegah data toko lain tercampur ke sesi rekonsiliasi toko yang sedang aktif
       const conflictStore = getSessionStoreConflict(distriEvent);
       if (conflictStore) {
         setToast({
@@ -356,9 +377,6 @@ export default function ReturnFormPage() {
       };
       const fingerprint = JSON.stringify({ sheet: targetSheet, payload });
 
-      // Pertahankan ID operasi bila submit sebelumnya mungkin sudah masuk ke
-      // Google Sheets tetapi responsnya timeout. Perubahan isi form otomatis
-      // menghasilkan ID baru, sehingga input identik yang disengaja tetap boleh.
       if (pendingSubmitRef.current?.fingerprint !== fingerprint) {
         pendingSubmitRef.current = {
           fingerprint,
@@ -377,7 +395,6 @@ export default function ReturnFormPage() {
         return;
       }
 
-      // Simpan ke sesi toko aktif untuk rekonsiliasi
       const updatedSession = addScannedItemToSession({
         receiveDate,
         distriEvent,
@@ -424,44 +441,64 @@ export default function ReturnFormPage() {
     });
   };
 
+  // Saat sesi aktif, detail sheet/toko/tanggal/PIC disembunyikan secara default (R11)
+  const showFullMetaFields = !activeSession || showSessionMeta;
+
   return (
     <div className="space-y-3 pb-8">
       {/* Toast Notification */}
       {toast && (
-        <div className={`rounded-xl px-3.5 py-2.5 text-xs font-semibold border ${
-          toast.type === "success"
-            ? "bg-green-50 text-green-700 border-green-200"
-            : "bg-red-50 text-red-600 border-red-200"
-        }`}>
-          {toast.msg}
-        </div>
+        <Toast
+          type={toast.type}
+          message={toast.msg}
+          onClose={() => setToast(null)}
+        />
       )}
 
-      {/* Active Session Indicator */}
+      {/* Active Session Compact Summary Bar (R11) */}
       {activeSession && (
-        <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 text-xs">
-          <div className="min-w-0 pr-2">
-            <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block">
-              📍 Toko: {activeSession.storeName}
-            </span>
-            <p className="text-gray-600 truncate">
-              {activeSession.noSJ ? `SJ: ${activeSession.noSJ} · ` : ""}
-              Total Sesi: {activeSession.items.reduce((a, b) => a + b.qty, 0)} pcs ({activeSession.items.length} scan)
-            </p>
+        <div className="card p-3 bg-gray-900 text-white space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <Store className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
+                <span className="text-sm font-bold truncate">{distriEvent || activeSession.storeName}</span>
+              </div>
+              <p className="text-xs text-gray-300 truncate mt-0.5">
+                Sheet {targetSheet} · {receiveDate} · PIC {pic || "-"} ·{" "}
+                {activeSession.items.reduce((a, b) => a + b.qty, 0)} pcs ({activeSession.items.length} scan)
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowSessionMeta((v) => !v)}
+                className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-gray-200 transition-colors"
+                title="Tampilkan atau sembunyikan detail sesi"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>{showSessionMeta ? "Ringkas" : "Detail"}</span>
+                {showSessionMeta ? (
+                  <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/verification")}
+                className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-xs font-bold text-white transition-colors"
+              >
+                <ClipboardCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Rekon</span>
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate("/verification")}
-            className="shrink-0 text-xs font-bold text-blue-700 bg-white border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors"
-          >
-            Verifikasi SJ
-          </button>
         </div>
       )}
 
       {/* Main Form Card */}
       <form onSubmit={onSubmit} className="card overflow-hidden">
-        {/* Loading Progress Bar */}
         {(loadingProducts || loadingBatches) && (
           <div className="h-1 bg-gray-100 overflow-hidden">
             <div className="h-full w-1/3 bg-gray-900 rounded-full animate-pulse" />
@@ -469,39 +506,44 @@ export default function ReturnFormPage() {
         )}
 
         <div className="p-3.5 sm:p-4 space-y-3.5">
-          {/* Header Bar: Title + Compact Sheet Switcher */}
-          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-              Sheet Tujuan
-            </span>
-            <div className="flex bg-gray-100 p-0.5 rounded-xl">
-              {(["Bagas", "Dimas"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => { setTargetSheet(s); saveSheet(s); }}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    targetSheet === s
-                      ? "bg-gray-900 text-white shadow-xs"
-                      : "text-gray-500 hover:text-gray-800"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
+          {/* Header Bar: Sheet Switcher (Hanya tampil bila tidak ada sesi aktif atau dibuka manual) */}
+          {showFullMetaFields && (
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                Sheet Tujuan
+              </span>
+              <div className="flex bg-gray-100 p-0.5 rounded-xl">
+                {(["Bagas", "Dimas"] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      setTargetSheet(s);
+                      saveSheet(s);
+                    }}
+                    className={`min-h-[36px] px-3.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                      targetSheet === s
+                        ? "bg-primary text-white shadow-xs"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Section 1: Produk Selection */}
           <div>
             <label className="label-field">Produk Retur</label>
             {selectedProduct ? (
-              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
                 <div className="min-w-0 pr-2">
-                  <p className="text-xs font-bold text-gray-900 truncate">
+                  <p className="text-sm font-bold text-gray-900 truncate">
                     {selectedProduct.product}
                   </p>
-                  <p className="text-[11px] text-emerald-800 font-mono">
+                  <p className="text-xs text-emerald-800 font-mono">
                     {selectedProduct.sku} · {selectedProduct.barcode}
                   </p>
                 </div>
@@ -512,7 +554,7 @@ export default function ReturnFormPage() {
                     setProductSearch("");
                     setTimeout(() => productInputRef.current?.focus(), 60);
                   }}
-                  className="shrink-0 text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-white border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors"
+                  className="shrink-0 min-h-[36px] text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-white border border-emerald-200 px-3 py-1 rounded-lg transition-colors"
                 >
                   Ganti
                 </button>
@@ -531,7 +573,11 @@ export default function ReturnFormPage() {
                   onFocus={() => setShowProductDropdown(true)}
                   onBlur={() => setTimeout(() => setShowProductDropdown(false), 200)}
                   onKeyDown={handleProductKeyDown}
-                  placeholder={loadingProducts ? "Memuat produk..." : "Ketik nama produk, barcode, atau SKU"}
+                  placeholder={
+                    loadingProducts
+                      ? "Memuat produk..."
+                      : "Ketik nama produk, barcode, atau SKU"
+                  }
                   disabled={loadingProducts}
                   className="input-field text-sm py-2.5"
                 />
@@ -554,7 +600,7 @@ export default function ReturnFormPage() {
                         <span className="text-xs font-bold text-gray-900 block truncate">
                           <HighlightText text={item.product} query={debouncedSearch} />
                         </span>
-                        <span className="text-[11px] text-gray-400 block font-mono">
+                        <span className="text-xs text-gray-500 block font-mono">
                           <HighlightText text={item.barcode} query={debouncedSearch} />
                           {" · "}
                           <HighlightText text={item.sku} query={debouncedSearch} />
@@ -567,7 +613,7 @@ export default function ReturnFormPage() {
             )}
           </div>
 
-          {/* Section 2: Batch & Exp Date (Grid 2 Kolom, Terlihat Langsung) */}
+          {/* Section 2: Batch & Exp Date */}
           <div className="grid grid-cols-2 gap-2.5">
             <div>
               <label className="label-field">Nomor Batch</label>
@@ -576,13 +622,15 @@ export default function ReturnFormPage() {
                 type="button"
                 onClick={() => setBatchModal(true)}
                 className={`w-full text-left input-field py-2.5 flex items-center justify-between font-mono text-sm ${
-                  batch ? "text-gray-900 font-bold bg-white border-gray-300" : "text-gray-400"
+                  batch
+                    ? "text-gray-900 font-bold bg-white border-gray-300"
+                    : "text-gray-500"
                 }`}
               >
-                <span className="truncate">{batch ? (batch === "-" ? "Tanpa batch" : batch) : "Pilih Batch..."}</span>
-                <svg className="w-4 h-4 text-gray-400 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
+                <span className="truncate">
+                  {batch ? (batch === "-" ? "Tanpa batch" : batch) : "Pilih Batch..."}
+                </span>
+                <ChevronDown className="w-4 h-4 text-gray-500 shrink-0 ml-1" aria-hidden="true" />
               </button>
             </div>
 
@@ -597,86 +645,107 @@ export default function ReturnFormPage() {
             </div>
           </div>
 
-          {/* Section 3: Receive Date + Qty */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <label className="label-field">Receive Date</label>
-              <input
-                value={receiveDate}
-                onChange={(e) => setReceiveDate(e.target.value)}
-                placeholder="DD-Mon-YYYY"
-                className="input-field text-sm py-2.5 font-medium"
-              />
+          {/* Section 3: Jumlah (Qty) dengan tombol cepat */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="label-field mb-0">Jumlah Fisik (Qty)</label>
+              <div className="flex items-center gap-1">
+                {[1, 2, 5, 10].map((inc) => (
+                  <button
+                    key={inc}
+                    type="button"
+                    onClick={() => setQty(String((Number(qty) || 0) + inc))}
+                    className="px-2 py-0.5 rounded-md bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-700 transition-colors"
+                  >
+                    +{inc}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div>
-              <label className="label-field">Jumlah (Qty)</label>
-              <input
-                ref={qtyRef}
-                type="number"
-                inputMode="numeric"
-                value={qty}
-                onChange={(e) => setQty(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    distriRef.current?.focus();
-                  }
-                }}
-                placeholder="0"
-                min="1"
-                className="input-field text-sm py-2.5 font-bold"
-              />
-            </div>
+            <input
+              ref={qtyRef}
+              type="number"
+              inputMode="numeric"
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && showFullMetaFields) {
+                  e.preventDefault();
+                  distriRef.current?.focus();
+                }
+              }}
+              placeholder="0"
+              min="1"
+              className="input-field text-lg py-2.5 font-black tabular-nums"
+            />
           </div>
 
-          {/* Section 4: Distri / Event + PIC (Grid 2 Kolom) */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="relative">
-              <label className="label-field">Distri / Event</label>
-              <input
-                ref={distriRef}
-                value={distriEvent}
-                onChange={(e) => {
-                  setDistriEvent(e.target.value);
-                  setShowDistriDropdown(true);
-                }}
-                onFocus={() => setShowDistriDropdown(true)}
-                onBlur={() => setTimeout(() => setShowDistriDropdown(false), 150)}
-                placeholder="Ketik distri..."
-                className="input-field text-sm py-2.5"
-              />
-              {showDistriDropdown && distriHistory.length > 0 && (
-                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-40 overflow-y-auto">
-                  {distriHistory
-                    .filter((h) => !distriEvent.trim() || h.toLowerCase().includes(distriEvent.toLowerCase()))
-                    .map((item, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          setDistriEvent(item);
-                          setShowDistriDropdown(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 border-b border-gray-50 last:border-0 truncate"
-                      >
-                        {item}
-                      </button>
-                    ))}
+          {/* Section 4: Receive Date, Distri / Event, PIC (Sembunyikan saat sesi aktif kecuali dibuka) */}
+          {showFullMetaFields && (
+            <div className="space-y-3 pt-2 border-t border-gray-100">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="relative">
+                  <label className="label-field">Distri / Event</label>
+                  <input
+                    ref={distriRef}
+                    value={distriEvent}
+                    onChange={(e) => {
+                      setDistriEvent(e.target.value);
+                      setShowDistriDropdown(true);
+                    }}
+                    onFocus={() => setShowDistriDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowDistriDropdown(false), 150)}
+                    placeholder="Ketik distri..."
+                    className="input-field text-sm py-2.5"
+                  />
+                  {showDistriDropdown && distriHistory.length > 0 && (
+                    <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-40 overflow-y-auto">
+                      {distriHistory
+                        .filter(
+                          (h) =>
+                            !distriEvent.trim() ||
+                            h.toLowerCase().includes(distriEvent.toLowerCase())
+                        )
+                        .map((item, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              setDistriEvent(item);
+                              setShowDistriDropdown(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 border-b border-gray-50 last:border-0 truncate"
+                          >
+                            {item}
+                          </button>
+                        ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <div>
-              <label className="label-field">PIC</label>
-              <input
-                value={pic}
-                onChange={(e) => setPic(e.target.value)}
-                placeholder="PIC"
-                className="input-field text-sm py-2.5"
-              />
+                <div>
+                  <label className="label-field">Receive Date</label>
+                  <input
+                    value={receiveDate}
+                    onChange={(e) => setReceiveDate(e.target.value)}
+                    placeholder="DD-Mon-YYYY"
+                    className="input-field text-sm py-2.5 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label-field">PIC</label>
+                <input
+                  value={pic}
+                  onChange={(e) => setPic(e.target.value)}
+                  placeholder="PIC"
+                  className="input-field text-sm py-2.5"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Section 5: Keterangan (Pill Chips) */}
           <div>
@@ -689,13 +758,14 @@ export default function ReturnFormPage() {
                     key={opt}
                     type="button"
                     onClick={() => toggleKeterangan(opt)}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                    className={`min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border inline-flex items-center gap-1 ${
                       active
-                        ? "bg-gray-900 text-white border-gray-900 shadow-xs"
+                        ? "bg-primary text-white border-primary shadow-xs"
                         : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
                     }`}
                   >
-                    {active ? "✓ " : ""}{opt}
+                    {active && <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />}
+                    <span>{opt}</span>
                   </button>
                 );
               })}
@@ -704,20 +774,17 @@ export default function ReturnFormPage() {
 
           {/* Buttons */}
           <div className="flex gap-2 pt-2 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="flex-1 btn-outline py-2.5 text-xs font-bold"
-            >
+            <Button variant="secondary" block onClick={() => navigate("/")}>
               Kembali
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              variant="primary"
+              block
               disabled={!canSubmit || submitting || loadingProducts || loadingBatches}
-              className="flex-1 btn-primary py-2.5 text-xs font-bold"
             >
               {submitting ? "Menyimpan..." : "Simpan Retur"}
-            </button>
+            </Button>
           </div>
         </div>
       </form>

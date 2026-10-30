@@ -1,11 +1,27 @@
 import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
+  Camera,
+  ScanBarcode,
+  Store,
+  ClipboardCheck,
+  Settings,
+  Search,
+  X,
+  Check,
+  FileText,
+} from "lucide-react";
+import {
   Html5Qrcode,
   Html5QrcodeScannerState,
   Html5QrcodeSupportedFormats,
 } from "html5-qrcode";
 import { fetchProducts, type ProductItem } from "../lib/api";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
+import Sheet from "../components/ui/Sheet";
+import Button from "../components/ui/Button";
+import Toast from "../components/ui/Toast";
+import QuickScanSheet from "../components/QuickScanSheet";
 import {
   getActiveSession,
   startStoreSession,
@@ -16,8 +32,6 @@ import {
 // KONFIGURASI SCANNER
 // ============================================================
 
-// Hanya format yang dipakai pada kemasan/karton produk. Format lain
-// memperlambat decode setiap frame dan menambah risiko salah baca.
 const SCAN_FORMATS = [
   Html5QrcodeSupportedFormats.EAN_13,
   Html5QrcodeSupportedFormats.EAN_8,
@@ -29,25 +43,16 @@ const SCAN_FORMATS = [
   Html5QrcodeSupportedFormats.QR_CODE,
 ];
 
-// Tanpa resolusi eksplisit, browser memakai default rendah (umumnya
-// 640x480) sehingga garis barcode kecil pecah dan tidak terbaca.
 const CAMERA_WIDTH = 1920;
 const CAMERA_HEIGHT = 1080;
 
-// Kotak scan lebar dan pendek, sesuai bentuk barcode batang.
 const SCAN_BOX_WIDTH_RATIO = 0.9;
-const SCAN_BOX_HEIGHT_RATIO = 0.4; // tinggi kotak = 40% dari lebarnya
+const SCAN_BOX_HEIGHT_RATIO = 0.4;
 
-// html5-qrcode mendecode canvas seukuran kotak scan dalam CSS pixel,
-// bukan resolusi asli kamera. Stage kamera dirender `scale` kali lebih
-// besar lalu diperkecil dengan CSS transform: tampilan tetap sama, tetapi
-// canvas decode mendekati resolusi asli kamera.
 const MAX_DECODE_SCALE = 2.5;
 const MAX_STAGE_WIDTH = 1280;
 
 const ZOOM_PRESETS = [1, 2, 3, 4, 5];
-// Zoom 2x membuat barcode kecil tampak besar dari jarak ±20 cm, jarak
-// yang masih bisa difokus lensa utama ponsel.
 const DEFAULT_ZOOM = 2;
 const ZOOM_STORAGE_KEY = "scan-retur-scan-zoom";
 
@@ -56,7 +61,6 @@ type GuideBox = { width: number; height: number };
 type ZoomRange = { min: number; max: number; step: number };
 type CameraFeatures = { zoom: ZoomRange | null; continuousFocus: boolean };
 
-// Properti Image Capture (zoom, focusMode) belum ada di tipe DOM TypeScript.
 type CameraTrackCapabilities = MediaTrackCapabilities & {
   zoom?: { min?: number; max?: number; step?: number };
   focusMode?: string[];
@@ -65,6 +69,31 @@ type CameraConstraintSet = MediaTrackConstraintSet & {
   zoom?: number;
   focusMode?: string;
 };
+
+function playScanBeep() {
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1046.5, ctx.currentTime); // C6
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
+    setTimeout(() => {
+      void ctx.close().catch(() => {});
+    }, 200);
+  } catch {
+    // Abaikan jika browser memblokir Web Audio
+  }
+}
 
 function computeStageLayout(): StageLayout {
   const width = Math.max(
@@ -90,7 +119,6 @@ function readCameraFeatures(scanner: Html5Qrcode): CameraFeatures {
   try {
     caps = scanner.getRunningTrackCapabilities() as CameraTrackCapabilities;
   } catch {
-    // Browser tanpa MediaStreamTrack.getCapabilities().
     return { zoom: null, continuousFocus: false };
   }
 
@@ -138,9 +166,7 @@ function readSavedZoom(): number | null {
 function saveZoom(value: number) {
   try {
     localStorage.setItem(ZOOM_STORAGE_KEY, String(value));
-  } catch {
-    // localStorage penuh/terblokir: preferensi zoom tidak disimpan.
-  }
+  } catch {}
 }
 
 function pickInitialZoom(options: number[]): number {
@@ -173,8 +199,6 @@ async function applyCameraTuning(
   if (tuning.zoom === undefined && tuning.focusMode === undefined) return false;
 
   await scanner.applyVideoConstraints({
-    // applyConstraints mengganti seluruh constraint aktif. Resolusi diulang
-    // supaya kamera tidak turun ke resolusi default saat zoom diubah.
     width: { ideal: CAMERA_WIDTH },
     height: { ideal: CAMERA_HEIGHT },
     advanced: [tuning],
@@ -208,15 +232,20 @@ export default function ScanPage() {
   const [zoomLevel, setZoomLevel] = useState<number | null>(null);
   const [zoomBusy, setZoomBusy] = useState(false);
 
+  // Continuous scan sheet state (R10)
+  const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
+  const [scannerToast, setScannerToast] = useState("");
+
   // Product search state
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
-    const [productSearch, setProductSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
   const [showProductDropdown, setShowProductDropdown] = useState(false);
 
   // Store Session state
   const [session, setSession] = useState<StoreSession | null>(getActiveSession);
   const [showNewStoreModal, setShowNewStoreModal] = useState(false);
+  const [confirmSwitchStore, setConfirmSwitchStore] = useState(false);
   const [newStoreName, setNewStoreName] = useState("");
   const [newStoreNoSJ, setNewStoreNoSJ] = useState("");
   const [newStoreTargetSheet, setNewStoreTargetSheet] = useState<"Bagas" | "Dimas">(() => {
@@ -236,8 +265,8 @@ export default function ScanPage() {
     }
   }, [showNewStoreModal]);
 
-  const handleStartSession = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleStartSession = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!newStoreName.trim()) return;
     const sess = startStoreSession(
       newStoreName.trim(),
@@ -304,13 +333,14 @@ export default function ScanPage() {
     setScanning(false);
     setStarted(false);
     setStarting(false);
+    setScannedBarcode(null);
     detectedRef.current = false;
   }, []);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopScanner();
+      void stopScanner();
     };
   }, [stopScanner]);
 
@@ -336,17 +366,11 @@ export default function ScanPage() {
       })
     : [];
 
-  const handleScanResult = useCallback(
-    (barcode: string) => {
-      const code = barcode.trim();
-      if (!code) return;
-      navigate(`/return-form?barcode=${encodeURIComponent(code)}`);
-    },
-    [navigate]
-  );
+  const matchedScannedProduct = useMemo(() => {
+    if (!scannedBarcode) return null;
+    return products.find((p) => p.barcode === scannedBarcode) ?? null;
+  }, [products, scannedBarcode]);
 
-  // Zoom dan fokus kontinu bersifat opsional: hanya diterapkan bila
-  // kamera/browser melaporkan dukungannya. Kegagalan tidak menghentikan scan.
   const tuneCamera = useCallback(async (scanner: Html5Qrcode) => {
     const features = readCameraFeatures(scanner);
     cameraFeaturesRef.current = features;
@@ -385,9 +409,9 @@ export default function ScanPage() {
     setZoomLevel(null);
     cameraFeaturesRef.current = null;
     setStarted(true);
+    setScannedBarcode(null);
     detectedRef.current = false;
 
-    // Tunggu container ter-render dengan lebar stage yang benar.
     await new Promise((r) => setTimeout(r, 100));
 
     try {
@@ -404,15 +428,12 @@ export default function ScanPage() {
           fps: 15,
           qrbox: (viewfinderWidth, viewfinderHeight) => {
             const box = scanBoxFor(viewfinderWidth, viewfinderHeight);
-            // Kotak panduan di layar = area decode yang sebenarnya.
             setGuideBox({
               width: box.width / layout.scale,
               height: box.height / layout.scale,
             });
             return box;
           },
-          // Kamera belakang tidak menghasilkan gambar cermin; flip hanya
-          // menggandakan waktu decode per frame.
           disableFlip: true,
           videoConstraints: {
             facingMode: { ideal: "environment" },
@@ -420,33 +441,27 @@ export default function ScanPage() {
             height: { ideal: CAMERA_HEIGHT },
           },
         },
-        // Success callback
         (decodedText) => {
           if (detectedRef.current) return;
           if (!decodedText || decodedText.trim().length < 3) return;
 
           detectedRef.current = true;
+          const code = decodedText.trim();
 
-          // Haptic feedback
+          // Haptic & Sound feedback (R10)
           try {
             if ("vibrate" in navigator) {
               navigator.vibrate(100);
             }
-          } catch {
-            // ignore
-          }
+          } catch {}
+          playScanBeep();
 
-          // Success flash
           setSuccessFlash(true);
-
-          // Stop scanner and navigate
-          setTimeout(async () => {
+          setTimeout(() => {
             setSuccessFlash(false);
-            await stopScanner();
-            handleScanResult(decodedText.trim());
-          }, 200);
+            setScannedBarcode(code);
+          }, 150);
         },
-        // Error callback (called on every frame without detection - ignore)
         () => {}
       );
 
@@ -459,16 +474,16 @@ export default function ScanPage() {
 
       if (/permission|notallowed/i.test(msg)) {
         setError(
-          "❌ Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser."
+          "Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser."
         );
       } else if (/notfound|requested/i.test(msg)) {
-        setError("❌ Tidak ada perangkat kamera yang ditemukan.");
+        setError("Tidak ada perangkat kamera yang ditemukan.");
       } else {
-        setError("❌ Error membuka kamera: " + msg);
+        setError("Error membuka kamera: " + msg);
       }
       await stopScanner();
     }
-  }, [handleScanResult, stopScanner, tuneCamera]);
+  }, [stopScanner, tuneCamera]);
 
   const changeZoom = useCallback(async (value: number) => {
     const scanner = scannerRef.current;
@@ -483,7 +498,7 @@ export default function ScanPage() {
       setZoomLevel(readCurrentZoom(scanner) ?? value);
       saveZoom(value);
     } catch {
-      // Nilai ditolak kamera; zoom sebelumnya tetap berlaku.
+      // Nilai ditolak kamera
     } finally {
       zoomBusyRef.current = false;
       setZoomBusy(false);
@@ -494,8 +509,6 @@ export default function ScanPage() {
   if (started) {
     return (
       <div className="scanner-fullscreen">
-        {/* Stage dirender `scale` kali lebih besar lalu diperkecil: tampilan
-            sama, tetapi html5-qrcode mendecode dengan resolusi lebih tinggi. */}
         <div
           className="scanner-stage"
           style={{
@@ -503,11 +516,10 @@ export default function ScanPage() {
             transform: `translate(-50%, -50%) scale(${1 / stage.scale})`,
           }}
         >
-          {/* html5-qrcode renders into this div */}
           <div id="scanner-container" />
         </div>
 
-        {/* Scanning guide overlay: ukuran sama persis dengan area decode */}
+        {/* Scanning guide overlay */}
         <div
           className="scanner-guide"
           style={{ width: `${guideBox.width}px`, height: `${guideBox.height}px` }}
@@ -516,34 +528,43 @@ export default function ScanPage() {
           <div className="scanner-guide-corner tr" />
           <div className="scanner-guide-corner bl" />
           <div className="scanner-guide-corner br" />
-          {scanning && <div className="scanner-scanline" />}
+          {scanning && !scannedBarcode && <div className="scanner-scanline" />}
         </div>
 
-        {/* Top hint */}
+        {/* Top hint + Active session badge */}
         <div
-          className="absolute top-0 left-0 right-0 flex justify-center pointer-events-none z-10 px-14"
-          style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}
+          className="absolute top-0 left-0 right-0 flex flex-col items-center gap-1.5 pointer-events-none z-10 px-14"
+          style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)" }}
         >
+          {session && (
+            <div className="bg-emerald-600/90 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-sm shadow">
+              {session.storeName} · {session.items.reduce((a, b) => a + b.qty, 0)} pcs (
+              {session.items.length} scan)
+            </div>
+          )}
           <div className="bg-black/60 text-white text-xs text-center px-3 py-1.5 rounded-full backdrop-blur-sm">
-            {starting ? "Memulai kamera..." : "Barcode di garis hijau, jarak ±20 cm"}
+            {starting
+              ? "Memulai kamera..."
+              : scannerToast || "Barcode di garis hijau, jarak ±20 cm"}
           </div>
         </div>
 
         {/* Close button top-right */}
         <button
-          onClick={stopScanner}
+          type="button"
+          onClick={() => void stopScanner()}
           aria-label="Tutup scanner"
-          className="absolute z-10 h-11 w-11 flex items-center justify-center rounded-full bg-black/60 text-white text-2xl hover:bg-black/80 backdrop-blur-sm"
+          className="absolute z-10 h-11 w-11 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-sm"
           style={{
             top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
             right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
           }}
         >
-          ×
+          <X className="w-6 h-6" />
         </button>
 
-        {/* Zoom control: hanya tampil bila kamera mendukung zoom */}
-        {zoomOptions.length > 1 && (
+        {/* Zoom control */}
+        {zoomOptions.length > 1 && !scannedBarcode && (
           <div
             className="absolute left-0 right-0 z-10 flex justify-center"
             style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
@@ -599,145 +620,219 @@ export default function ScanPage() {
             {error}
           </div>
         )}
+
+        {/* Quick Scan Sheet for Continuous Scanning (R10) */}
+        <QuickScanSheet
+          barcode={scannedBarcode}
+          product={matchedScannedProduct}
+          session={session}
+          onCloseAndResume={() => {
+            setScannedBarcode(null);
+            setTimeout(() => {
+              detectedRef.current = false;
+            }, 250);
+          }}
+          onSavedAndResume={(updatedSession, msg) => {
+            setSession(updatedSession);
+            setScannedBarcode(null);
+            setScannerToast(msg);
+            setTimeout(() => setScannerToast(""), 3000);
+            setTimeout(() => {
+              detectedRef.current = false;
+            }, 300);
+          }}
+          onOpenFullForm={(code) => {
+            void stopScanner().then(() => {
+              navigate(`/return-form?barcode=${encodeURIComponent(code)}`);
+            });
+          }}
+        />
       </div>
     );
   }
 
+  const claimCount = session ? Object.keys(session.claims).length : 0;
+  const scanCount = session ? session.items.length : 0;
+  const totalScanPcs = session ? session.items.reduce((a, b) => a + b.qty, 0) : 0;
+  const uniqueScanSku = session
+    ? new Set(session.items.map((i) => i.sku || i.barcode)).size
+    : 0;
+
   // ---------- IDLE / NON-SCANNING RENDER ----------
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-20">
       {successToast && (
-        <div className="rounded-xl px-3.5 py-2.5 text-sm bg-green-50 text-green-700 border border-green-100">
-          {successToast}
-        </div>
+        <Toast
+          type="success"
+          message={successToast}
+          onClose={() => setSuccessToast("")}
+        />
       )}
 
-            {/* Sesi Toko Banner */}
-      {session ? (
-        <div className="card p-3 bg-linear-to-r from-gray-900 via-slate-900 to-gray-800 text-white shadow-md">
-          <div className="flex items-center justify-between gap-2">
+      {error && (
+        <Toast
+          type="error"
+          message={error}
+          onClose={() => setError("")}
+        />
+      )}
+
+      {/* Sesi Toko Banner + Stepper Alur Kerja (R9) */}
+      <div className="card p-3.5 space-y-3">
+        {session ? (
+          <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-gray-100">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
-                <h2 className="text-sm font-bold truncate text-white">{session.storeName}</h2>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                <h2 className="text-sm font-bold truncate text-gray-900">
+                  {session.storeName}
+                </h2>
               </div>
-              <p className="text-[11px] text-gray-300 truncate mt-0.5">
+              <p className="text-xs text-gray-500 truncate mt-0.5">
                 {session.noSJ ? `SJ: ${session.noSJ} · ` : ""}
-                Sheet {session.targetSheet} · {session.items.reduce((a, b) => a + b.qty, 0)} pcs ({new Set(session.items.map((i) => i.sku || i.barcode)).size} SKU)
+                Sheet {session.targetSheet} · {totalScanPcs} pcs ({uniqueScanSku} SKU)
               </p>
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => navigate("/verification")}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-xs transition-all flex items-center gap-1 active:scale-[0.98]"
-              >
-                <span>🔍</span>
-                <span>Verifikasi</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (session.items.length > 0) {
-                    if (
-                      confirm(
-                        `Toko "${session.storeName}" masih memiliki ${session.items.length} item scan.\n\nYakin ingin ganti toko?`
-                      )
-                    ) {
-                      setShowNewStoreModal(true);
-                    }
-                  } else {
-                    setShowNewStoreModal(true);
-                  }
-                }}
-                className="bg-white/10 hover:bg-white/20 text-gray-300 font-medium text-xs px-2 py-1.5 rounded-xl transition-all"
-                title="Ganti Toko"
-              >
-                ⚙️
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (session.items.length > 0) {
+                  setConfirmSwitchStore(true);
+                } else {
+                  setShowNewStoreModal(true);
+                }
+              }}
+              className="inline-flex items-center gap-1 min-h-[38px] px-2.5 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-semibold text-gray-700 transition-colors shrink-0"
+              title="Ganti Toko"
+            >
+              <Settings className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Ganti Toko</span>
+            </button>
           </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-2">
+        ) : (
+          <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-gray-100">
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-gray-900">Alur Retur Toko</h2>
+              <p className="text-xs text-gray-500">
+                Mulai sesi toko atau foto lembar SJ terlebih dahulu
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowNewStoreModal(true)}
+              className="inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-colors shrink-0"
+            >
+              <Store className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>+ Mulai Toko</span>
+            </button>
+          </div>
+        )}
+
+        {/* 3-Step Workflow Stepper (R9): Klaim SJ -> Scan Fisik -> Rekonsiliasi */}
+        <div className="grid grid-cols-3 gap-2">
+          {/* Step 1: Klaim SJ */}
           <button
             type="button"
             onClick={() => navigate("/verification", { state: { autoOpenScan: true } })}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold hover:bg-purple-100 active:scale-[0.98] transition-all shadow-xs"
+            className={`flex flex-col items-start p-2.5 rounded-xl border text-left transition-all ${
+              claimCount > 0
+                ? "bg-emerald-50/70 border-emerald-200 text-emerald-900"
+                : "bg-purple-50/70 border-purple-200 text-purple-900 hover:bg-purple-100/70"
+            }`}
           >
-            <span className="text-sm">📷</span>
-            <span>Baca SJ (AI)</span>
+            <div className="flex items-center justify-between w-full mb-1">
+              <span className="text-xs font-bold uppercase tracking-wider opacity-75">
+                1. Klaim SJ
+              </span>
+              {claimCount > 0 ? (
+                <Check className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
+              ) : (
+                <FileText className="w-3.5 h-3.5 text-purple-600" aria-hidden="true" />
+              )}
+            </div>
+            <span className="text-xs font-bold leading-snug">
+              {claimCount > 0 ? `${claimCount} SKU Klaim` : "Baca SJ (AI)"}
+            </span>
           </button>
+
+          {/* Step 2: Scan Fisik */}
           <button
             type="button"
-            onClick={() => setShowNewStoreModal(true)}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 active:scale-[0.98] transition-all shadow-xs"
-          >
-            <span className="text-sm">🏪</span>
-            <span>+ Mulai Toko</span>
-          </button>
-        </div>
-      )}
-
-      {/* Scan Card */}
-      <div className="card">
-        <div className="flex flex-col items-center justify-center py-12 gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center">
-            <span className="text-2xl">📷</span>
-          </div>
-          <p className="text-xs text-gray-400">Scan barcode produk</p>
-          <button
             onClick={startScanner}
-            className="btn-primary px-8 mt-1"
+            className={`flex flex-col items-start p-2.5 rounded-xl border text-left transition-all ${
+              scanCount > 0
+                ? "bg-emerald-50/70 border-emerald-200 text-emerald-900"
+                : "bg-gray-50 border-gray-200 text-gray-900 hover:bg-gray-100"
+            }`}
           >
-            Mulai Scan
+            <div className="flex items-center justify-between w-full mb-1">
+              <span className="text-xs font-bold uppercase tracking-wider opacity-75">
+                2. Fisik
+              </span>
+              <Camera className="w-3.5 h-3.5 text-gray-600" aria-hidden="true" />
+            </div>
+            <span className="text-xs font-bold leading-snug">
+              {scanCount > 0 ? `${totalScanPcs} pcs (${scanCount}×)` : "Scan Barang"}
+            </span>
+          </button>
+
+          {/* Step 3: Rekonsiliasi */}
+          <button
+            type="button"
+            onClick={() => navigate("/verification")}
+            className="flex flex-col items-start p-2.5 rounded-xl border bg-gray-50 border-gray-200 text-gray-900 hover:bg-gray-100 text-left transition-all"
+          >
+            <div className="flex items-center justify-between w-full mb-1">
+              <span className="text-xs font-bold uppercase tracking-wider opacity-75">
+                3. Rekon
+              </span>
+              <ClipboardCheck className="w-3.5 h-3.5 text-gray-600" aria-hidden="true" />
+            </div>
+            <span className="text-xs font-bold leading-snug">
+              Cek Selisih
+            </span>
           </button>
         </div>
-
-        {error && (
-          <div className="px-4 py-3 bg-red-50 text-red-600 text-sm border-t border-red-100">
-            {error}
-          </div>
-        )}
       </div>
 
-      {/* Divider */}
-      <div className="flex items-center gap-3 px-1">
-        <div className="flex-1 h-px bg-gray-200" />
-        <span className="text-[11px] text-gray-300 font-medium uppercase tracking-wider">atau</span>
-        <div className="flex-1 h-px bg-gray-200" />
-      </div>
-
-      {/* Product Search */}
+      {/* Product Search Card */}
       <div className="card">
         <div className="card-body">
-          <p className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">Cari Produk</p>
+          <label htmlFor="manual-product-search" className="label-field">
+            Cari Produk Manual (Tanpa Kamera)
+          </label>
           <div className="relative" ref={dropdownRef}>
             <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+              <Search
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                aria-hidden="true"
+              />
               <input
+                id="manual-product-search"
                 type="text"
                 value={productSearch}
                 onChange={(e) => {
                   setProductSearch(e.target.value);
                   setShowProductDropdown(e.target.value.trim().length > 0);
                 }}
-                placeholder={loadingProducts ? "Memuat produk..." : "Nama produk, barcode, atau SKU..."}
+                placeholder={
+                  loadingProducts ? "Memuat produk..." : "Nama produk, barcode, atau SKU..."
+                }
                 disabled={loadingProducts}
-                className="input-field pl-9 pr-9"
+                className="input-field pl-10 pr-10 text-sm"
               />
               {productSearch.trim() && (
                 <button
                   type="button"
-                  onClick={() => { setProductSearch(""); setShowProductDropdown(false); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
+                  aria-label="Bersihkan pencarian"
+                  onClick={() => {
+                    setProductSearch("");
+                    setShowProductDropdown(false);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="w-4 h-4" />
                 </button>
               )}
             </div>
@@ -754,12 +849,16 @@ export default function ScanPage() {
                     }}
                     className="w-full text-left px-3.5 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors"
                   >
-                    <span className="text-sm font-medium text-gray-900 block">{p.product}</span>
-                    <span className="text-[11px] text-gray-400">{p.barcode} · {p.sku}</span>
+                    <span className="text-sm font-medium text-gray-900 block">
+                      {p.product}
+                    </span>
+                    <span className="text-xs text-gray-500 font-mono">
+                      {p.barcode} · {p.sku}
+                    </span>
                   </button>
                 ))}
                 {filteredProducts.length > 50 && (
-                  <div className="px-3.5 py-2 text-[11px] text-gray-400 text-center bg-gray-50">
+                  <div className="px-3.5 py-2 text-xs text-gray-500 text-center bg-gray-50">
                     +{filteredProducts.length - 50} produk lagi
                   </div>
                 )}
@@ -769,117 +868,141 @@ export default function ScanPage() {
               productSearch.trim() &&
               filteredProducts.length === 0 &&
               !loadingProducts && (
-                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-100 rounded-xl shadow-lg px-4 py-3 text-sm text-gray-400 text-center">
+                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-gray-100 rounded-xl shadow-lg px-4 py-3 text-sm text-gray-500 text-center">
                   Produk tidak ditemukan
                 </div>
               )}
           </div>
-          {!loadingProducts && (
-            <p className="text-[11px] text-gray-300 mt-2">
-              {products.length} produk tersedia
+          {!loadingProducts ? (
+            <p className="text-xs text-gray-500 mt-2">
+              {products.length} produk terdaftar di master data
             </p>
+          ) : (
+            <div className="h-4 w-40 bg-gray-100 rounded animate-pulse mt-2" />
           )}
         </div>
       </div>
-          {/* Modal: Mulai / Ganti Sesi Toko */}
-      {showNewStoreModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="card max-w-sm w-full p-4 space-y-3 bg-white animate-scale-in">
-            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-              <h3 className="text-sm font-bold text-gray-900">
-                🏪 {session ? "Ganti Sesi Toko" : "Mulai Sesi Toko Retur"}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowNewStoreModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
-              >
-                ×
-              </button>
-            </div>
 
-            <form onSubmit={handleStartSession} className="space-y-3">
-              <div>
-                <label className="label-field">Nama Toko / Distributor / Event</label>
-                <input
-                  type="text"
-                  value={newStoreName}
-                  onChange={(e) => setNewStoreName(e.target.value)}
-                  placeholder="Mis: Sociolla PIM, Watsons GI..."
-                  className="input-field text-xs py-2 font-semibold"
-                  autoFocus
-                  required
-                />
-                {distriHistory.length > 0 && !newStoreName && (
-                  <div className="mt-1.5">
-                    <span className="text-[10px] text-gray-400 block mb-1">Riwayat Toko:</span>
-                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
-                      {distriHistory.slice(0, 8).map((h, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setNewStoreName(h)}
-                          className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-0.5 rounded-md truncate max-w-[150px]"
-                        >
-                          {h}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+      {/* Satu Aksi Utama Sticky di Bawah (R9) */}
+      <div className="sticky bottom-20 z-30 pt-2">
+        <Button
+          variant="primary"
+          size="lg"
+          block
+          icon={<ScanBarcode className="w-5 h-5" />}
+          onClick={startScanner}
+          className="shadow-xl"
+        >
+          Mulai Scan Barcode
+        </Button>
+      </div>
 
-              <div>
-                <label className="label-field">Nomor SJ Retur (Opsional)</label>
-                <input
-                  type="text"
-                  value={newStoreNoSJ}
-                  onChange={(e) => setNewStoreNoSJ(e.target.value)}
-                  placeholder="Mis: SJ-RET-2026-001"
-                  className="input-field text-xs py-2 font-mono"
-                />
-              </div>
+      <ConfirmDialog
+        open={confirmSwitchStore && !!session}
+        title="Ganti toko?"
+        message={
+          <>
+            Toko <strong>{session?.storeName}</strong> masih memiliki {session?.items.length} item
+            scan yang belum diverifikasi.
+          </>
+        }
+        confirmLabel="Ganti Toko"
+        danger
+        onCancel={() => setConfirmSwitchStore(false)}
+        onConfirm={() => {
+          setConfirmSwitchStore(false);
+          setShowNewStoreModal(true);
+        }}
+      />
 
-              <div>
-                <label className="label-field">Sheet Tujuan</label>
-                <div className="flex bg-gray-100 p-0.5 rounded-xl">
-                  {(["Bagas", "Dimas"] as const).map((s) => (
+      {/* Sheet: Mulai / Ganti Sesi Toko */}
+      <Sheet
+        open={showNewStoreModal}
+        onClose={() => setShowNewStoreModal(false)}
+        title={session ? "Ganti Sesi Toko" : "Mulai Sesi Toko Retur"}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              block
+              onClick={() => setShowNewStoreModal(false)}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="primary"
+              block
+              disabled={!newStoreName.trim()}
+              onClick={() => handleStartSession()}
+            >
+              Mulai Toko Ini
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleStartSession} className="space-y-3">
+          <div>
+            <label className="label-field">Nama Toko / Distributor / Event</label>
+            <input
+              type="text"
+              value={newStoreName}
+              onChange={(e) => setNewStoreName(e.target.value)}
+              placeholder="Mis: Sociolla PIM, Watsons GI..."
+              className="input-field text-sm py-2.5 font-semibold"
+              autoFocus
+              required
+            />
+            {distriHistory.length > 0 && !newStoreName && (
+              <div className="mt-2">
+                <span className="text-xs text-gray-500 block mb-1">Riwayat Toko:</span>
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                  {distriHistory.slice(0, 8).map((h, idx) => (
                     <button
-                      key={s}
+                      key={idx}
                       type="button"
-                      onClick={() => setNewStoreTargetSheet(s)}
-                      className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all ${
-                        newStoreTargetSheet === s
-                          ? "bg-gray-900 text-white shadow-xs"
-                          : "text-gray-500 hover:text-gray-800"
-                      }`}
+                      onClick={() => setNewStoreName(h)}
+                      className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1 rounded-lg truncate max-w-[160px]"
                     >
-                      {s}
+                      {h}
                     </button>
                   ))}
                 </div>
               </div>
-
-              <div className="flex gap-2 pt-2 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setShowNewStoreModal(false)}
-                  className="flex-1 btn-outline py-2 text-xs font-bold"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={!newStoreName.trim()}
-                  className="flex-1 btn-primary py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  Mulai Toko Ini
-                </button>
-              </div>
-            </form>
+            )}
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="label-field">Nomor SJ Retur (Opsional)</label>
+            <input
+              type="text"
+              value={newStoreNoSJ}
+              onChange={(e) => setNewStoreNoSJ(e.target.value)}
+              placeholder="Mis: SJ-RET-2026-001"
+              className="input-field text-sm py-2.5 font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="label-field">Sheet Tujuan</label>
+            <div className="flex bg-gray-100 p-1 rounded-xl">
+              {(["Bagas", "Dimas"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setNewStoreTargetSheet(s)}
+                  className={`flex-1 min-h-[38px] py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    newStoreTargetSheet === s
+                      ? "bg-primary text-white shadow-xs"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        </form>
+      </Sheet>
     </div>
   );
 }

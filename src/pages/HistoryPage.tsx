@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchReturnHistory, editReturn, deleteReturn, type ReturnHistoryItem, type CreateReturnPayload } from "../lib/api";
+import { RefreshCw, Search, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import {
+  fetchReturnHistory,
+  editReturn,
+  deleteReturn,
+  type ReturnHistoryItem,
+  type CreateReturnPayload,
+} from "../lib/api";
 import { syncDeleteWithActiveSession, syncEditWithActiveSession } from "../lib/session";
+import Sheet from "../components/ui/Sheet";
+import Button from "../components/ui/Button";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
+import Toast from "../components/ui/Toast";
 
 const HISTORY_LIMIT = 200;
 const PAGE_SIZE = 20;
@@ -33,7 +44,17 @@ export default function HistoryPage() {
 
   // Edit / Delete state
   const [editItem, setEditItem] = useState<ReturnHistoryItem | null>(null);
-  const [editForm, setEditForm] = useState<CreateReturnPayload>({ receiveDate: "", distriEvent: "", product: "", barcode: "", batch: "", expDate: "", qty: 0, keterangan: "", pic: "" });
+  const [editForm, setEditForm] = useState<CreateReturnPayload>({
+    receiveDate: "",
+    distriEvent: "",
+    product: "",
+    barcode: "",
+    batch: "",
+    expDate: "",
+    qty: 0,
+    keterangan: "",
+    pic: "",
+  });
   const [editSaving, setEditSaving] = useState(false);
   const [deleteItem, setDeleteItem] = useState<ReturnHistoryItem | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -120,7 +141,6 @@ export default function HistoryPage() {
     );
   }, [history, search]);
 
-  // Reset visible count when search changes
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [search]);
@@ -133,7 +153,6 @@ export default function HistoryPage() {
 
   const totalQty = filteredHistory.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
 
-  // Auto-dismiss toast
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3000);
@@ -144,11 +163,11 @@ export default function HistoryPage() {
     <div className="space-y-3">
       {/* Toast */}
       {toast && (
-        <div className={`rounded-xl px-3.5 py-2.5 text-sm border ${
-          toast.type === "ok" ? "bg-green-50 text-green-700 border-green-100" : "bg-red-50 text-red-600 border-red-100"
-        }`}>
-          {toast.msg}
-        </div>
+        <Toast
+          type={toast.type}
+          message={toast.msg}
+          onClose={() => setToast(null)}
+        />
       )}
 
       {/* Stats + Search */}
@@ -156,58 +175,86 @@ export default function HistoryPage() {
         <div className="p-4 flex items-center gap-3">
           <div className="flex-1 flex items-center gap-4">
             <div>
-              <p className="text-lg font-bold text-gray-900 leading-none">{filteredHistory.length}</p>
-              <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mt-0.5">Data</p>
+              <p className="text-lg font-bold text-gray-900 leading-none tabular-nums">
+                {filteredHistory.length}
+              </p>
+              <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mt-0.5">
+                Data
+              </p>
             </div>
             <div className="w-px h-8 bg-gray-100" />
             <div>
-              <p className="text-lg font-bold text-gray-900 leading-none">{totalQty.toLocaleString()}</p>
-              <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mt-0.5">Total Qty</p>
+              <p className="text-lg font-bold text-gray-900 leading-none tabular-nums">
+                {totalQty.toLocaleString()}
+              </p>
+              <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mt-0.5">
+                Total Qty
+              </p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => void loadHistory()}
             disabled={loading}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-50 hover:bg-gray-100 disabled:opacity-40 transition-colors shrink-0"
+            aria-label="Muat ulang riwayat"
+            className="w-11 h-11 flex items-center justify-center rounded-xl bg-gray-50 hover:bg-gray-100 disabled:opacity-40 transition-colors shrink-0"
             title="Refresh"
           >
-            <svg className={`w-4 h-4 text-gray-500 ${loading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
+            <RefreshCw className={`w-4 h-4 text-gray-600 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
         <div className="px-4 pb-3">
           <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <Search
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+              aria-hidden="true"
+            />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari riwayat..."
-              className="input-field pl-9"
+              placeholder="Cari produk, batch, toko, atau PIC..."
+              className="input-field pl-10 text-sm"
             />
           </div>
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-xl px-3.5 py-2.5 text-sm bg-red-50 text-red-600 border border-red-100">{error}</div>
-      )}
+      {error && <Toast type="error" message={error} onClose={() => setError("")} />}
 
       {!error && warnings.length > 0 && (
-        <div className="rounded-xl px-3.5 py-2.5 text-sm bg-amber-50 text-amber-700 border border-amber-100 space-y-0.5">
-          {warnings.map((w, i) => <p key={i}>{w}</p>)}
+        <div className="rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 text-amber-800 border border-amber-200 space-y-1">
+          {warnings.map((w, i) => (
+            <p key={i} className="flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" aria-hidden="true" />
+              <span>{w}</span>
+            </p>
+          ))}
         </div>
       )}
 
-      {/* List */}
+      {/* List or Skeleton Loading (R14) */}
       {loading && history.length === 0 ? (
-        <div className="card px-4 py-12 text-center text-sm text-gray-300 animate-pulse">Memuat riwayat...</div>
+        <div className="space-y-2" aria-busy="true" aria-label="Memuat riwayat">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="card p-3.5 space-y-3 animate-pulse">
+              <div className="flex justify-between gap-4">
+                <div className="h-4 bg-gray-200 rounded w-2/3" />
+                <div className="h-4 bg-gray-200 rounded w-10" />
+              </div>
+              <div className="flex gap-2">
+                <div className="h-5 bg-gray-100 rounded w-20" />
+                <div className="h-5 bg-gray-100 rounded w-14" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="h-3.5 bg-gray-100 rounded" />
+                <div className="h-3.5 bg-gray-100 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : !error && filteredHistory.length === 0 && !loading ? (
-        <div className="card px-4 py-12 text-center text-sm text-gray-300">Tidak ada data</div>
+        <div className="card px-4 py-12 text-center text-sm text-gray-500">Tidak ada data</div>
       ) : (
         <div className="space-y-2">
           {visibleHistory.map((item) => {
@@ -219,78 +266,80 @@ export default function HistoryPage() {
                   <p className="text-sm font-semibold text-gray-900 leading-snug min-w-0 truncate">
                     {item.product || "-"}
                   </p>
-                  <span className="text-sm font-bold text-gray-900 whitespace-nowrap tabular-nums">
-                    {item.qty.toLocaleString()}
+                  <span className="text-base font-black text-gray-900 whitespace-nowrap tabular-nums">
+                    {item.qty.toLocaleString()} <span className="text-xs font-normal text-gray-500">pcs</span>
                   </span>
                 </div>
 
                 {/* Badges */}
-                <div className="flex items-center gap-1.5 mb-2.5">
-                  <span className="text-[10px] font-medium text-gray-500 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-md">
+                <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
+                  <span className="text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md">
                     {item.receiveDate || "-"}
                   </span>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
-                    item.sheet === "Bagas"
-                      ? "bg-blue-50 text-blue-600 border border-blue-100"
-                      : "bg-purple-50 text-purple-600 border border-purple-100"
-                  }`}>
+                  <span
+                    className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
+                      item.sheet === "Bagas"
+                        ? "bg-blue-50 text-blue-700 border border-blue-200"
+                        : "bg-purple-50 text-purple-700 border border-purple-200"
+                    }`}
+                  >
                     {item.sheet}
                   </span>
                   {item.pic && (
-                    <span className="text-[10px] font-medium text-gray-400 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-md">
+                    <span className="text-xs font-medium text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md">
                       {item.pic}
                     </span>
                   )}
                 </div>
 
                 {/* Info rows */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-gray-300">Barcode</span>
-                    <span className="font-mono text-gray-600 truncate ml-1">{item.barcode || "-"}</span>
+                    <span className="text-gray-500">Barcode</span>
+                    <span className="font-mono text-gray-700 truncate ml-1">
+                      {item.barcode || "-"}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-300">Batch</span>
-                    <span className="text-gray-600 truncate ml-1">{item.batch || "-"}</span>
+                    <span className="text-gray-500">Batch</span>
+                    <span className="font-mono text-gray-700 truncate ml-1">
+                      {item.batch || "-"}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-300">Exp</span>
-                    <span className="text-gray-600 truncate ml-1">{item.expDate || "-"}</span>
+                    <span className="text-gray-500">Exp</span>
+                    <span className="text-gray-700 truncate ml-1">{item.expDate || "-"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-300">Distri</span>
-                    <span className="text-gray-600 truncate ml-1">{item.distriEvent || "-"}</span>
+                    <span className="text-gray-500">Distri</span>
+                    <span className="text-gray-700 truncate ml-1">{item.distriEvent || "-"}</span>
                   </div>
                 </div>
 
                 {/* Keterangan */}
                 {item.keterangan && (
-                  <p className="mt-2 text-[11px] text-gray-400 bg-gray-50 rounded-lg px-2.5 py-1.5">
+                  <p className="mt-2 text-xs text-gray-600 bg-gray-50 rounded-lg px-2.5 py-1.5">
                     {item.keterangan}
                   </p>
                 )}
 
                 {/* Edit / Delete */}
-                <div className="flex justify-end gap-1.5 mt-2.5 pt-2 border-t border-gray-50">
+                <div className="flex justify-end gap-1.5 mt-2.5 pt-2 border-t border-gray-100">
                   <button
                     type="button"
                     onClick={() => openEdit(item)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Edit
+                    <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Edit</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeleteItem(item)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-red-400 hover:bg-red-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Hapus
+                    <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Hapus</span>
                   </button>
                 </div>
               </div>
@@ -299,99 +348,156 @@ export default function HistoryPage() {
 
           {/* Load More */}
           {hasMore && (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              block
               onClick={() => setVisibleCount((v) => v + PAGE_SIZE)}
-              className="w-full py-2.5 rounded-xl bg-white border border-gray-100 text-sm font-medium text-gray-400 hover:bg-gray-50 transition-colors"
             >
               Muat lagi ({filteredHistory.length - visibleCount} tersisa)
-            </button>
+            </Button>
           )}
 
           {!hasMore && filteredHistory.length > 0 && (
-            <p className="text-center text-[11px] text-gray-300 py-2">
+            <p className="text-center text-xs text-gray-500 py-2">
               {filteredHistory.length} data ditampilkan
             </p>
           )}
         </div>
       )}
 
-      {/* Edit Modal */}
-      {editItem && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-16 overflow-y-auto">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setEditItem(null)} />
-          <div className="relative card p-5 max-w-sm w-full space-y-4 mb-8">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-base text-gray-900">Edit Data</h3>
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
-                editItem.sheet === "Bagas" ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-purple-50 text-purple-600 border border-purple-100"
-              }`}>{editItem.sheet} · Row {editItem.rowNumber}</span>
-            </div>
-
-            <div className="space-y-3">
-              <EField label="Produk">
-                <input value={editForm.product} onChange={(e) => setEditForm(f => ({ ...f, product: e.target.value }))} className="input-field" />
-              </EField>
-              <EField label="Barcode">
-                <input value={editForm.barcode} onChange={(e) => setEditForm(f => ({ ...f, barcode: e.target.value }))} className="input-field font-mono" />
-              </EField>
-              <div className="grid grid-cols-2 gap-3">
-                <EField label="Batch">
-                  <input value={editForm.batch} onChange={(e) => setEditForm(f => ({ ...f, batch: e.target.value }))} className="input-field" />
-                </EField>
-                <EField label="Exp Date">
-                  <input value={editForm.expDate} onChange={(e) => setEditForm(f => ({ ...f, expDate: e.target.value }))} className="input-field" />
-                </EField>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <EField label="Receive Date">
-                  <input value={editForm.receiveDate} onChange={(e) => setEditForm(f => ({ ...f, receiveDate: e.target.value }))} className="input-field" />
-                </EField>
-                <EField label="Qty">
-                  <input type="number" inputMode="numeric" value={editForm.qty} onChange={(e) => setEditForm(f => ({ ...f, qty: Number(e.target.value) }))} className="input-field" />
-                </EField>
-              </div>
-              <EField label="Distri / Event">
-                <input value={editForm.distriEvent} onChange={(e) => setEditForm(f => ({ ...f, distriEvent: e.target.value }))} className="input-field" />
-              </EField>
-              <EField label="Keterangan">
-                <input value={editForm.keterangan} onChange={(e) => setEditForm(f => ({ ...f, keterangan: e.target.value }))} className="input-field" />
-              </EField>
-              <EField label="PIC">
-                <input value={editForm.pic} onChange={(e) => setEditForm(f => ({ ...f, pic: e.target.value }))} className="input-field" />
-              </EField>
-            </div>
-
-            <div className="flex gap-2.5 pt-1">
-              <button onClick={() => setEditItem(null)} className="flex-1 btn-outline">Batal</button>
-              <button onClick={handleEditSave} disabled={editSaving} className="flex-1 btn-primary">
-                {editSaving ? "Menyimpan..." : "Simpan"}
-              </button>
-            </div>
+      {/* Edit Sheet */}
+      <Sheet
+        open={!!editItem}
+        onClose={() => setEditItem(null)}
+        title={
+          editItem ? (
+            <span className="flex items-center gap-2">
+              <span>Edit Data</span>
+              <span
+                className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
+                  editItem.sheet === "Bagas"
+                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                    : "bg-purple-50 text-purple-700 border border-purple-200"
+                }`}
+              >
+                {editItem.sheet} · Row {editItem.rowNumber}
+              </span>
+            </span>
+          ) : (
+            "Edit Data"
+          )
+        }
+        footer={
+          <>
+            <Button variant="secondary" block onClick={() => setEditItem(null)}>
+              Batal
+            </Button>
+            <Button
+              variant="primary"
+              block
+              disabled={editSaving}
+              onClick={() => void handleEditSave()}
+            >
+              {editSaving ? "Menyimpan..." : "Simpan"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <EField label="Produk">
+            <input
+              value={editForm.product}
+              onChange={(e) => setEditForm((f) => ({ ...f, product: e.target.value }))}
+              className="input-field text-sm py-2"
+            />
+          </EField>
+          <EField label="Barcode">
+            <input
+              value={editForm.barcode}
+              onChange={(e) => setEditForm((f) => ({ ...f, barcode: e.target.value }))}
+              className="input-field font-mono text-sm py-2"
+            />
+          </EField>
+          <div className="grid grid-cols-2 gap-3">
+            <EField label="Batch">
+              <input
+                value={editForm.batch}
+                onChange={(e) => setEditForm((f) => ({ ...f, batch: e.target.value }))}
+                className="input-field text-sm py-2"
+              />
+            </EField>
+            <EField label="Exp Date">
+              <input
+                value={editForm.expDate}
+                onChange={(e) => setEditForm((f) => ({ ...f, expDate: e.target.value }))}
+                className="input-field text-sm py-2"
+              />
+            </EField>
           </div>
-        </div>
-      )}
-
-      {/* Delete Confirm */}
-      {deleteItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setDeleteItem(null)} />
-          <div className="relative card p-5 max-w-xs w-full space-y-4">
-            <h3 className="font-bold text-base text-gray-900 text-center">Hapus Data?</h3>
-            <div className="bg-gray-50 rounded-xl p-3 space-y-1 text-[11px]">
-              <p className="font-semibold text-gray-900 text-sm">{deleteItem.product}</p>
-              <p className="text-gray-500">{deleteItem.sheet} · Row {deleteItem.rowNumber} · Qty {deleteItem.qty}</p>
-            </div>
-            <p className="text-sm text-gray-400 text-center">Data yang dihapus tidak bisa dikembalikan.</p>
-            <div className="flex gap-2.5">
-              <button onClick={() => setDeleteItem(null)} className="flex-1 btn-outline">Batal</button>
-              <button onClick={handleDelete} disabled={deleteLoading} className="flex-1 bg-red-500 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-red-600 active:scale-[0.98] disabled:opacity-40 transition-all">
-                {deleteLoading ? "Menghapus..." : "Hapus"}
-              </button>
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <EField label="Receive Date">
+              <input
+                value={editForm.receiveDate}
+                onChange={(e) => setEditForm((f) => ({ ...f, receiveDate: e.target.value }))}
+                className="input-field text-sm py-2"
+              />
+            </EField>
+            <EField label="Qty">
+              <input
+                type="number"
+                inputMode="numeric"
+                value={editForm.qty}
+                onChange={(e) => setEditForm((f) => ({ ...f, qty: Number(e.target.value) }))}
+                className="input-field text-sm py-2 font-bold"
+              />
+            </EField>
           </div>
+          <EField label="Distri / Event">
+            <input
+              value={editForm.distriEvent}
+              onChange={(e) => setEditForm((f) => ({ ...f, distriEvent: e.target.value }))}
+              className="input-field text-sm py-2"
+            />
+          </EField>
+          <EField label="Keterangan">
+            <input
+              value={editForm.keterangan}
+              onChange={(e) => setEditForm((f) => ({ ...f, keterangan: e.target.value }))}
+              className="input-field text-sm py-2"
+            />
+          </EField>
+          <EField label="PIC">
+            <input
+              value={editForm.pic}
+              onChange={(e) => setEditForm((f) => ({ ...f, pic: e.target.value }))}
+              className="input-field text-sm py-2"
+            />
+          </EField>
         </div>
-      )}
+      </Sheet>
+
+      {/* Delete Confirm Dialog */}
+      <ConfirmDialog
+        open={!!deleteItem}
+        title="Hapus Data?"
+        message={
+          deleteItem && (
+            <div className="space-y-2">
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-1 text-xs">
+                <p className="font-bold text-gray-900 text-sm">{deleteItem.product}</p>
+                <p className="text-gray-600">
+                  {deleteItem.sheet} · Row {deleteItem.rowNumber} · Qty {deleteItem.qty}
+                </p>
+              </div>
+              <p className="text-xs text-gray-500">Data yang dihapus tidak bisa dikembalikan.</p>
+            </div>
+          )
+        }
+        confirmLabel={deleteLoading ? "Menghapus..." : "Hapus"}
+        danger
+        onCancel={() => setDeleteItem(null)}
+        onConfirm={() => void handleDelete()}
+      />
     </div>
   );
 }
@@ -399,9 +505,8 @@ export default function HistoryPage() {
 function EField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wide">{label}</label>
+      <label className="label-field">{label}</label>
       {children}
     </div>
   );
 }
-

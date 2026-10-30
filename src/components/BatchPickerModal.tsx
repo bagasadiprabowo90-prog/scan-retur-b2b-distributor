@@ -39,7 +39,7 @@ function BatchChip({
         {item.lot}
       </span>
       <span
-        className={`text-[10px] font-semibold mt-0.5 leading-tight ${
+        className={`text-xs font-semibold mt-0.5 leading-tight ${
           active ? "text-gray-300" : "text-gray-400"
         }`}
       >
@@ -120,7 +120,7 @@ export default function BatchPickerModal({
       <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" onClick={onClose} />
 
       {/* Panel */}
-      <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-scale-in">
         {/* Header */}
         <div className="flex items-start justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/70">
           <div className="min-w-0 pr-2">
@@ -128,12 +128,12 @@ export default function BatchPickerModal({
               {hasProduct ? "Pilih Batch" : "Pilih / Buat Batch"}
             </h3>
             {hasProduct ? (
-              <p className="text-[11px] text-gray-500 truncate mt-0.5">
+              <p className="text-xs text-gray-500 truncate mt-0.5">
                 {product!.product}
                 <span className="font-mono text-gray-400"> · {product!.sku}</span>
               </p>
             ) : (
-              <p className="text-[11px] text-gray-400 mt-0.5">Pilih produk dulu untuk melihat batch per produk</p>
+              <p className="text-xs text-gray-400 mt-0.5">Pilih produk dulu untuk melihat batch per produk</p>
             )}
           </div>
           <button
@@ -221,7 +221,7 @@ export default function BatchPickerModal({
                       : "Batch tidak ditemukan"}
                   </p>
                   {chips.length === 0 && hasProduct && (
-                    <p className="text-[11px] text-gray-400">
+                    <p className="text-xs text-gray-400">
                       Untuk merchandise/produk tanpa batch, lanjutkan tanpa batch.
                     </p>
                   )}
@@ -286,7 +286,7 @@ export default function BatchPickerModal({
               </div>
 
               {hasProduct && (
-                <p className="text-[11px] text-gray-400 leading-snug">
+                <p className="text-xs text-gray-400 leading-snug">
                   Batch baru akan dicatat di master data untuk produk <span className="font-semibold text-gray-600">{product!.sku}</span>.
                 </p>
               )}

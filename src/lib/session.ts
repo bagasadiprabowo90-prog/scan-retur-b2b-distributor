@@ -99,6 +99,9 @@ export function saveActiveSession(session: StoreSession | null): void {
     } else {
       localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session));
     }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("scan-retur-session-changed"));
+    }
   } catch (e) {
     console.error("Failed to save active session", e);
   }
