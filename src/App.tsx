@@ -98,11 +98,11 @@ export default function App() {
             </button>
           )}
 
-          <div className="min-w-0 text-center">
-            <h1 className="text-sm font-extrabold text-stone-900 tracking-tight leading-tight">
+          <div className="min-w-0 text-center bg-[#1C1917] rounded-2xl px-3 py-1.5 shadow-sm">
+            <h1 className="text-sm font-extrabold text-white tracking-tight leading-tight">
               {headerTitle}
             </h1>
-            <p className="text-[11px] font-medium text-stone-500 leading-tight mt-0.5">
+            <p className="text-[11px] font-medium text-stone-300 leading-tight mt-0.5">
               {headerSubtitle}
             </p>
           </div>

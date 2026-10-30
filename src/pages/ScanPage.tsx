@@ -779,7 +779,7 @@ export default function ScanPage() {
                 loadingProducts ? "Memuat produk..." : `Cari ${products.length} produk (nama, barcode, SKU)`
               }
               disabled={loadingProducts}
-              className="w-full pl-10 pr-9 py-2.5 rounded-full bg-white/90 border border-stone-200/80 text-xs font-medium text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+              className="w-full pl-10 pr-9 py-2.5 rounded-full bg-white/90 border border-stone-200/80 text-xs font-medium text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900/15"
             />
             {productSearch.trim() && (
               <button
