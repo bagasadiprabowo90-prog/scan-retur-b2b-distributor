@@ -4,10 +4,10 @@
 
 @layer components {
   .input-field {
-    @apply w-full border-2 border-[#0B0E14] rounded-xl px-3.5 py-2.5 text-sm bg-[#F4F3EE] text-[#0B0E14] placeholder:text-gray-500 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#16C784]/40 transition-all;
+    @apply w-full border-2 border-[#0B0E14] rounded-xl px-3.5 py-2.5 text-sm bg-[#F8F7F3] text-[#0B0E14] placeholder:text-gray-400 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#16C784]/30 transition-all;
   }
   .label-field {
-    @apply block text-[11px] font-mono font-bold text-[#0B0E14] mb-1.5 uppercase tracking-wider;
+    @apply block text-xs font-bold text-gray-700 mb-1.5;
   }
   .card {
     @apply bg-white rounded-2xl border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14];
@@ -16,13 +16,13 @@
     @apply px-4 py-3 flex items-center justify-between border-b-2 border-[#0B0E14];
   }
   .card-body {
-    @apply p-3.5;
+    @apply p-4;
   }
   .btn-primary {
-    @apply bg-[#0B0E14] text-white border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] py-2.5 px-4 rounded-xl text-xs font-mono font-bold uppercase tracking-wider hover:bg-gray-800 active:translate-y-[2px] active:shadow-none disabled:opacity-40 transition-all;
+    @apply bg-[#0B0E14] text-white border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] py-2.5 px-4 rounded-xl text-xs font-bold hover:bg-gray-800 active:translate-y-[1px] active:shadow-none disabled:opacity-40 transition-all;
   }
   .btn-outline {
-    @apply bg-white text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] py-2.5 px-4 rounded-xl text-xs font-mono font-bold uppercase tracking-wider hover:bg-gray-100 active:translate-y-[2px] active:shadow-none disabled:opacity-40 transition-all;
+    @apply bg-white text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] py-2.5 px-4 rounded-xl text-xs font-bold hover:bg-gray-50 active:translate-y-[1px] active:shadow-none disabled:opacity-40 transition-all;
   }
 }
 
@@ -46,8 +46,6 @@ body {
   overflow: hidden;
 }
 
-/* Stage kamera: dirender lebih besar lalu diperkecil via transform
-   (lihat ScanPage). Pusat layar = pusat area decode. */
 .scanner-stage {
   position: absolute;
   top: 50%;
@@ -59,27 +57,21 @@ body {
   width: 100%;
 }
 
-/* Video mengikuti rasio asli kamera. Jangan pakai object-fit: cover:
-   html5-qrcode memetakan area decode dengan asumsi video tidak terpotong,
-   sehingga cover membuat kotak di layar berbeda dari area decode. */
 #scanner-container video {
   display: block !important;
   width: 100% !important;
   height: auto !important;
 }
 
-/* Hide html5-qrcode's built-in scan region border */
 #scanner-container #qr-shaded-region {
   display: none !important;
 }
 
-/* Hide the internal canvas/img elements html5-qrcode creates */
 #scanner-container > img,
 #scanner-container > canvas {
   display: none !important;
 }
 
-/* Ukuran diatur inline dari ScanPage agar sama persis dengan area decode. */
 .scanner-guide {
   position: absolute;
   top: 50%;
@@ -127,8 +119,6 @@ body {
   border-bottom-right-radius: 8px;
 }
 
-/* Garis statis di tengah kotak: patokan agar barcode melintasi baris
-   yang dibaca decoder. */
 .scanner-scanline {
   position: absolute;
   left: 4%;

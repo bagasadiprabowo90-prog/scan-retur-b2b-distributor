@@ -64,7 +64,7 @@ export default function HistoryPage() {
       return;
     }
     syncEditWithActiveSession(editItem, editForm);
-    setToast({ type: "ok", msg: "Data berhasil diperbarui (sesi aktif disinkronkan)" });
+    setToast({ type: "ok", msg: "Data berhasil diperbarui" });
     setEditItem(null);
     void loadHistory();
   }
@@ -79,7 +79,7 @@ export default function HistoryPage() {
       return;
     }
     syncDeleteWithActiveSession(deleteItem);
-    setToast({ type: "ok", msg: "Data berhasil dihapus (sesi aktif disinkronkan)" });
+    setToast({ type: "ok", msg: "Data berhasil dihapus" });
     setDeleteItem(null);
     void loadHistory();
   }
@@ -139,11 +139,11 @@ export default function HistoryPage() {
   }, [toast]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3.5">
       {/* Toast */}
       {toast && (
         <div
-          className={`rounded-2xl px-3.5 py-2.5 font-mono text-xs font-bold border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] ${
+          className={`rounded-2xl px-4 py-3 text-xs font-bold border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] ${
             toast.type === "ok" ? "bg-[#16C784] text-[#0B0E14]" : "bg-red-100 text-red-900"
           }`}
         >
@@ -152,151 +152,174 @@ export default function HistoryPage() {
       )}
 
       {/* Stats + Search */}
-      <div className="card p-3.5 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-4">
-            <div className="bg-[#FEF0C7] border-2 border-[#0B0E14] rounded-xl px-3 py-1.5">
-              <p className="font-mono text-base font-black text-[#0B0E14] leading-none">
+      <div className="card p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2.5">
+          <div className="grid grid-cols-2 gap-2.5 flex-1">
+            <div className="bg-[#FEF0C7] border-2 border-[#0B0E14] rounded-xl px-3 py-2">
+              <p className="text-base font-extrabold text-[#0B0E14] leading-none tabular-nums">
                 {filteredHistory.length}
               </p>
-              <p className="font-mono text-[10px] text-gray-600 font-bold uppercase mt-0.5">
-                BARIS DATA
+              <p className="text-[11px] text-gray-600 font-bold mt-1">
+                Baris Data
               </p>
             </div>
-            <div className="bg-[#38BDF8] border-2 border-[#0B0E14] rounded-xl px-3 py-1.5">
-              <p className="font-mono text-base font-black text-[#0B0E14] leading-none">
+            <div className="bg-[#38BDF8] border-2 border-[#0B0E14] rounded-xl px-3 py-2">
+              <p className="text-base font-extrabold text-[#0B0E14] leading-none tabular-nums">
                 {totalQty.toLocaleString()}
               </p>
-              <p className="font-mono text-[10px] text-[#0B0E14] font-bold uppercase mt-0.5">
-                TOTAL PCS
+              <p className="text-[11px] text-[#0B0E14] font-bold mt-1">
+                Total Pcs
               </p>
             </div>
           </div>
+
           <button
             type="button"
             onClick={() => void loadHistory()}
             disabled={loading}
-            className="h-9 px-3 flex items-center justify-center gap-1.5 rounded-xl bg-white border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none font-mono text-xs font-bold disabled:opacity-40 transition-all shrink-0"
+            className="h-12 px-3.5 flex items-center justify-center gap-1.5 rounded-xl bg-white border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none text-xs font-bold disabled:opacity-40 transition-all shrink-0"
             title="Refresh"
           >
-            <svg className={`w-4 h-4 text-[#0B0E14] ${loading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className={`w-4 h-4 text-[#0B0E14] ${loading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            <span>SYNC</span>
+            <span>Refresh</span>
           </button>
         </div>
 
         <div className="relative">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Ketik produk, distri, batch, atau barcode..."
-            className="input-field font-mono text-xs py-2.5"
+            placeholder="Cari produk, distri, atau batch..."
+            className="input-field pl-10 py-2.5 text-sm"
           />
         </div>
       </div>
 
       {error && (
-        <div className="rounded-2xl px-3.5 py-2.5 font-mono text-xs font-bold bg-red-100 text-red-900 border-2 border-[#0B0E14]">
+        <div className="rounded-2xl px-4 py-3 text-xs font-bold bg-red-100 text-red-900 border-2 border-[#0B0E14]">
           {error}
         </div>
       )}
 
       {!error && warnings.length > 0 && (
-        <div className="rounded-2xl px-3.5 py-2.5 font-mono text-xs font-bold bg-[#FEF0C7] text-[#0B0E14] border-2 border-[#0B0E14] space-y-0.5">
+        <div className="rounded-2xl px-4 py-3 text-xs font-bold bg-[#FEF0C7] text-[#0B0E14] border-2 border-[#0B0E14] space-y-0.5">
           {warnings.map((w, i) => <p key={i}>{w}</p>)}
         </div>
       )}
 
       {/* List */}
       {loading && history.length === 0 ? (
-        <div className="card px-4 py-12 text-center font-mono text-xs font-bold text-gray-500 animate-pulse">
-          MEMUAT RIWAYAT SHEET...
+        <div className="card px-4 py-12 text-center text-xs font-bold text-gray-500 animate-pulse">
+          Memuat riwayat...
         </div>
       ) : !error && filteredHistory.length === 0 && !loading ? (
-        <div className="card px-4 py-12 text-center font-mono text-xs font-bold text-gray-500">
-          TIDAK ADA DATA RIWAYAT
+        <div className="card px-4 py-12 text-center text-xs font-bold text-gray-500">
+          Tidak ada data riwayat
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {visibleHistory.map((item) => {
             const key = `${item.sheet}-${item.rowNumber}`;
             return (
-              <div key={key} className="card p-3.5">
-                {/* Top: product + qty */}
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <p className="text-xs font-black text-[#0B0E14] uppercase leading-snug min-w-0 truncate">
+              <div key={key} className="card p-4 space-y-2.5">
+                {/* Top: Full Product Name (No Truncate) + Qty Badge */}
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs font-extrabold text-[#0B0E14] leading-snug break-words flex-1">
                     {item.product || "-"}
                   </p>
-                  <span className="bg-[#0B0E14] text-[#16C784] font-mono text-xs font-black px-2 py-0.5 rounded-md whitespace-nowrap tabular-nums shrink-0">
-                    {item.qty.toLocaleString()} PCS
+                  <span className="bg-[#0B0E14] text-[#16C784] font-mono text-xs font-bold px-2.5 py-1 rounded-lg whitespace-nowrap tabular-nums shrink-0">
+                    {item.qty.toLocaleString()} pcs
                   </span>
                 </div>
 
-                {/* Badges */}
-                <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
-                  <span className="font-mono text-[10px] font-bold text-[#0B0E14] bg-[#F4F3EE] border border-[#0B0E14] px-2 py-0.5 rounded-md">
+                {/* Metadata Badges */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-[#0B0E14] bg-[#F4F3EE] border border-[#0B0E14] px-2 py-0.5 rounded-md">
                     {item.receiveDate || "-"}
                   </span>
                   <span
-                    className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-md border border-[#0B0E14] ${
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded-md border border-[#0B0E14] ${
                       item.sheet === "Bagas"
                         ? "bg-[#38BDF8] text-[#0B0E14]"
                         : "bg-[#FDE047] text-[#0B0E14]"
                     }`}
                   >
-                    SHEET {item.sheet.toUpperCase()}
+                    Sheet {item.sheet}
                   </span>
                   {item.pic && (
-                    <span className="font-mono text-[10px] font-bold text-gray-700 bg-[#F4F3EE] border border-[#0B0E14] px-2 py-0.5 rounded-md">
-                      OPR: {item.pic.toUpperCase()}
+                    <span className="text-[11px] font-bold text-gray-700 bg-[#F4F3EE] border border-[#0B0E14] px-2 py-0.5 rounded-md">
+                      PIC: {item.pic}
                     </span>
                   )}
                 </div>
 
-                {/* Info rows */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[11px] bg-[#F4F3EE] border border-[#0B0E14] rounded-xl p-2.5">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 font-bold">BARCODE</span>
-                    <span className="font-bold text-[#0B0E14] truncate ml-1">{item.barcode || "-"}</span>
+                {/* Structured Details Grid (Well-spaced columns, no truncated barcode or distri) */}
+                <div className="bg-[#F8F7F3] border-2 border-[#0B0E14] rounded-xl p-3 space-y-2">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <span className="block text-[10px] font-bold text-gray-500 uppercase">
+                        Barcode
+                      </span>
+                      <span className="font-mono text-xs font-bold text-[#0B0E14] break-all">
+                        {item.barcode || "-"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-gray-500 uppercase">
+                        Batch
+                      </span>
+                      <span className="font-mono text-xs font-bold text-[#0B0E14] break-words">
+                        {item.batch || "-"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-gray-500 uppercase">
+                        Exp Date
+                      </span>
+                      <span className="text-xs font-bold text-[#0B0E14] break-words">
+                        {item.expDate || "-"}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 font-bold">BATCH</span>
-                    <span className="font-bold text-[#0B0E14] truncate ml-1">{item.batch || "-"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 font-bold">EXP</span>
-                    <span className="font-bold text-[#0B0E14] truncate ml-1">{item.expDate || "-"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 font-bold">DISTRI</span>
-                    <span className="font-bold text-[#0B0E14] truncate ml-1">{item.distriEvent || "-"}</span>
+
+                  <div className="pt-2 border-t border-gray-200 flex items-baseline justify-between gap-3">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase shrink-0">
+                      Distri / Event
+                    </span>
+                    <span className="text-xs font-bold text-[#0B0E14] text-right break-words">
+                      {item.distriEvent || "-"}
+                    </span>
                   </div>
                 </div>
 
                 {/* Keterangan */}
                 {item.keterangan && (
-                  <p className="mt-2 font-mono text-[11px] font-bold text-[#0B0E14] bg-[#FEF0C7] border border-[#0B0E14] rounded-lg px-2.5 py-1.5">
-                    KONDISI: {item.keterangan}
-                  </p>
+                  <div className="text-xs font-semibold text-[#0B0E14] bg-[#FEF0C7] border border-[#0B0E14] rounded-xl px-3 py-1.5">
+                    Kondisi: <span className="font-bold">{item.keterangan}</span>
+                  </div>
                 )}
 
                 {/* Edit / Delete */}
-                <div className="flex justify-end gap-2 mt-2.5 pt-2 border-t-2 border-gray-200">
+                <div className="flex justify-end gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => openEdit(item)}
-                    className="px-3 py-1 rounded-lg font-mono text-[11px] font-bold text-[#0B0E14] bg-white border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none"
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-[#0B0E14] bg-white border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none hover:bg-gray-50 transition-all"
                   >
-                    EDIT
+                    Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeleteItem(item)}
-                    className="px-3 py-1 rounded-lg font-mono text-[11px] font-bold text-red-700 bg-red-100 border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none"
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-red-700 bg-red-50 border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none hover:bg-red-100 transition-all"
                   >
-                    HAPUS
+                    Hapus
                   </button>
                 </div>
               </div>
@@ -310,13 +333,13 @@ export default function HistoryPage() {
               onClick={() => setVisibleCount((v) => v + PAGE_SIZE)}
               className="w-full btn-outline py-2.5"
             >
-              MUAT LAGI ({filteredHistory.length - visibleCount} TERSISA)
+              Muat Lagi ({filteredHistory.length - visibleCount} tersisa)
             </button>
           )}
 
           {!hasMore && filteredHistory.length > 0 && (
-            <p className="text-center font-mono text-[11px] font-bold text-gray-500 py-2">
-              {filteredHistory.length} DATA DITAMPILKAN
+            <p className="text-center text-xs font-semibold text-gray-500 py-2">
+              {filteredHistory.length} data ditampilkan
             </p>
           )}
         </div>
@@ -326,52 +349,52 @@ export default function HistoryPage() {
       {editItem && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-12 overflow-y-auto">
           <div className="absolute inset-0 bg-black/60" onClick={() => setEditItem(null)} />
-          <div className="relative card p-4 max-w-sm w-full space-y-3 mb-8 bg-white">
-            <div className="flex items-center justify-between pb-2 border-b-2 border-[#0B0E14]">
-              <h3 className="font-black text-sm text-[#0B0E14] uppercase">EDIT DATA SHEET</h3>
-              <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FDE047] text-[#0B0E14] border border-[#0B0E14]">
-                {editItem.sheet.toUpperCase()} • ROW {editItem.rowNumber}
+          <div className="relative card p-4 max-w-sm w-full space-y-3.5 mb-8 bg-white">
+            <div className="flex items-center justify-between pb-2.5 border-b-2 border-[#0B0E14]">
+              <h3 className="font-extrabold text-sm text-[#0B0E14]">Edit Data Sheet</h3>
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-lg bg-[#FDE047] text-[#0B0E14] border border-[#0B0E14]">
+                {editItem.sheet} • Row {editItem.rowNumber}
               </span>
             </div>
 
             <div className="space-y-2.5">
-              <EField label="PRODUK">
+              <EField label="Produk">
                 <input value={editForm.product} onChange={(e) => setEditForm(f => ({ ...f, product: e.target.value }))} className="input-field text-xs py-2" />
               </EField>
-              <EField label="BARCODE">
+              <EField label="Barcode">
                 <input value={editForm.barcode} onChange={(e) => setEditForm(f => ({ ...f, barcode: e.target.value }))} className="input-field font-mono text-xs py-2" />
               </EField>
-              <div className="grid grid-cols-2 gap-2.5">
-                <EField label="BATCH">
+              <div className="grid grid-cols-2 gap-3">
+                <EField label="Batch">
                   <input value={editForm.batch} onChange={(e) => setEditForm(f => ({ ...f, batch: e.target.value }))} className="input-field font-mono text-xs py-2" />
                 </EField>
-                <EField label="EXP DATE">
-                  <input value={editForm.expDate} onChange={(e) => setEditForm(f => ({ ...f, expDate: e.target.value }))} className="input-field font-mono text-xs py-2" />
+                <EField label="Exp Date">
+                  <input value={editForm.expDate} onChange={(e) => setEditForm(f => ({ ...f, expDate: e.target.value }))} className="input-field text-xs py-2" />
                 </EField>
               </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <EField label="RECEIVE DATE">
-                  <input value={editForm.receiveDate} onChange={(e) => setEditForm(f => ({ ...f, receiveDate: e.target.value }))} className="input-field font-mono text-xs py-2" />
+              <div className="grid grid-cols-2 gap-3">
+                <EField label="Receive Date">
+                  <input value={editForm.receiveDate} onChange={(e) => setEditForm(f => ({ ...f, receiveDate: e.target.value }))} className="input-field text-xs py-2" />
                 </EField>
-                <EField label="QTY">
-                  <input type="number" inputMode="numeric" value={editForm.qty} onChange={(e) => setEditForm(f => ({ ...f, qty: Number(e.target.value) }))} className="input-field font-mono font-bold text-xs py-2" />
+                <EField label="Qty">
+                  <input type="number" inputMode="numeric" value={editForm.qty} onChange={(e) => setEditForm(f => ({ ...f, qty: Number(e.target.value) }))} className="input-field font-bold text-xs py-2" />
                 </EField>
               </div>
-              <EField label="DISTRI / EVENT">
+              <EField label="Distri / Event">
                 <input value={editForm.distriEvent} onChange={(e) => setEditForm(f => ({ ...f, distriEvent: e.target.value }))} className="input-field text-xs py-2" />
               </EField>
-              <EField label="KETERANGAN">
+              <EField label="Keterangan">
                 <input value={editForm.keterangan} onChange={(e) => setEditForm(f => ({ ...f, keterangan: e.target.value }))} className="input-field text-xs py-2" />
               </EField>
               <EField label="PIC">
-                <input value={editForm.pic} onChange={(e) => setEditForm(f => ({ ...f, pic: e.target.value }))} className="input-field font-mono text-xs py-2" />
+                <input value={editForm.pic} onChange={(e) => setEditForm(f => ({ ...f, pic: e.target.value }))} className="input-field text-xs py-2" />
               </EField>
             </div>
 
             <div className="flex gap-2.5 pt-2 border-t-2 border-[#0B0E14]">
-              <button onClick={() => setEditItem(null)} className="flex-1 btn-outline">BATAL</button>
-              <button onClick={handleEditSave} disabled={editSaving} className="flex-1 bg-[#16C784] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] py-2.5 rounded-xl font-mono text-xs font-bold uppercase">
-                {editSaving ? "MENYIMPAN..." : "SIMPAN"}
+              <button onClick={() => setEditItem(null)} className="flex-1 btn-outline">Batal</button>
+              <button onClick={handleEditSave} disabled={editSaving} className="flex-1 bg-[#16C784] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] py-2.5 rounded-xl text-xs font-bold">
+                {editSaving ? "Menyimpan..." : "Simpan"}
               </button>
             </div>
           </div>
@@ -383,16 +406,16 @@ export default function HistoryPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setDeleteItem(null)} />
           <div className="relative card p-5 max-w-xs w-full space-y-4 bg-white">
-            <h3 className="font-black text-base text-[#0B0E14] text-center uppercase">HAPUS DATA INI?</h3>
-            <div className="bg-[#FEF0C7] border-2 border-[#0B0E14] rounded-xl p-3 space-y-1 font-mono text-xs">
-              <p className="font-black text-[#0B0E14]">{deleteItem.product}</p>
-              <p className="text-gray-700 font-bold">{deleteItem.sheet.toUpperCase()} • ROW {deleteItem.rowNumber} • QTY {deleteItem.qty}</p>
+            <h3 className="font-extrabold text-base text-[#0B0E14] text-center">Hapus Data Ini?</h3>
+            <div className="bg-[#FEF0C7] border-2 border-[#0B0E14] rounded-xl p-3 space-y-1 text-xs">
+              <p className="font-extrabold text-[#0B0E14] leading-snug break-words">{deleteItem.product}</p>
+              <p className="text-gray-700 font-semibold">Sheet {deleteItem.sheet} • Row {deleteItem.rowNumber} • Qty {deleteItem.qty}</p>
             </div>
-            <p className="font-mono text-xs text-gray-600 text-center">Data yang dihapus dari Sheet tidak bisa dikembalikan.</p>
+            <p className="text-xs text-gray-500 text-center">Data yang dihapus dari Sheet tidak bisa dikembalikan.</p>
             <div className="flex gap-2.5">
-              <button onClick={() => setDeleteItem(null)} className="flex-1 btn-outline">BATAL</button>
-              <button onClick={handleDelete} disabled={deleteLoading} className="flex-1 bg-red-500 text-white border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] py-2.5 rounded-xl font-mono text-xs font-bold uppercase hover:bg-red-600 disabled:opacity-40 transition-all">
-                {deleteLoading ? "MENGHAPUS..." : "HAPUS"}
+              <button onClick={() => setDeleteItem(null)} className="flex-1 btn-outline">Batal</button>
+              <button onClick={handleDelete} disabled={deleteLoading} className="flex-1 bg-red-500 text-white border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] py-2.5 rounded-xl text-xs font-bold hover:bg-red-600 disabled:opacity-40 transition-all">
+                {deleteLoading ? "Menghapus..." : "Hapus"}
               </button>
             </div>
           </div>

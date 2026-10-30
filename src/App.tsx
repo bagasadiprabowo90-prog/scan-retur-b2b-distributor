@@ -28,7 +28,7 @@ function UserAvatar({ user, size = "sm" }: { user: AppUser; size?: "sm" | "lg" }
 
   return (
     <div
-      className={`${sizeClasses} rounded-full bg-[#0B0E14] text-[#FDE047] font-mono font-bold flex items-center justify-center shrink-0 border border-[#0B0E14]`}
+      className={`${sizeClasses} rounded-full bg-[#0B0E14] text-[#FDE047] font-bold flex items-center justify-center shrink-0 border border-[#0B0E14]`}
     >
       {initial}
     </div>
@@ -40,20 +40,14 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [logoutConfirm, setLogoutConfirm] = useState(false);
+
   const isHome = location.pathname === "/" || location.pathname === "";
   const isHistory = location.pathname === "/history";
   const isVerification = location.pathname === "/verification";
+  const isSubPage = !isHome && !isHistory && !isVerification;
   const showBottomNav = isHome || isHistory || isVerification;
 
   if (!user) return <LoginPage />;
-
-  const stepBadge = isHome
-    ? "1/3"
-    : location.pathname === "/return-form"
-    ? "2/3"
-    : isVerification
-    ? "3/3"
-    : "LOG";
 
   const handleOpenNewStore = () => {
     try {
@@ -68,52 +62,43 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F4F3EE] text-[#0B0E14]">
-      {/* Industrial High-Contrast Tactile Header Card */}
-      <header className="sticky top-0 z-40 bg-[#F4F3EE]/95 backdrop-blur-xs pt-2.5 pb-1.5 px-3.5">
+      {/* Header Card */}
+      <header className="sticky top-0 z-40 bg-[#F4F3EE]/95 backdrop-blur-xs pt-3 pb-2 px-4">
         <div className="max-w-lg mx-auto">
-          <div className="bg-white border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl px-3.5 py-2.5 flex items-center justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                {!isHome && (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/")}
-                    className="bg-[#0B0E14] text-white font-mono text-xs font-bold px-2 py-0.5 rounded-md hover:bg-gray-800 active:translate-y-[1px] shrink-0"
-                    aria-label="Kembali"
-                  >
-                    ←
-                  </button>
-                )}
-                <span className="bg-[#0B0E14] text-white font-mono text-[11px] font-bold px-2 py-0.5 rounded-md shrink-0">
-                  {stepBadge}
-                </span>
-                <h1 className="text-sm sm:text-base font-black tracking-tight text-[#0B0E14] uppercase truncate">
-                  SCAN RETUR B2B
+          <div className="bg-white border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              {isSubPage && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/")}
+                  className="w-8 h-8 rounded-xl bg-[#F4F3EE] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none flex items-center justify-center text-[#0B0E14] font-bold shrink-0"
+                  aria-label="Kembali"
+                >
+                  ←
+                </button>
+              )}
+              <div className="min-w-0">
+                <h1 className="text-base font-extrabold tracking-tight text-[#0B0E14] leading-tight">
+                  Scan Retur B2B
                 </h1>
-              </div>
-
-              <div className="flex items-center gap-2 mt-1">
-                <p className="font-mono text-[11px] text-gray-500 font-semibold truncate">
-                  OPR: {(user.displayName || "USER").toUpperCase()} • JKT-WH
+                <p className="text-xs text-gray-500 font-medium leading-tight mt-0.5">
+                  PIC: <span className="font-bold text-[#0B0E14]">{user.displayName}</span>
                 </p>
-                <span className="bg-[#16C784] text-[#0B0E14] border border-[#0B0E14] font-mono text-[9px] font-bold px-1.5 py-0.2 rounded uppercase shrink-0">
-                  ONLINE
-                </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleOpenNewStore}
-                className="bg-[#FDE047] hover:bg-[#FACC15] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none font-mono text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition-all"
+                className="bg-[#FDE047] hover:bg-[#FACC15] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none text-xs font-bold px-3 py-1.5 rounded-xl transition-all whitespace-nowrap"
               >
-                + TOKO BARU
+                + Toko Baru
               </button>
               <button
                 type="button"
                 onClick={() => setLogoutConfirm(true)}
-                className="w-8 h-8 rounded-xl bg-[#F4F3EE] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none flex items-center justify-center text-[#0B0E14] hover:bg-red-100 transition-all"
+                className="w-8 h-8 rounded-xl bg-[#F4F3EE] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none flex items-center justify-center text-[#0B0E14] hover:bg-red-100 transition-all shrink-0"
                 aria-label="Logout"
                 title="Logout"
               >
@@ -134,11 +119,11 @@ export default function App() {
             <div className="flex justify-center mb-1">
               <UserAvatar user={user} size="lg" />
             </div>
-            <h3 className="font-black text-base text-[#0B0E14] uppercase">LOGOUT OPERATOR?</h3>
-            <p className="text-xs font-mono text-gray-600">
-              Keluar dari sesi <strong className="text-[#0B0E14]">{user.displayName}</strong>
+            <h3 className="font-extrabold text-base text-[#0B0E14]">Logout?</h3>
+            <p className="text-xs text-gray-600">
+              Keluar dari akun <strong className="text-[#0B0E14]">{user.displayName}</strong>
               {user.email && (
-                <span className="block text-[11px] text-gray-500 mt-0.5">{user.email}</span>
+                <span className="block text-[11px] text-gray-400 mt-0.5">{user.email}</span>
               )}
             </p>
             <div className="flex gap-2.5">
@@ -146,13 +131,13 @@ export default function App() {
                 onClick={() => setLogoutConfirm(false)}
                 className="flex-1 btn-outline"
               >
-                BATAL
+                Batal
               </button>
               <button
                 onClick={() => { setLogoutConfirm(false); logout(); }}
-                className="flex-1 bg-red-500 text-white border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] py-2.5 rounded-xl text-xs font-mono font-bold uppercase hover:bg-red-600 active:translate-y-[2px] active:shadow-none transition-all"
+                className="flex-1 bg-red-500 text-white border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] py-2.5 rounded-xl text-xs font-bold hover:bg-red-600 active:translate-y-[1px] active:shadow-none transition-all"
               >
-                LOGOUT
+                Logout
               </button>
             </div>
           </div>
@@ -160,7 +145,7 @@ export default function App() {
       )}
 
       {/* Pages */}
-      <main className={`max-w-lg mx-auto px-3.5 py-2.5 ${showBottomNav ? "pb-24" : "pb-8"}`}>
+      <main className={`max-w-lg mx-auto px-4 py-3 ${showBottomNav ? "pb-24" : "pb-8"}`}>
         <Routes>
           <Route path="/" element={<ScanPage />} />
           <Route path="/return-form" element={<ReturnFormPage />} />
@@ -170,15 +155,15 @@ export default function App() {
         </Routes>
       </main>
 
-      {/* Industrial Tactile Bottom Navigation */}
+      {/* Bottom Navigation */}
       {showBottomNav && (
         <nav className="fixed bottom-0 inset-x-0 z-50 bg-[#F4F3EE] border-t-2 border-[#0B0E14]">
-          <div className="max-w-lg mx-auto grid grid-cols-3 gap-2.5 px-3.5 py-2.5">
+          <div className="max-w-lg mx-auto grid grid-cols-3 gap-2.5 px-4 py-2.5">
             <NavTab
               active={isHome}
-              label="SCAN"
+              label="Scan"
               icon={
-                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 7V5a1 1 0 011-1h2M20 7V5a1 1 0 00-1-1h-2M4 17v2a1 1 0 001 1h2M20 17v2a1 1 0 01-1 1h-2M7 12h10" />
                 </svg>
               }
@@ -186,12 +171,22 @@ export default function App() {
             />
             <NavTab
               active={isVerification}
-              label="VERIFIKASI"
+              label="Verifikasi"
+              icon={
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              }
               onClick={() => navigate("/verification")}
             />
             <NavTab
               active={isHistory}
-              label="RIWAYAT"
+              label="Riwayat"
+              icon={
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              }
               onClick={() => navigate("/history")}
             />
           </div>
@@ -216,10 +211,10 @@ function NavTab({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-2 font-mono text-xs font-bold uppercase tracking-wider border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none transition-all ${
+      className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-2 text-xs font-bold border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none transition-all ${
         active
           ? "bg-[#0B0E14] text-white"
-          : "bg-white text-[#0B0E14] hover:bg-gray-100"
+          : "bg-white text-[#0B0E14] hover:bg-gray-50"
       }`}
     >
       {icon}

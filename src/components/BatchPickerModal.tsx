@@ -35,15 +35,15 @@ function BatchChip({
           : "bg-[#F4F3EE] text-[#0B0E14] hover:bg-[#FEF0C7]"
       }`}
     >
-      <span className="font-mono font-black text-sm leading-tight break-all text-center">
+      <span className="font-mono font-extrabold text-sm leading-tight break-all text-center">
         {item.lot}
       </span>
       <span
-        className={`font-mono text-[10px] font-bold mt-0.5 leading-tight ${
-          active ? "text-[#16C784]" : "text-gray-600"
+        className={`text-[10px] font-bold mt-0.5 leading-tight ${
+          active ? "text-[#16C784]" : "text-gray-500"
         }`}
       >
-        EXP {item.expDate || "-"}
+        Exp {item.expDate || "-"}
       </span>
     </button>
   );
@@ -71,7 +71,6 @@ export default function BatchPickerModal({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const newLotInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset & auto-focus saat modal dibuka
   useEffect(() => {
     if (open) {
       setQ("");
@@ -119,26 +118,26 @@ export default function BatchPickerModal({
 
       {/* Panel */}
       <div className="relative bg-white w-full max-w-md rounded-2xl border-2 border-[#0B0E14] shadow-[0_4px_0_#0B0E14] max-h-[85vh] flex flex-col overflow-hidden">
-        {/* Header */}
+        {/* Header (Full Product Name, Not Truncated) */}
         <div className="flex items-start justify-between px-4 py-3 border-b-2 border-[#0B0E14] bg-[#FEF0C7]">
-          <div className="min-w-0 pr-2">
-            <h3 className="font-black text-sm text-[#0B0E14] uppercase tracking-wide">
-              {hasProduct ? "PILIH BATCH PRODUK" : "PILIH / BUAT BATCH"}
+          <div className="min-w-0 pr-3 flex-1">
+            <h3 className="font-extrabold text-sm text-[#0B0E14]">
+              {hasProduct ? "Pilih Batch Produk" : "Pilih / Buat Batch"}
             </h3>
             {hasProduct ? (
-              <p className="text-[11px] text-[#0B0E14] font-semibold truncate mt-0.5">
+              <p className="text-xs text-[#0B0E14] font-semibold leading-snug break-words mt-0.5">
                 {product!.product}
-                <span className="font-mono font-bold"> • {product!.sku}</span>
+                <span className="font-mono font-bold text-gray-700"> • {product!.sku}</span>
               </p>
             ) : (
-              <p className="font-mono text-[11px] text-gray-600 mt-0.5">
+              <p className="text-xs text-gray-600 mt-0.5">
                 Pilih produk dulu untuk melihat batch per produk
               </p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 shrink-0 flex items-center justify-center rounded-xl bg-white border-2 border-[#0B0E14] font-mono text-sm font-bold text-[#0B0E14]"
+            className="w-8 h-8 shrink-0 flex items-center justify-center rounded-xl bg-white border-2 border-[#0B0E14] text-sm font-bold text-[#0B0E14]"
             aria-label="Tutup"
           >
             ✕
@@ -146,28 +145,28 @@ export default function BatchPickerModal({
         </div>
 
         {/* Tabs */}
-        <div className="grid grid-cols-2 gap-2 p-3 pb-0 bg-white">
+        <div className="grid grid-cols-2 gap-2 p-3.5 pb-0 bg-white">
           <button
             type="button"
             onClick={() => setMode("pick")}
-            className={`py-2 rounded-xl font-mono text-xs font-bold uppercase border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] transition-all ${
+            className={`py-2 rounded-xl text-xs font-bold border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] transition-all ${
               mode === "pick"
                 ? "bg-[#0B0E14] text-white"
                 : "bg-[#F4F3EE] text-[#0B0E14] hover:bg-gray-200"
             }`}
           >
-            {hasProduct ? `BATCH (${chips.length})` : `SEMUA (${chips.length})`}
+            {hasProduct ? `Batch Produk (${chips.length})` : `Semua Batch (${chips.length})`}
           </button>
           <button
             type="button"
             onClick={() => setMode("new")}
-            className={`py-2 rounded-xl font-mono text-xs font-bold uppercase border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] transition-all ${
+            className={`py-2 rounded-xl text-xs font-bold border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] transition-all ${
               mode === "new"
                 ? "bg-[#0B0E14] text-white"
                 : "bg-[#FDE047] text-[#0B0E14] hover:bg-[#FACC15]"
             }`}
           >
-            + BATCH BARU
+            + Buat Batch Baru
           </button>
         </div>
 
@@ -181,14 +180,14 @@ export default function BatchPickerModal({
                     ref={searchInputRef}
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
-                    placeholder="Ketik nomor batch..."
+                    placeholder="Cari nomor batch..."
                     className="input-field font-mono py-2.5 text-xs"
                   />
                   {q && (
                     <button
                       type="button"
                       onClick={() => setQ("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#0B0E14] font-mono font-bold text-xs"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#0B0E14] font-bold text-xs"
                     >
                       ✕
                     </button>
@@ -204,12 +203,12 @@ export default function BatchPickerModal({
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="text-center py-6 space-y-2.5 bg-[#F4F3EE] border-2 border-[#0B0E14] rounded-xl p-4">
-                  <p className="text-[#0B0E14] font-mono text-xs font-bold uppercase">
+                  <p className="text-[#0B0E14] text-xs font-bold">
                     {chips.length === 0
                       ? hasProduct
-                        ? "PRODUK INI BELUM PUNYA BATCH DI MASTER DATA"
-                        : "BELUM ADA BATCH"
-                      : "BATCH TIDAK DITEMUKAN"}
+                        ? "Produk ini belum punya batch di master data"
+                        : "Belum ada batch"
+                      : "Batch tidak ditemukan"}
                   </p>
                   <div className="flex flex-col items-center gap-2 pt-1">
                     {chips.length === 0 && hasProduct && (
@@ -218,7 +217,7 @@ export default function BatchPickerModal({
                         onClick={() => onPickExisting({ lot: "-", expDate: "-" })}
                         className="btn-outline py-2 px-4 text-xs"
                       >
-                        LANJUT TANPA BATCH (-)
+                        Lanjut Tanpa Batch (-)
                       </button>
                     )}
                     <button
@@ -227,11 +226,11 @@ export default function BatchPickerModal({
                         if (q.trim()) setNewLot(q.trim().toUpperCase());
                         setMode("new");
                       }}
-                      className="bg-[#FDE047] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] rounded-xl px-4 py-2 font-mono text-xs font-bold uppercase"
+                      className="bg-[#FDE047] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] rounded-xl px-4 py-2 text-xs font-bold"
                     >
                       {q.trim()
-                        ? `+ BUAT BATCH "${q.trim().toUpperCase()}"`
-                        : "+ BUAT BATCH BARU"}
+                        ? `+ Buat Batch "${q.trim().toUpperCase()}"`
+                        : "+ Buat Batch Baru"}
                     </button>
                   </div>
                 </div>
@@ -251,7 +250,7 @@ export default function BatchPickerModal({
           ) : (
             <div className="space-y-3 pt-1">
               <div>
-                <label className="label-field">NOMOR BATCH / LOT</label>
+                <label className="label-field">Nomor Batch / Lot</label>
                 <input
                   ref={newLotInputRef}
                   value={newLot}
@@ -262,24 +261,24 @@ export default function BatchPickerModal({
               </div>
 
               <div>
-                <label className="label-field">EXPIRED DATE</label>
+                <label className="label-field">Expired Date</label>
                 <input
                   value={newExp}
                   onChange={(e) => setNewExp(e.target.value)}
                   placeholder="Mis: Jun-2027 atau 2027-06"
-                  className="input-field font-mono text-sm py-2.5 font-semibold"
+                  className="input-field text-sm py-2.5 font-semibold"
                 />
               </div>
 
               {hasProduct && (
-                <p className="font-mono text-[11px] text-gray-600 leading-snug">
+                <p className="text-xs text-gray-600 leading-snug">
                   Batch baru akan dicatat di master data untuk SKU{" "}
                   <span className="font-bold text-[#0B0E14]">{product!.sku}</span>.
                 </p>
               )}
 
               {saveError && (
-                <div className="rounded-xl px-3 py-2 font-mono text-xs font-bold bg-red-100 text-red-900 border-2 border-[#0B0E14]">
+                <div className="rounded-xl px-3 py-2 text-xs font-bold bg-red-100 text-red-900 border-2 border-[#0B0E14]">
                   {saveError}
                 </div>
               )}
@@ -291,9 +290,9 @@ export default function BatchPickerModal({
                   setSaveError("");
                   setConfirmOpen(true);
                 }}
-                className="w-full bg-[#16C784] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] active:translate-y-[2px] active:shadow-none py-2.5 rounded-xl font-mono text-xs font-bold uppercase disabled:opacity-40 mt-2"
+                className="w-full bg-[#16C784] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none py-2.5 rounded-xl text-xs font-bold disabled:opacity-40 mt-2"
               >
-                {saving ? "MENYIMPAN..." : "SIMPAN BATCH BARU →"}
+                {saving ? "Menyimpan..." : "Simpan Batch Baru"}
               </button>
             </div>
           )}
@@ -305,20 +304,20 @@ export default function BatchPickerModal({
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setConfirmOpen(false)} />
           <div className="relative bg-white rounded-2xl border-2 border-[#0B0E14] shadow-[0_4px_0_#0B0E14] p-5 max-w-xs w-full space-y-3">
-            <h3 className="font-black text-sm text-[#0B0E14] uppercase">SIMPAN BATCH BARU?</h3>
-            <div className="bg-[#FEF0C7] border-2 border-[#0B0E14] rounded-xl p-3 space-y-1.5 font-mono text-xs text-[#0B0E14]">
+            <h3 className="font-extrabold text-sm text-[#0B0E14]">Simpan Batch Baru?</h3>
+            <div className="bg-[#FEF0C7] border-2 border-[#0B0E14] rounded-xl p-3 space-y-1.5 text-xs text-[#0B0E14]">
               <div className="flex justify-between">
-                <span className="font-semibold">BATCH:</span>
-                <span className="font-black">{newLot.trim().toUpperCase()}</span>
+                <span className="font-semibold">Batch:</span>
+                <span className="font-mono font-extrabold">{newLot.trim().toUpperCase()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="font-semibold">EXP:</span>
+                <span className="font-semibold">Exp:</span>
                 <span className="font-bold">{newExp.trim()}</span>
               </div>
               {hasProduct && (
                 <div className="flex justify-between">
                   <span className="font-semibold">SKU:</span>
-                  <span className="font-bold">{product!.sku}</span>
+                  <span className="font-mono font-bold">{product!.sku}</span>
                 </div>
               )}
             </div>
@@ -328,7 +327,7 @@ export default function BatchPickerModal({
                 onClick={() => setConfirmOpen(false)}
                 className="flex-1 btn-outline py-2 text-xs"
               >
-                BATAL
+                Batal
               </button>
               <button
                 type="button"
@@ -344,9 +343,9 @@ export default function BatchPickerModal({
                   }
                   onCreateNew(res.lot, res.expDate);
                 }}
-                className="flex-1 bg-[#16C784] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] py-2 rounded-xl font-mono text-xs font-bold uppercase"
+                className="flex-1 bg-[#16C784] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] py-2 rounded-xl text-xs font-bold"
               >
-                YA, SIMPAN
+                Ya, Simpan
               </button>
             </div>
           </div>

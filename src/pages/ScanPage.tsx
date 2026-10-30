@@ -213,14 +213,14 @@ export default function ScanPage() {
   });
 
   // 2 Flow Mode:
-  // - "direct": [1] KE SHEET (Input Manual tanpa verifikasi)
-  // - "verify": [2] KLAIM SJ (Mulai Toko & Rekonsiliasi Klaim SJ)
+  // - "direct": Input ke Sheet (tanpa verifikasi)
+  // - "verify": Klaim SJ & Verifikasi
   const [flowMode, setFlowMode] = useState<"direct" | "verify">(() => {
     try {
       const saved = localStorage.getItem("scan-retur-flow-mode");
       if (saved === "verify" || saved === "direct") return saved;
     } catch {}
-    return "verify";
+    return "direct";
   });
 
   const changeFlowMode = useCallback((mode: "direct" | "verify") => {
@@ -254,7 +254,7 @@ export default function ScanPage() {
     setNewStoreNoSJ("");
   };
 
-  // Listen to "+ TOKO BARU" header button
+  // Listen to "+ Toko Baru" header button
   useEffect(() => {
     const onOpenNewStore = () => {
       changeFlowMode("verify");
@@ -478,12 +478,12 @@ export default function ScanPage() {
 
       if (/permission|notallowed/i.test(msg)) {
         setError(
-          "❌ Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser."
+          "Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser."
         );
       } else if (/notfound|requested/i.test(msg)) {
-        setError("❌ Tidak ada perangkat kamera yang ditemukan.");
+        setError("Tidak ada perangkat kamera yang ditemukan.");
       } else {
-        setError("❌ Error membuka kamera: " + msg);
+        setError("Error membuka kamera: " + msg);
       }
       await stopScanner();
     }
@@ -538,15 +538,15 @@ export default function ScanPage() {
           className="absolute top-0 left-0 right-0 flex justify-center pointer-events-none z-10 px-14"
           style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}
         >
-          <div className="bg-[#0B0E14] text-[#16C784] border-2 border-[#16C784] font-mono text-xs font-bold text-center px-3.5 py-1.5 rounded-xl">
-            {starting ? "MEMULAI KAMERA..." : "ARAHKAN BARCODE KE GARIS HIJAU (±20 CM)"}
+          <div className="bg-[#0B0E14] text-white border-2 border-[#16C784] text-xs font-bold text-center px-3.5 py-1.5 rounded-xl">
+            {starting ? "Memulai kamera..." : "Arahkan barcode ke garis hijau (±20 cm)"}
           </div>
         </div>
 
         <button
           onClick={stopScanner}
           aria-label="Tutup scanner"
-          className="absolute z-10 h-11 w-11 flex items-center justify-center rounded-xl bg-[#0B0E14] text-white border-2 border-white font-mono text-xl font-bold"
+          className="absolute z-10 h-11 w-11 flex items-center justify-center rounded-xl bg-[#0B0E14] text-white border-2 border-white text-xl font-bold"
           style={{
             top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
             right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
@@ -575,7 +575,7 @@ export default function ScanPage() {
                     disabled={zoomBusy}
                     aria-pressed={active}
                     aria-label={`Zoom ${formatZoom(z)} kali`}
-                    className={`h-10 min-w-[2.75rem] px-3 rounded-lg font-mono text-xs font-bold transition-colors disabled:opacity-60 ${
+                    className={`h-10 min-w-[2.75rem] px-3 rounded-lg text-xs font-bold transition-colors disabled:opacity-60 ${
                       active ? "bg-[#16C784] text-[#0B0E14]" : "text-white hover:bg-white/20"
                     }`}
                   >
@@ -590,8 +590,8 @@ export default function ScanPage() {
         {starting && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none z-10">
             <div className="h-10 w-10 border-4 border-white/30 border-t-[#16C784] rounded-full animate-spin" />
-            <p className="text-white font-mono text-xs font-bold uppercase drop-shadow">
-              MEMULAI KAMERA...
+            <p className="text-white text-xs font-bold drop-shadow">
+              Memulai kamera...
             </p>
           </div>
         )}
@@ -600,7 +600,7 @@ export default function ScanPage() {
 
         {error && (
           <div
-            className="absolute left-0 right-0 mx-4 bg-red-600 text-white border-2 border-[#0B0E14] font-mono text-xs font-bold px-4 py-3 rounded-xl z-10"
+            className="absolute left-0 right-0 mx-4 bg-red-600 text-white border-2 border-[#0B0E14] text-xs font-bold px-4 py-3 rounded-xl z-10"
             style={{
               bottom: "calc(env(safe-area-inset-bottom, 0px) + 6.5rem)",
             }}
@@ -612,147 +612,131 @@ export default function ScanPage() {
     );
   }
 
-  // ---------- IDLE / INDUSTRIAL HIGH-CONTRAST TACTILE RENDER ----------
+  // ---------- IDLE RENDER ----------
   return (
-    <div className={`space-y-3 ${showProductDropdown ? "pb-64" : ""}`}>
+    <div className={`space-y-3.5 ${showProductDropdown ? "pb-64" : ""}`}>
       {successToast && (
-        <div className="rounded-2xl px-3.5 py-2.5 font-mono text-xs font-bold bg-[#16C784] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14]">
+        <div className="rounded-2xl px-4 py-3 text-xs font-bold bg-[#16C784] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14]">
           ✓ {successToast}
         </div>
       )}
 
       {error && (
-        <div className="rounded-2xl px-3.5 py-2.5 font-mono text-xs font-bold bg-red-100 text-red-900 border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14]">
+        <div className="rounded-2xl px-4 py-3 text-xs font-bold bg-red-100 text-red-900 border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14]">
           {error}
         </div>
       )}
 
-      {/* 1. 2-FLOW SWITCHER: [1] KE SHEET vs [2] KLAIM SJ */}
+      {/* 1. 2-Flow Switcher */}
       <div className="grid grid-cols-2 gap-2.5">
         <button
           type="button"
           onClick={() => changeFlowMode("direct")}
-          className={`py-2.5 px-3 rounded-xl font-mono text-xs font-bold uppercase tracking-wider border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] active:translate-y-[2px] active:shadow-none transition-all ${
+          className={`py-2.5 px-3 rounded-xl text-xs font-bold border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none transition-all ${
             flowMode === "direct"
               ? "bg-[#0B0E14] text-white"
-              : "bg-white text-[#0B0E14] hover:bg-gray-100"
+              : "bg-white text-[#0B0E14] hover:bg-gray-50"
           }`}
         >
-          {flowMode === "direct" ? "[1] KE SHEET ✓" : "[1] KE SHEET"}
+          Input ke Sheet
         </button>
 
         <button
           type="button"
           onClick={() => changeFlowMode("verify")}
-          className={`py-2.5 px-3 rounded-xl font-mono text-xs font-bold uppercase tracking-wider border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] active:translate-y-[2px] active:shadow-none transition-all ${
+          className={`py-2.5 px-3 rounded-xl text-xs font-bold border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center gap-1.5 ${
             flowMode === "verify"
               ? "bg-[#0B0E14] text-white"
-              : "bg-white text-[#0B0E14] hover:bg-gray-100"
+              : "bg-white text-[#0B0E14] hover:bg-gray-50"
           }`}
         >
-          {flowMode === "verify" ? "[2] KLAIM SJ ✓" : "[2] KLAIM SJ"}
+          <span>Klaim SJ & Verifikasi</span>
+          {session && (
+            <span className="w-2 h-2 rounded-full bg-[#16C784] shrink-0" />
+          )}
         </button>
       </div>
 
-      {/* 2. CONTEXT BANNER & STORE TOOLS */}
-      {flowMode === "verify" ? (
-        <>
-          {/* Info Banner or Active Store Session Banner */}
-          {session ? (
-            <div className="bg-[#FEF0C7] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl p-3 flex items-center justify-between gap-2">
+      {/* 2. Konteks Sesi Toko & Aksi Klaim SJ (Hanya saat mode Klaim SJ dipilih) */}
+      {flowMode === "verify" && (
+        <div className="space-y-3">
+          {session && (
+            <div className="bg-[#FEF0C7] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl p-3.5 flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="bg-[#0B0E14] text-[#16C784] font-mono text-[10px] font-bold px-2 py-0.5 rounded shrink-0">
-                    AKTIF
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="bg-[#0B0E14] text-[#16C784] text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">
+                    Sesi Aktif
                   </span>
-                  <h2 className="text-xs font-black text-[#0B0E14] uppercase truncate">
+                  <h2 className="text-sm font-extrabold text-[#0B0E14] leading-snug break-words">
                     {session.storeName}
                   </h2>
                 </div>
-                <p className="font-mono text-[11px] text-gray-700 font-semibold truncate mt-1">
+                <p className="text-xs text-gray-700 font-semibold mt-1">
                   {session.noSJ ? `SJ: ${session.noSJ} • ` : ""}
-                  SHEET {session.targetSheet.toUpperCase()} •{" "}
-                  {session.items.reduce((a, b) => a + b.qty, 0)} PCS (
+                  Sheet {session.targetSheet} •{" "}
+                  {session.items.reduce((a, b) => a + b.qty, 0)} pcs (
                   {new Set(session.items.map((i) => i.sku || i.barcode)).size} SKU)
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => navigate("/verification")}
-                className="bg-[#0B0E14] text-white font-mono text-[11px] font-bold px-3 py-1.5 rounded-xl shrink-0 hover:bg-gray-800 active:translate-y-[1px]"
+                className="bg-[#0B0E14] text-white text-xs font-bold px-3 py-2 rounded-xl border-2 border-[#0B0E14] shrink-0 hover:bg-gray-800 active:translate-y-[1px]"
               >
-                CEK SJ →
+                Cek SJ
               </button>
-            </div>
-          ) : (
-            <div className="bg-[#FEF0C7] border-2 border-[#0B0E14] rounded-2xl p-3 flex items-start gap-2.5">
-              <span className="bg-[#0B0E14] text-[#FDE047] font-mono text-[10px] font-bold px-2 py-0.5 rounded shrink-0 mt-0.5">
-                INFO
-              </span>
-              <p className="text-xs font-medium text-[#0B0E14] leading-snug">
-                Wajib mulai sesi toko atau foto Surat Jalan (SJ) sebelum scan barang retur.
-              </p>
             </div>
           )}
 
-          {/* 2-Column Tactile Action Cards: BACA SJ (OCR) & PILIH TOKO */}
-          <div className="grid grid-cols-2 gap-2.5">
+          {/* 2 Kartu Aksi: Baca SJ & Pilih Toko */}
+          <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => {
                 changeFlowMode("verify");
                 navigate("/verification", { state: { autoOpenScan: true } });
               }}
-              className="bg-white border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl p-3.5 text-left hover:bg-gray-50 active:translate-y-[2px] active:shadow-none transition-all"
+              className="bg-white border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl p-3.5 text-left hover:bg-gray-50 active:translate-y-[1px] active:shadow-none transition-all"
             >
-              <div className="w-9 h-9 rounded-xl bg-[#0B0E14] text-white flex items-center justify-center mb-3">
+              <div className="w-9 h-9 rounded-xl bg-[#0B0E14] text-white flex items-center justify-center mb-2.5">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <span className="font-black text-xs text-[#0B0E14] uppercase tracking-tight block">
-                BACA SJ (OCR)
+              <span className="font-extrabold text-xs text-[#0B0E14] block">
+                Baca Foto SJ
               </span>
-              <span className="font-mono text-[11px] text-gray-500 block mt-0.5">
-                Scan Lembar Fisik
+              <span className="text-[11px] text-gray-500 font-medium block mt-0.5">
+                Scan lembar fisik SJ
               </span>
             </button>
 
             <button
               type="button"
               onClick={() => setShowNewStoreModal(true)}
-              className="bg-[#38BDF8] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl p-3.5 text-left hover:bg-[#0EA5E9] active:translate-y-[2px] active:shadow-none transition-all"
+              className="bg-[#38BDF8] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl p-3.5 text-left hover:bg-[#0EA5E9] active:translate-y-[1px] active:shadow-none transition-all"
             >
-              <div className="w-9 h-9 rounded-xl bg-[#0B0E14] text-white flex items-center justify-center mb-3">
+              <div className="w-9 h-9 rounded-xl bg-[#0B0E14] text-white flex items-center justify-center mb-2.5">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <span className="font-black text-xs text-[#0B0E14] uppercase tracking-tight block">
-                {session ? "GANTI TOKO" : "PILIH TOKO"}
+              <span className="font-extrabold text-xs text-[#0B0E14] block">
+                {session ? "Ganti Toko" : "Pilih / Mulai Toko"}
               </span>
-              <span className="font-mono text-[11px] text-[#0B0E14]/80 font-semibold truncate block mt-0.5">
+              <span className="text-[11px] text-[#0B0E14]/80 font-semibold block mt-0.5 line-clamp-1">
                 {session
                   ? session.storeName
                   : distriHistory.length > 0
-                  ? `${distriHistory.length} Toko Aktif`
-                  : "Mulai Sesi Toko"}
+                  ? `${distriHistory.length} riwayat toko`
+                  : "Buat sesi toko baru"}
               </span>
             </button>
           </div>
-        </>
-      ) : (
-        <div className="bg-[#FEF0C7] border-2 border-[#0B0E14] rounded-2xl p-3 flex items-start gap-2.5">
-          <span className="bg-[#0B0E14] text-[#FDE047] font-mono text-[10px] font-bold px-2 py-0.5 rounded shrink-0 mt-0.5">
-            INFO
-          </span>
-          <p className="text-xs font-medium text-[#0B0E14] leading-snug">
-            Input manual langsung ke Google Sheet (Bagas / Dimas) tanpa masuk sesi verifikasi Surat Jalan.
-          </p>
         </div>
       )}
 
-      {/* 3. EXTRA-LARGE GREEN BARCODE TRIGGER BUTTON (ZEBRA / WAREHOUSE STYLE) */}
+      {/* 3. Tombol Utama Hijau: SCAN BARCODE */}
       <button
         type="button"
         onClick={() => {
@@ -771,103 +755,95 @@ export default function ScanPage() {
         </div>
 
         <div className="min-w-0 flex-1">
-          <span className="text-base font-black text-[#0B0E14] uppercase tracking-tight block leading-tight">
-            {flowMode === "verify"
-              ? session
-                ? "TEMBAK BARCODE"
-                : "MULAI TOKO & SCAN"
-              : "TEMBAK BARCODE"}
+          <span className="text-base font-extrabold text-[#0B0E14] tracking-tight block leading-tight">
+            {flowMode === "verify" && !session ? "MULAI TOKO & SCAN" : "SCAN BARCODE"}
           </span>
-          <span className="font-mono text-xs text-[#0B0E14]/80 font-semibold block mt-0.5 truncate">
+          <span className="text-xs text-[#0B0E14]/80 font-semibold block mt-0.5 leading-snug">
             {flowMode === "verify" && session
               ? `Toko: ${session.storeName}`
-              : "Tekan untuk tembak barcode"}
+              : "Ketuk untuk buka kamera"}
           </span>
         </div>
 
-        <span className="bg-[#0B0E14] text-white font-mono text-xs font-bold px-3 py-1.5 rounded-lg shrink-0">
-          GO →
+        <span className="bg-[#0B0E14] text-white text-xs font-bold px-3 py-1.5 rounded-xl shrink-0">
+          Mulai
         </span>
       </button>
 
-      {/* 4. CARI PRODUK MANUAL CARD */}
+      {/* 4. Cari Produk Manual Card */}
       <div
         ref={searchCardRef}
-        className="bg-white border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl p-3.5"
+        className="bg-white border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl p-4"
       >
         <div className="flex items-center justify-between mb-2.5">
-          <span className="font-mono text-xs font-bold text-[#0B0E14] uppercase tracking-wider">
-            CARI PRODUK MANUAL
+          <span className="text-xs font-extrabold text-[#0B0E14]">
+            Cari Produk Manual
           </span>
-          <span className="bg-[#E2E8F0] border-2 border-[#0B0E14] text-[#0B0E14] font-mono text-[11px] font-bold px-2 py-0.5 rounded-md">
+          <span className="bg-[#F4F3EE] border-2 border-[#0B0E14] text-[#0B0E14] text-[11px] font-bold px-2.5 py-0.5 rounded-lg">
             {loadingProducts ? "..." : `${products.length} SKU`}
           </span>
         </div>
 
         <div className="relative" ref={dropdownRef}>
-          <div className="flex gap-2">
-            <div className="relative flex-1 min-w-0">
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={productSearch}
-                onFocus={() => {
-                  if (productSearch.trim().length > 0) {
-                    setShowProductDropdown(true);
-                  }
-                  setTimeout(() => {
-                    searchCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }, 150);
-                }}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setProductSearch(val);
-                  const open = val.trim().length > 0;
-                  setShowProductDropdown(open);
-                  if (open) {
-                    searchCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }
-                }}
-                placeholder={
-                  loadingProducts ? "Memuat produk..." : "Ketik SKU / Batch / Nama..."
-                }
-                disabled={loadingProducts}
-                className="w-full bg-[#F4F3EE] border-2 border-[#0B0E14] rounded-xl px-3 py-2.5 pr-8 font-mono text-xs text-[#0B0E14] placeholder:text-gray-500 focus:bg-white focus:outline-none"
-              />
-              {productSearch.trim() && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProductSearch("");
-                    setShowProductDropdown(false);
-                    searchInputRef.current?.focus();
-                  }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#0B0E14] font-mono font-bold text-sm"
-                  aria-label="Hapus pencarian"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (!productSearch.trim()) {
-                  searchInputRef.current?.focus();
-                  return;
-                }
-                setShowProductDropdown(true);
-                searchCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-              className="bg-[#0B0E14] text-white border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none rounded-xl px-4 py-2.5 font-mono text-xs font-bold uppercase tracking-wider shrink-0"
+          <div className="relative">
+            <svg
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.2}
             >
-              CARI
-            </button>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={productSearch}
+              onFocus={() => {
+                if (productSearch.trim().length > 0) {
+                  setShowProductDropdown(true);
+                }
+                setTimeout(() => {
+                  searchCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }, 150);
+              }}
+              onChange={(e) => {
+                const val = e.target.value;
+                setProductSearch(val);
+                const open = val.trim().length > 0;
+                setShowProductDropdown(open);
+                if (open) {
+                  searchCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+              }}
+              placeholder={
+                loadingProducts ? "Memuat produk..." : "Ketik nama produk, SKU, atau barcode..."
+              }
+              disabled={loadingProducts}
+              className="input-field pl-10 pr-9 py-2.5 text-sm"
+            />
+            {productSearch.trim() && (
+              <button
+                type="button"
+                onClick={() => {
+                  setProductSearch("");
+                  setShowProductDropdown(false);
+                  searchInputRef.current?.focus();
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#0B0E14] font-bold text-base"
+                aria-label="Hapus pencarian"
+              >
+                ×
+              </button>
+            )}
           </div>
 
           {showProductDropdown && filteredProducts.length > 0 && (
-            <div className="absolute z-30 left-0 right-0 mt-2 bg-white border-2 border-[#0B0E14] rounded-xl shadow-[0_4px_0_#0B0E14] max-h-64 overflow-y-auto divide-y-2 divide-gray-200">
+            <div className="absolute z-30 left-0 right-0 mt-2 bg-white border-2 border-[#0B0E14] rounded-xl shadow-[0_4px_0_#0B0E14] max-h-64 overflow-y-auto divide-y border-gray-200">
               {filteredProducts.slice(0, 50).map((p) => (
                 <button
                   key={p.barcode}
@@ -880,17 +856,17 @@ export default function ScanPage() {
                   }}
                   className="w-full text-left px-3.5 py-2.5 hover:bg-[#FEF0C7] transition-colors"
                 >
-                  <span className="text-xs font-black text-[#0B0E14] block leading-snug">
+                  <span className="text-xs font-bold text-[#0B0E14] block leading-snug break-words">
                     {p.product}
                   </span>
-                  <span className="font-mono text-[11px] text-gray-600 font-semibold block mt-0.5">
+                  <span className="font-mono text-[11px] text-gray-500 font-semibold block mt-0.5">
                     {p.sku} • {p.barcode}
                   </span>
                 </button>
               ))}
               {filteredProducts.length > 50 && (
-                <div className="px-3.5 py-2 font-mono text-[11px] text-gray-600 font-bold text-center bg-[#F4F3EE]">
-                  +{filteredProducts.length - 50} PRODUK LAINNYA
+                <div className="px-3.5 py-2 text-[11px] text-gray-500 font-bold text-center bg-[#F4F3EE]">
+                  +{filteredProducts.length - 50} produk lainnya
                 </div>
               )}
             </div>
@@ -900,8 +876,8 @@ export default function ScanPage() {
             productSearch.trim() &&
             filteredProducts.length === 0 &&
             !loadingProducts && (
-              <div className="absolute z-30 left-0 right-0 mt-2 bg-white border-2 border-[#0B0E14] rounded-xl shadow-[0_4px_0_#0B0E14] px-4 py-3 font-mono text-xs font-bold text-gray-600 text-center">
-                PRODUK TIDAK DITEMUKAN
+              <div className="absolute z-30 left-0 right-0 mt-2 bg-white border-2 border-[#0B0E14] rounded-xl shadow-[0_4px_0_#0B0E14] px-4 py-3 text-xs font-bold text-gray-500 text-center">
+                Produk tidak ditemukan
               </div>
             )}
         </div>
@@ -910,15 +886,15 @@ export default function ScanPage() {
       {/* Modal: Mulai / Pilih Sesi Toko */}
       {showNewStoreModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="card max-w-sm w-full p-4 space-y-3 bg-white">
+          <div className="card max-w-sm w-full p-4 space-y-3.5 bg-white">
             <div className="flex items-center justify-between pb-2.5 border-b-2 border-[#0B0E14]">
-              <h3 className="text-sm font-black text-[#0B0E14] uppercase tracking-tight">
-                {session ? "GANTI SESI TOKO" : "MULAI SESI TOKO BARU"}
+              <h3 className="text-sm font-extrabold text-[#0B0E14]">
+                {session ? "Ganti Sesi Toko" : "Mulai Sesi Toko Baru"}
               </h3>
               <button
                 type="button"
                 onClick={() => setShowNewStoreModal(false)}
-                className="w-7 h-7 rounded-lg bg-[#F4F3EE] border-2 border-[#0B0E14] font-mono text-sm font-bold flex items-center justify-center"
+                className="w-7 h-7 rounded-lg bg-[#F4F3EE] border-2 border-[#0B0E14] text-sm font-bold flex items-center justify-center"
               >
                 ×
               </button>
@@ -926,20 +902,20 @@ export default function ScanPage() {
 
             <form onSubmit={handleStartSession} className="space-y-3">
               <div>
-                <label className="label-field">NAMA TOKO / DISTRIBUTOR / EVENT</label>
+                <label className="label-field">Nama Toko / Distributor / Event</label>
                 <input
                   type="text"
                   value={newStoreName}
                   onChange={(e) => setNewStoreName(e.target.value)}
                   placeholder="Mis: Sociolla PIM, Watsons GI..."
-                  className="input-field text-xs py-2.5 font-bold"
+                  className="input-field text-xs py-2.5 font-semibold"
                   autoFocus
                   required
                 />
                 {distriHistory.length > 0 && (
                   <div className="mt-2">
-                    <span className="font-mono text-[10px] font-bold text-gray-500 uppercase block mb-1">
-                      PILIH CEPAT TOKO AKTIF:
+                    <span className="text-[11px] font-bold text-gray-500 block mb-1.5">
+                      Riwayat Toko:
                     </span>
                     <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
                       {distriHistory.slice(0, 10).map((h, idx) => (
@@ -947,7 +923,7 @@ export default function ScanPage() {
                           key={idx}
                           type="button"
                           onClick={() => setNewStoreName(h)}
-                          className={`font-mono text-[11px] font-bold px-2.5 py-1 rounded-lg border-2 border-[#0B0E14] truncate max-w-[160px] transition-colors ${
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border-2 border-[#0B0E14] transition-colors ${
                             newStoreName === h
                               ? "bg-[#0B0E14] text-[#FDE047]"
                               : "bg-[#F4F3EE] hover:bg-[#FEF0C7] text-[#0B0E14]"
@@ -962,7 +938,7 @@ export default function ScanPage() {
               </div>
 
               <div>
-                <label className="label-field">NOMOR SURAT JALAN (OPSIONAL)</label>
+                <label className="label-field">Nomor Surat Jalan (Opsional)</label>
                 <input
                   type="text"
                   value={newStoreNoSJ}
@@ -973,39 +949,39 @@ export default function ScanPage() {
               </div>
 
               <div>
-                <label className="label-field">SHEET TUJUAN</label>
+                <label className="label-field">Sheet Tujuan</label>
                 <div className="grid grid-cols-2 gap-2">
                   {(["Bagas", "Dimas"] as const).map((s) => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => setNewStoreTargetSheet(s)}
-                      className={`py-2 rounded-xl font-mono text-xs font-bold uppercase border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] transition-all ${
+                      className={`py-2 rounded-xl text-xs font-bold border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] transition-all ${
                         newStoreTargetSheet === s
                           ? "bg-[#0B0E14] text-white"
-                          : "bg-white text-[#0B0E14] hover:bg-gray-100"
+                          : "bg-white text-[#0B0E14] hover:bg-gray-50"
                       }`}
                     >
-                      SHEET {s.toUpperCase()}
+                      Sheet {s}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2 border-t-2 border-[#0B0E14]">
+              <div className="flex gap-2.5 pt-2 border-t-2 border-[#0B0E14]">
                 <button
                   type="button"
                   onClick={() => setShowNewStoreModal(false)}
                   className="flex-1 btn-outline py-2.5 text-xs"
                 >
-                  BATAL
+                  Batal
                 </button>
                 <button
                   type="submit"
                   disabled={!newStoreName.trim()}
-                  className="flex-1 bg-[#16C784] hover:bg-[#10B981] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] active:translate-y-[2px] active:shadow-none py-2.5 rounded-xl font-mono text-xs font-bold uppercase disabled:opacity-40 transition-all"
+                  className="flex-1 bg-[#16C784] hover:bg-[#10B981] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none py-2.5 rounded-xl text-xs font-bold disabled:opacity-40 transition-all"
                 >
-                  MULAI TOKO →
+                  Mulai Toko
                 </button>
               </div>
             </form>

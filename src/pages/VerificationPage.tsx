@@ -470,7 +470,7 @@ export default function VerificationPage() {
       {/* Toast Notification */}
       {toast && (
         <div
-          className={`rounded-2xl px-3.5 py-2.5 font-mono text-xs font-bold border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] ${
+          className={`rounded-2xl px-4 py-3 text-xs font-bold border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] ${
             toast.type === "success"
               ? "bg-[#16C784] text-[#0B0E14]"
               : "bg-red-100 text-red-900"
@@ -485,15 +485,15 @@ export default function VerificationPage() {
         <button
           type="button"
           onClick={() => setActiveTab("current")}
-          className={`py-2.5 px-3 rounded-xl font-mono text-xs font-bold uppercase tracking-wider border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] active:translate-y-[2px] active:shadow-none transition-all ${
+          className={`py-2.5 px-3 rounded-xl text-xs font-bold border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none transition-all ${
             activeTab === "current"
               ? "bg-[#0B0E14] text-white"
-              : "bg-white text-[#0B0E14] hover:bg-gray-100"
+              : "bg-white text-[#0B0E14] hover:bg-gray-50"
           }`}
         >
-          SESI AKTIF
+          Sesi Toko Aktif
           {session && session.items.length > 0 && (
-            <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] bg-[#16C784] text-[#0B0E14]">
+            <span className="ml-1.5 px-1.5 py-0.5 rounded-md text-[10px] bg-[#16C784] text-[#0B0E14]">
               {session.items.length}
             </span>
           )}
@@ -504,13 +504,13 @@ export default function VerificationPage() {
             setActiveTab("history");
             setReconHistory(getReconHistory());
           }}
-          className={`py-2.5 px-3 rounded-xl font-mono text-xs font-bold uppercase tracking-wider border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] active:translate-y-[2px] active:shadow-none transition-all ${
+          className={`py-2.5 px-3 rounded-xl text-xs font-bold border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none transition-all ${
             activeTab === "history"
               ? "bg-[#0B0E14] text-white"
-              : "bg-white text-[#0B0E14] hover:bg-gray-100"
+              : "bg-white text-[#0B0E14] hover:bg-gray-50"
           }`}
         >
-          RIWAYAT REKON ({reconHistory.length})
+          Riwayat Rekon ({reconHistory.length})
         </button>
       </div>
 
@@ -521,15 +521,17 @@ export default function VerificationPage() {
         <>
           {!session ? (
             <div className="card p-6 text-center space-y-4">
-              <div className="w-16 h-16 bg-[#FEF0C7] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] rounded-2xl flex items-center justify-center mx-auto text-3xl">
-                📄
+              <div className="w-12 h-12 bg-[#FEF0C7] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] rounded-2xl flex items-center justify-center mx-auto">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
               </div>
               <div className="space-y-1">
-                <h3 className="text-base font-black text-[#0B0E14] uppercase">
-                  MULAI VERIFIKASI & REKONSILIASI TOKO
+                <h3 className="text-sm font-extrabold text-[#0B0E14]">
+                  Belum Ada Sesi Verifikasi Aktif
                 </h3>
-                <p className="text-xs text-gray-600 max-w-xs mx-auto">
-                  Belum ada sesi toko aktif. Anda bisa langsung <strong>foto lembar kertas SJ</strong> agar AI membaca data otomatis, atau mulai scan fisik terlebih dahulu.
+                <p className="text-xs text-gray-500 max-w-xs mx-auto leading-relaxed">
+                  Foto lembar Surat Jalan (SJ) untuk membaca daftar klaim otomatis, atau mulai scan barang fisik terlebih dahulu.
                 </p>
               </div>
 
@@ -538,53 +540,50 @@ export default function VerificationPage() {
                   type="button"
                   onClick={handleOpenAiScan}
                   disabled={aiLoading}
-                  className="w-full py-3 px-4 font-mono text-xs font-bold uppercase bg-[#16C784] hover:bg-[#10B981] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_4px_0_#0B0E14] active:translate-y-[2px] active:shadow-none rounded-xl flex items-center justify-center gap-2 transition-all"
+                  className="w-full py-2.5 px-4 text-xs font-bold bg-[#16C784] hover:bg-[#10B981] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none rounded-xl flex items-center justify-center gap-2 transition-all"
                 >
-                  <span className="text-base">📷</span>
-                  <span>{aiLoading ? "MEMBACA DOKUMEN..." : "BACA LEMBAR SJ (OCR)"}</span>
+                  <span>{aiLoading ? "Membaca Dokumen..." : "Baca Foto Lembar SJ"}</span>
                 </button>
 
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      try {
-                        localStorage.setItem("scan-retur-flow-mode", "verify");
-                      } catch {}
-                      navigate("/");
-                    }}
-                    className="flex-1 btn-outline py-2.5 text-xs"
-                  >
-                    MULAI SCAN FISIK
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      localStorage.setItem("scan-retur-flow-mode", "verify");
+                    } catch {}
+                    navigate("/");
+                  }}
+                  className="w-full btn-outline py-2.5 text-xs"
+                >
+                  Mulai Scan Fisik
+                </button>
               </div>
             </div>
           ) : (
             <>
               {/* Store Metadata & Summary Card */}
-              <div className="card p-3.5 space-y-3">
-                <div className="flex items-start justify-between gap-2 border-b-2 border-[#0B0E14] pb-2.5">
-                  <div className="min-w-0">
-                    <span className="inline-block px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-[#0B0E14] text-[#FDE047] uppercase tracking-wider mb-1">
-                      SESI TOKO BERJALAN
+              <div className="card p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2.5 border-b-2 border-[#0B0E14] pb-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#0B0E14] text-[#FDE047] mb-1">
+                      Sesi Toko Aktif
                     </span>
-                    <h2 className="text-base font-black text-[#0B0E14] uppercase truncate">
+                    <h2 className="text-sm font-extrabold text-[#0B0E14] leading-snug break-words">
                       {session.storeName}
                     </h2>
-                    <p className="font-mono text-xs text-gray-600 font-semibold">
-                      {session.noSJ ? `NO. SJ: ${session.noSJ} • ` : ""}
-                      {session.receiveDate || "HARI INI"} • SHEET {session.targetSheet.toUpperCase()}
+                    <p className="text-xs text-gray-600 font-semibold mt-0.5">
+                      {session.noSJ ? `No. SJ: ${session.noSJ} • ` : ""}
+                      {session.receiveDate || "Hari Ini"} • Sheet {session.targetSheet}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
                       onClick={() => setScannedListModalOpen(true)}
-                      className="font-mono text-[11px] font-bold text-[#0B0E14] bg-[#F4F3EE] hover:bg-gray-200 px-2.5 py-1.5 rounded-xl border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14]"
+                      className="text-xs font-bold text-[#0B0E14] bg-[#F4F3EE] hover:bg-gray-200 px-2.5 py-1.5 rounded-xl border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14]"
                       title="Lihat & hapus item fisik yang sudah discan"
                     >
-                      📋 SCAN ({session.items.length})
+                      Scan ({session.items.length})
                     </button>
                     <button
                       type="button"
@@ -594,87 +593,84 @@ export default function VerificationPage() {
                         } catch {}
                         navigate("/");
                       }}
-                      className="font-mono text-[11px] font-bold text-[#0B0E14] bg-[#16C784] hover:bg-[#10B981] px-2.5 py-1.5 rounded-xl border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14]"
+                      className="text-xs font-bold text-[#0B0E14] bg-[#16C784] hover:bg-[#10B981] px-2.5 py-1.5 rounded-xl border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14]"
                     >
-                      + SCAN
+                      + Scan
                     </button>
                   </div>
                 </div>
 
                 {/* Scorecards */}
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-[#38BDF8] border-2 border-[#0B0E14] p-2 rounded-xl">
-                    <span className="font-mono text-[10px] font-bold text-[#0B0E14] block uppercase">
-                      FISIK
+                <div className="grid grid-cols-3 gap-2.5 text-center">
+                  <div className="bg-[#38BDF8] border-2 border-[#0B0E14] p-2.5 rounded-xl">
+                    <span className="text-[10px] font-bold text-[#0B0E14] block uppercase">
+                      Fisik
                     </span>
-                    <span className="font-mono text-lg font-black text-[#0B0E14]">
-                      {totalPhysical} <span className="text-[10px] font-bold">PCS</span>
+                    <span className="text-base font-extrabold text-[#0B0E14] tabular-nums">
+                      {totalPhysical} <span className="text-[10px] font-bold">pcs</span>
                     </span>
                   </div>
 
-                  <div className="bg-[#F4F3EE] border-2 border-[#0B0E14] p-2 rounded-xl">
-                    <span className="font-mono text-[10px] font-bold text-[#0B0E14] block uppercase">
-                      KLAIM SJ
+                  <div className="bg-[#F4F3EE] border-2 border-[#0B0E14] p-2.5 rounded-xl">
+                    <span className="text-[10px] font-bold text-[#0B0E14] block uppercase">
+                      Klaim SJ
                     </span>
-                    <span className="font-mono text-lg font-black text-[#0B0E14]">
-                      {totalClaim} <span className="text-[10px] font-bold">PCS</span>
+                    <span className="text-base font-extrabold text-[#0B0E14] tabular-nums">
+                      {totalClaim} <span className="text-[10px] font-bold">pcs</span>
                     </span>
                   </div>
 
                   <div
-                    className={`p-2 rounded-xl border-2 border-[#0B0E14] ${
+                    className={`p-2.5 rounded-xl border-2 border-[#0B0E14] ${
                       totalPhysical === totalClaim && diffCount === 0
                         ? "bg-[#16C784] text-[#0B0E14]"
                         : "bg-[#FDE047] text-[#0B0E14]"
                     }`}
                   >
-                    <span className="font-mono text-[10px] font-bold block uppercase">
-                      SELISIH
+                    <span className="text-[10px] font-bold block uppercase">
+                      Selisih
                     </span>
-                    <span className="font-mono text-lg font-black">
+                    <span className="text-base font-extrabold tabular-nums">
                       {totalPhysical - totalClaim === 0
                         ? "0"
                         : totalPhysical - totalClaim > 0
                         ? `+${totalPhysical - totalClaim}`
                         : `${totalPhysical - totalClaim}`}
-                      <span className="text-[10px] font-bold"> PCS</span>
+                      <span className="text-[10px] font-bold"> pcs</span>
                     </span>
                   </div>
                 </div>
 
                 {/* Status Bar */}
                 <div
-                  className={`flex items-center justify-between px-3 py-2 rounded-xl font-mono text-xs font-bold border-2 border-[#0B0E14] ${
+                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border-2 border-[#0B0E14] ${
                     diffCount === 0 && reconItems.length > 0
-                      ? "bg-[#16C784]/30 text-[#0B0E14]"
+                      ? "bg-[#16C784]/25 text-[#0B0E14]"
                       : "bg-[#FEF0C7] text-[#0B0E14]"
                   }`}
                 >
-                  <div className="flex items-center gap-1.5">
-                    <span>{diffCount === 0 && reconItems.length > 0 ? "✅" : "⚠️"}</span>
-                    <span>
-                      {diffCount === 0 && reconItems.length > 0
-                        ? "SEMUA SKU SESUAI LEMBAR SJ"
-                        : `${diffCount} DARI ${reconItems.length} SKU SELISIH`}
-                    </span>
-                  </div>
+                  <span>
+                    {diffCount === 0 && reconItems.length > 0
+                      ? "✓ Semua SKU sesuai dengan lembar SJ"
+                      : `${diffCount} dari ${reconItems.length} SKU mengalami selisih`}
+                  </span>
                   {diffCount > 0 && (
-                    <span className="text-[11px] font-bold text-red-700">
-                      ({unconfirmedDiffCount} BELUM KONFIRMASI)
+                    <span className="text-[11px] font-bold text-red-700 shrink-0 ml-2">
+                      ({unconfirmedDiffCount} belum konfirmasi)
                     </span>
                   )}
                 </div>
               </div>
 
               {/* Action Tools & Filters Bar */}
-              <div className="card p-2.5 space-y-2">
-                <div className="flex flex-wrap gap-1.5">
+              <div className="card p-3 space-y-2.5">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={handleMatchAll}
-                    className="flex-1 min-w-[130px] btn-outline py-2 text-xs bg-[#F4F3EE]"
+                    className="btn-outline py-2 px-2 text-xs bg-[#F4F3EE]"
                   >
-                    ✓ SAMAKAN KLAIM
+                    Samakan Klaim
                   </button>
                   <button
                     type="button"
@@ -683,41 +679,40 @@ export default function VerificationPage() {
                       setSkuSearch("");
                       setSelectedProductToAdd(null);
                     }}
-                    className="flex-1 min-w-[110px] btn-outline py-2 text-xs bg-[#38BDF8] hover:bg-[#0EA5E9]"
+                    className="btn-outline py-2 px-2 text-xs bg-[#38BDF8] hover:bg-[#0EA5E9]"
                   >
-                    + TAMBAH SKU
+                    + Tambah SKU
                   </button>
                   <button
                     type="button"
                     onClick={handleOpenAiScan}
                     disabled={aiLoading}
-                    className="flex-1 min-w-[120px] btn-outline py-2 text-xs bg-[#FDE047] hover:bg-[#FACC15] flex items-center justify-center gap-1"
+                    className="btn-outline py-2 px-2 text-xs bg-[#FDE047] hover:bg-[#FACC15]"
                   >
-                    <span>{aiLoading ? "⏳" : "📷"}</span>
-                    <span>{aiLoading ? "MEMBACA..." : "BACA SJ (OCR)"}</span>
+                    {aiLoading ? "Membaca..." : "Baca Foto SJ"}
                   </button>
                 </div>
 
                 {/* Filter Pills */}
-                <div className="flex items-center justify-between pt-2 border-t-2 border-gray-200 text-xs">
-                  <span className="font-mono text-[11px] font-bold text-gray-600 uppercase">FILTER:</span>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200 text-xs">
+                  <span className="text-[11px] font-bold text-gray-500">Filter:</span>
                   <div className="flex gap-1.5">
                     {(["all", "diff", "match"] as const).map((tab) => (
                       <button
                         key={tab}
                         type="button"
                         onClick={() => setFilterStatus(tab)}
-                        className={`px-2.5 py-1 rounded-lg font-mono text-xs font-bold border-2 border-[#0B0E14] transition-all ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border-2 border-[#0B0E14] transition-all ${
                           filterStatus === tab
                             ? "bg-[#0B0E14] text-white"
                             : "bg-[#F4F3EE] text-[#0B0E14] hover:bg-gray-200"
                         }`}
                       >
                         {tab === "all"
-                          ? `SEMUA (${reconItems.length})`
+                          ? `Semua (${reconItems.length})`
                           : tab === "diff"
-                          ? `SELISIH (${diffCount})`
-                          : `SESUAI (${matchCount})`}
+                          ? `Selisih (${diffCount})`
+                          : `Sesuai (${matchCount})`}
                       </button>
                     ))}
                   </div>
@@ -725,9 +720,9 @@ export default function VerificationPage() {
               </div>
 
               {/* Items List */}
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {filteredItems.length === 0 ? (
-                  <div className="card p-6 text-center text-xs text-gray-400">
+                  <div className="card p-6 text-center text-xs font-semibold text-gray-500">
                     Tidak ada item pada filter ini.
                   </div>
                 ) : (
@@ -741,61 +736,51 @@ export default function VerificationPage() {
                     return (
                       <div
                         key={item.key}
-                        className={`card p-3 transition-all border ${
-                          isMatch
-                            ? "border-emerald-200 bg-white"
-                            : isUnscanned
-                            ? "border-red-300 bg-red-50/40"
-                            : isUnder
-                            ? "border-amber-300 bg-amber-50/30"
-                            : isNotInSj
-                            ? "border-purple-300 bg-purple-50/30"
-                            : "border-amber-300 bg-amber-50/30"
-                        }`}
+                        className="card p-3.5 transition-all bg-white"
                       >
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
                             {/* Status Pill */}
-                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                            <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                               {isMatch && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                                  ✓ MATCH (Sesuai)
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#16C784] text-[#0B0E14] border border-[#0B0E14]">
+                                  ✓ Sesuai
                                 </span>
                               )}
                               {isUnscanned && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white animate-pulse">
-                                  🚫 BELUM TER-SCAN
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-600 text-white border border-[#0B0E14]">
+                                  Belum Scan
                                 </span>
                               )}
                               {isUnder && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-600 text-white">
-                                  🔴 KURANG {Math.abs(item.diff)} pcs
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FDE047] text-[#0B0E14] border border-[#0B0E14]">
+                                  Kurang {Math.abs(item.diff)} pcs
                                 </span>
                               )}
                               {isNotInSj && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-600 text-white">
-                                  🟣 TIDAK ADA DI SJ (+{item.physicalQty} pcs)
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#38BDF8] text-[#0B0E14] border border-[#0B0E14]">
+                                  Tidak Ada di SJ (+{item.physicalQty} pcs)
                                 </span>
                               )}
                               {isOver && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">
-                                  🟡 LEBIH DARI KLAIM (+{item.diff} pcs)
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FDE047] text-[#0B0E14] border border-[#0B0E14]">
+                                  Lebih +{item.diff} pcs
                                 </span>
                               )}
 
                               {item.confirmedDiscrepancy && !isMatch && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-200 text-gray-700">
-                                  ✓ Discrepancy Terkonfirmasi
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-gray-100 text-gray-700 border border-[#0B0E14]">
+                                  ✓ Dikonfirmasi
                                 </span>
                               )}
                             </div>
 
-                            <h4 className="text-xs font-bold text-gray-900 leading-snug">
+                            <h4 className="text-xs font-extrabold text-[#0B0E14] leading-snug break-words">
                               {item.product}
                             </h4>
-                            <p className="text-[11px] text-gray-500 font-mono mt-0.5">
-                              SKU: {item.sku}
-                              {item.barcode ? ` · ${item.barcode}` : ""}
+                            <p className="text-[11px] text-gray-500 font-mono font-semibold mt-0.5">
+                              {item.sku}
+                              {item.barcode ? ` • ${item.barcode}` : ""}
                             </p>
 
                             {/* Batches Breakdown */}
@@ -804,7 +789,7 @@ export default function VerificationPage() {
                                 {item.batches.map((b, bIdx) => (
                                   <span
                                     key={bIdx}
-                                    className="text-[10px] font-mono bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded border border-gray-200"
+                                    className="text-[10px] font-mono font-bold bg-[#F4F3EE] text-[#0B0E14] px-2 py-0.5 rounded-md border border-[#0B0E14]"
                                   >
                                     Lot: {b.batch || "-"} ({b.qty}x)
                                   </span>
@@ -814,39 +799,39 @@ export default function VerificationPage() {
 
                             {/* Catatan Selisih */}
                             {item.notes && (
-                              <p className="text-[11px] text-gray-700 bg-amber-100/70 border border-amber-200 rounded-md px-2 py-1 mt-1.5 font-medium">
-                                💬 <em>{item.notes}</em>
+                              <p className="text-[11px] text-[#0B0E14] bg-[#FEF0C7] border border-[#0B0E14] rounded-lg px-2.5 py-1 mt-1.5 font-semibold">
+                                Catatan: {item.notes}
                               </p>
                             )}
                           </div>
 
                           {/* Qty Comparators */}
-                          <div className="shrink-0 flex flex-col items-end gap-1.5">
+                          <div className="shrink-0 flex flex-col items-end gap-2">
                             <div className="flex items-center gap-2">
                               {/* Fisik */}
                               <div className="text-right">
-                                <span className="text-[10px] text-gray-400 font-bold block uppercase">
+                                <span className="text-[10px] text-gray-500 font-bold block uppercase">
                                   Fisik
                                 </span>
-                                <span className="text-sm font-black text-gray-900">
+                                <span className="text-sm font-extrabold text-[#0B0E14] tabular-nums">
                                   {item.physicalQty}
                                 </span>
                               </div>
 
-                              <span className="text-gray-300 font-bold">vs</span>
+                              <span className="text-gray-400 text-xs font-bold">vs</span>
 
                               {/* Klaim SJ Input */}
                               <div className="text-right">
-                                <span className="text-[10px] text-purple-700 font-bold block uppercase">
+                                <span className="text-[10px] text-[#0B0E14] font-bold block uppercase">
                                   Klaim SJ
                                 </span>
-                                <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white shadow-2xs">
+                                <div className="flex items-center border-2 border-[#0B0E14] rounded-lg overflow-hidden bg-white">
                                   <button
                                     type="button"
                                     onClick={() =>
                                       handleUpdateClaim(item, Math.max(0, item.claimQty - 1))
                                     }
-                                    className="px-1.5 py-0.5 text-xs font-bold text-gray-500 hover:bg-gray-100"
+                                    className="px-2 py-0.5 text-xs font-bold text-[#0B0E14] hover:bg-gray-100"
                                   >
                                     -
                                   </button>
@@ -857,12 +842,12 @@ export default function VerificationPage() {
                                     onChange={(e) =>
                                       handleUpdateClaim(item, Number(e.target.value) || 0)
                                     }
-                                    className="w-10 text-center text-xs font-black text-purple-900 py-1 focus:outline-none"
+                                    className="w-10 text-center text-xs font-extrabold text-[#0B0E14] py-1 focus:outline-none tabular-nums"
                                   />
                                   <button
                                     type="button"
                                     onClick={() => handleUpdateClaim(item, item.claimQty + 1)}
-                                    className="px-1.5 py-0.5 text-xs font-bold text-gray-500 hover:bg-gray-100"
+                                    className="px-2 py-0.5 text-xs font-bold text-[#0B0E14] hover:bg-gray-100"
                                   >
                                     +
                                   </button>
@@ -871,7 +856,7 @@ export default function VerificationPage() {
                             </div>
 
                             {/* Tombol Aksi Cepat per Item */}
-                            <div className="flex items-center gap-1 mt-1">
+                            <div className="flex items-center gap-1.5">
                               {/* Scan ulang bila kurang / belum scan */}
                               {(isUnscanned || isUnder) && item.barcode && (
                                 <button
@@ -884,9 +869,9 @@ export default function VerificationPage() {
                                       `/return-form?barcode=${encodeURIComponent(item.barcode)}&mode=verify`
                                     );
                                   }}
-                                  className="text-[11px] font-bold bg-blue-600 text-white px-2 py-1 rounded-lg hover:bg-blue-700 shadow-2xs"
+                                  className="text-[11px] font-bold bg-[#16C784] text-[#0B0E14] border border-[#0B0E14] px-2.5 py-1 rounded-lg hover:bg-[#10B981]"
                                 >
-                                  📷 Scan Barang Ini
+                                  Scan Barang
                                 </button>
                               )}
 
@@ -898,7 +883,7 @@ export default function VerificationPage() {
                                     setDiscrepancyModalItem(item);
                                     setDiscrepancyNote(item.notes || "");
                                   }}
-                                  className="text-[11px] font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 px-2 py-1 rounded-lg"
+                                  className="text-[11px] font-bold text-[#0B0E14] bg-[#F4F3EE] hover:bg-gray-200 border border-[#0B0E14] px-2.5 py-1 rounded-lg"
                                 >
                                   {item.confirmedDiscrepancy ? "Edit Catatan" : "Catat Selisih"}
                                 </button>
@@ -913,24 +898,22 @@ export default function VerificationPage() {
               </div>
 
               {/* Bottom Sticky Action Bar */}
-              <div className="sticky bottom-16 z-40 bg-white p-3 rounded-2xl border-2 border-[#0B0E14] shadow-[0_4px_0_#0B0E14] space-y-2">
+              <div className="sticky bottom-16 z-40 bg-white p-3 rounded-2xl border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14]">
                 <div className="flex gap-2.5">
                   <button
                     type="button"
                     onClick={() => handleCopyWhatsApp()}
-                    className="flex-1 btn-outline py-2.5 text-xs flex items-center justify-center gap-1.5"
+                    className="flex-1 btn-outline py-2.5 text-xs"
                   >
-                    <span>📋</span>
-                    <span>SALIN WHATSAPP</span>
+                    Salin WhatsApp
                   </button>
 
                   <button
                     type="button"
                     onClick={handleFinishStoreClick}
-                    className="flex-1 py-2.5 px-3 rounded-xl font-mono text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 bg-[#16C784] hover:bg-[#10B981] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_3px_0_#0B0E14] active:translate-y-[2px] active:shadow-none transition-all"
+                    className="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold bg-[#16C784] hover:bg-[#10B981] text-[#0B0E14] border-2 border-[#0B0E14] shadow-[0_2px_0_#0B0E14] active:translate-y-[1px] active:shadow-none transition-all"
                   >
-                    <span>🔒</span>
-                    <span>SELESAI & ARSIP →</span>
+                    Selesai & Simpan
                   </button>
                 </div>
               </div>
