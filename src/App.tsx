@@ -28,7 +28,7 @@ function UserAvatar({ user, size = "sm" }: { user: AppUser; size?: "sm" | "lg" }
 
   return (
     <div
-      className={`${sizeClasses} rounded-full bg-[#0F172A] text-white font-bold flex items-center justify-center shrink-0`}
+      className={`${sizeClasses} rounded-full bg-[#1C1917] text-white font-bold flex items-center justify-center shrink-0`}
     >
       {initial}
     </div>
@@ -72,13 +72,13 @@ export default function App() {
     : "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z";
 
   return (
-    <div className="min-h-screen w-full max-w-[430px] mx-auto flex flex-col text-slate-900 relative">
+    <div className="min-h-screen w-full max-w-[430px] mx-auto flex flex-col text-stone-900 relative">
       {/* Header seragam untuk semua tab: ikon tab | judul + subjudul | akun */}
-      <header className="sticky top-0 z-40 px-4 pt-3 pb-3 bg-gradient-to-b from-[#DCE5EA] via-[#DCE5EA]/90 to-[#DCE5EA]/0 backdrop-blur-[2px]">
+      <header className="sticky top-0 z-40 px-4 pt-3 pb-3 bg-gradient-to-b from-[#ECE8E0] via-[#ECE8E0]/90 to-[#ECE8E0]/0 backdrop-blur-[2px]">
         <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
           {showBottomNav ? (
             <div
-              className="w-10 h-10 rounded-full bg-[#0F172A] text-white shadow-sm flex items-center justify-center shrink-0"
+              className="w-10 h-10 rounded-full bg-[#1C1917] text-white shadow-sm flex items-center justify-center shrink-0"
               aria-hidden="true"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
@@ -89,7 +89,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md border border-white/90 shadow-sm flex items-center justify-center text-slate-800 hover:bg-white active:scale-95 transition-all shrink-0"
+              className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md border border-white/90 shadow-sm flex items-center justify-center text-stone-800 hover:bg-white active:scale-95 transition-all shrink-0"
               aria-label="Kembali"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
@@ -99,10 +99,10 @@ export default function App() {
           )}
 
           <div className="min-w-0 text-center">
-            <h1 className="text-sm font-extrabold text-slate-900 tracking-tight leading-tight">
+            <h1 className="text-sm font-extrabold text-stone-900 tracking-tight leading-tight">
               {headerTitle}
             </h1>
-            <p className="text-[11px] font-medium text-slate-500 leading-tight mt-0.5">
+            <p className="text-[11px] font-medium text-stone-500 leading-tight mt-0.5">
               {headerSubtitle}
             </p>
           </div>
@@ -114,7 +114,7 @@ export default function App() {
             title="Akun & Logout"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-            <span className="text-xs font-bold text-slate-800">
+            <span className="text-xs font-bold text-stone-800">
               {user.displayName}
             </span>
           </button>
@@ -124,16 +124,16 @@ export default function App() {
       {/* Logout Confirm Dialog */}
       {logoutConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/35 backdrop-blur-xs" onClick={() => setLogoutConfirm(false)} />
+          <div className="absolute inset-0 bg-stone-900/35 backdrop-blur-xs" onClick={() => setLogoutConfirm(false)} />
           <div className="relative bg-white/90 backdrop-blur-xl border border-white rounded-3xl shadow-xl p-5 max-w-xs w-full space-y-4 text-center">
             <div className="flex justify-center mb-1">
               <UserAvatar user={user} size="lg" />
             </div>
-            <h3 className="font-bold text-base text-slate-900">Logout?</h3>
-            <p className="text-xs text-slate-500">
-              Keluar dari akun <strong className="text-slate-800">{user.displayName}</strong>
+            <h3 className="font-bold text-base text-stone-900">Logout?</h3>
+            <p className="text-xs text-stone-500">
+              Keluar dari akun <strong className="text-stone-800">{user.displayName}</strong>
               {user.email && (
-                <span className="block text-[11px] text-slate-400 mt-0.5">{user.email}</span>
+                <span className="block text-[11px] text-stone-400 mt-0.5">{user.email}</span>
               )}
             </p>
             <div className="flex gap-2.5">
@@ -167,7 +167,7 @@ export default function App() {
 
       {/* Bottom Frosted Pill Navigation */}
       {showBottomNav && (
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-50 px-4 pb-3 pt-1.5 bg-gradient-to-t from-[#BCCBD4] via-[#BCCBD4]/90 to-transparent">
+        <nav className="fixed bottom-0 left-1/2 -transtone-x-1/2 w-full max-w-[430px] z-50 px-4 pb-3 pt-1.5 bg-gradient-to-t from-[#D6D0C4] via-[#D6D0C4]/90 to-transparent">
           <div className="bg-white/75 backdrop-blur-xl border border-white/85 rounded-full p-1.5 shadow-[0_8px_24px_rgba(15,23,42,0.08)] grid grid-cols-3 gap-1">
             <NavTab
               active={isHome}
@@ -223,8 +223,8 @@ function NavTab({
       onClick={onClick}
       className={`flex items-center justify-center gap-1.5 rounded-full py-2 px-2 text-xs font-bold transition-all ${
         active
-          ? "bg-[#0F172A] text-white shadow-xs"
-          : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+          ? "bg-[#1C1917] text-white shadow-xs"
+          : "text-stone-600 hover:text-stone-900 hover:bg-white/50"
       }`}
     >
       {icon}

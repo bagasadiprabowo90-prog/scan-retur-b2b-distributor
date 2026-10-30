@@ -74,7 +74,7 @@ function HighlightText({ text, query }: { text: string; query: string }) {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="bg-sky-200/80 text-slate-900 rounded-xs px-0.5 font-bold">{text.slice(idx, idx + query.length)}</mark>
+      <mark className="bg-teal-200/80 text-stone-900 rounded-xs px-0.5 font-bold">{text.slice(idx, idx + query.length)}</mark>
       {text.slice(idx + query.length)}
     </>
   );
@@ -487,14 +487,14 @@ export default function ReturnFormPage() {
           <div className="card px-4 py-3 flex items-center justify-between gap-2.5">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="bg-[#0F172A] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0">
+                <span className="bg-[#1C1917] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0">
                   Verifikasi SJ
                 </span>
-                <span className="text-xs font-extrabold text-slate-900 leading-snug break-words">
+                <span className="text-xs font-extrabold text-stone-900 leading-snug break-words">
                   {activeSession.storeName}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+              <p className="text-[11px] text-stone-500 font-medium mt-0.5">
                 {activeSession.noSJ ? `SJ: ${activeSession.noSJ} • ` : ""}
                 Total Sesi: {activeSession.items.reduce((a, b) => a + b.qty, 0)} pcs ({activeSession.items.length} scan)
               </p>
@@ -503,14 +503,14 @@ export default function ReturnFormPage() {
               <button
                 type="button"
                 onClick={() => handleToggleVerifyMode(false)}
-                className="text-xs font-semibold text-slate-700 bg-white/85 border border-white/90 px-3 py-1.5 rounded-full hover:bg-white transition-colors"
+                className="text-xs font-semibold text-stone-700 bg-white/85 border border-white/90 px-3 py-1.5 rounded-full hover:bg-white transition-colors"
               >
                 Ke Sheet Saja
               </button>
               <button
                 type="button"
                 onClick={() => navigate("/verification")}
-                className="text-xs font-semibold text-white bg-[#0F172A] px-3 py-1.5 rounded-full hover:bg-slate-800 transition-colors"
+                className="text-xs font-semibold text-white bg-[#1C1917] px-3 py-1.5 rounded-full hover:bg-stone-800 transition-colors"
               >
                 Cek SJ
               </button>
@@ -519,17 +519,17 @@ export default function ReturnFormPage() {
         ) : (
           <div className="card px-4 py-3 flex items-center justify-between gap-2.5">
             <div className="min-w-0 flex-1">
-              <span className="bg-slate-200/90 text-slate-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full inline-block">
+              <span className="bg-stone-200/90 text-stone-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full inline-block">
                 Input Manual (Sheet)
               </span>
-              <p className="text-[11px] text-slate-500 font-medium mt-1">
+              <p className="text-[11px] text-stone-500 font-medium mt-1">
                 Simpan tanpa masuk sesi "{activeSession.storeName}".
               </p>
             </div>
             <button
               type="button"
               onClick={() => handleToggleVerifyMode(true)}
-              className="shrink-0 text-xs font-semibold text-white bg-[#0F172A] px-3.5 py-1.5 rounded-full hover:bg-slate-800 transition-colors"
+              className="shrink-0 text-xs font-semibold text-white bg-[#1C1917] px-3.5 py-1.5 rounded-full hover:bg-stone-800 transition-colors"
             >
               Ikut Verifikasi
             </button>
@@ -542,14 +542,14 @@ export default function ReturnFormPage() {
         {/* Loading Progress Bar */}
         {(loadingProducts || loadingBatches) && (
           <div className="h-1 bg-white/50 overflow-hidden">
-            <div className="h-full w-1/3 bg-[#0F172A] animate-pulse" />
+            <div className="h-full w-1/3 bg-[#1C1917] animate-pulse" />
           </div>
         )}
 
         <div className="p-4 space-y-4">
           {/* Header Bar: Title + Sheet Switcher */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200/70">
-            <span className="text-xs font-bold text-slate-800">
+          <div className="flex items-center justify-between pb-3 border-b border-stone-200/70">
+            <span className="text-xs font-bold text-stone-800">
               Sheet Tujuan
             </span>
             <div className="flex gap-1 bg-white/60 p-0.5 rounded-full border border-white/80">
@@ -560,8 +560,8 @@ export default function ReturnFormPage() {
                   onClick={() => { setTargetSheet(s); saveSheet(s); }}
                   className={`px-3.5 py-1 rounded-full text-xs font-semibold transition-all ${
                     targetSheet === s
-                      ? "bg-[#0F172A] text-white shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "bg-[#1C1917] text-white shadow-xs"
+                      : "text-stone-600 hover:text-stone-900"
                   }`}
                 >
                   {s}
@@ -576,10 +576,10 @@ export default function ReturnFormPage() {
             {selectedProduct ? (
               <div className="flex items-start justify-between gap-3 bg-white/80 border border-white rounded-xl px-3.5 py-3 shadow-2xs">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-slate-900 leading-snug break-words">
+                  <p className="text-xs font-bold text-stone-900 leading-snug break-words">
                     {selectedProduct.product}
                   </p>
-                  <p className="text-[11px] text-slate-500 font-mono font-semibold mt-1">
+                  <p className="text-[11px] text-stone-500 font-mono font-semibold mt-1">
                     {selectedProduct.sku} • {selectedProduct.barcode}
                   </p>
                 </div>
@@ -590,7 +590,7 @@ export default function ReturnFormPage() {
                     setProductSearch("");
                     setTimeout(() => productInputRef.current?.focus(), 60);
                   }}
-                  className="shrink-0 text-xs font-semibold text-slate-700 bg-slate-100/90 hover:bg-slate-200/80 px-3 py-1 rounded-full transition-all"
+                  className="shrink-0 text-xs font-semibold text-stone-700 bg-stone-100/90 hover:bg-stone-200/80 px-3 py-1 rounded-full transition-all"
                 >
                   Ganti
                 </button>
@@ -616,7 +616,7 @@ export default function ReturnFormPage() {
                 {showProductDropdown && displayedProducts.length > 0 && (
                   <div
                     ref={dropdownRef}
-                    className="absolute z-30 left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl shadow-lg max-h-56 overflow-y-auto divide-y divide-slate-100"
+                    className="absolute z-30 left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-xl border border-stone-200/90 rounded-2xl shadow-lg max-h-56 overflow-y-auto divide-y divide-stone-100"
                   >
                     {displayedProducts.map((item, idx) => (
                       <button
@@ -626,13 +626,13 @@ export default function ReturnFormPage() {
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => selectProduct(item)}
                         className={`w-full text-left px-3.5 py-2.5 transition-colors ${
-                          idx === highlightedIdx ? "bg-sky-50/80" : "hover:bg-slate-50"
+                          idx === highlightedIdx ? "bg-teal-50/80" : "hover:bg-stone-50"
                         }`}
                       >
-                        <span className="text-xs font-bold text-slate-900 block leading-snug break-words">
+                        <span className="text-xs font-bold text-stone-900 block leading-snug break-words">
                           <HighlightText text={item.product} query={debouncedSearch} />
                         </span>
-                        <span className="text-[11px] text-slate-500 block font-mono font-medium mt-0.5">
+                        <span className="text-[11px] text-stone-500 block font-mono font-medium mt-0.5">
                           <HighlightText text={item.barcode} query={debouncedSearch} />
                           {" • "}
                           <HighlightText text={item.sku} query={debouncedSearch} />
@@ -654,11 +654,11 @@ export default function ReturnFormPage() {
                 type="button"
                 onClick={() => setBatchModal(true)}
                 className={`w-full text-left input-field py-2.5 flex items-center justify-between font-mono text-xs ${
-                  batch ? "text-slate-900 font-bold" : "text-slate-400"
+                  batch ? "text-stone-900 font-bold" : "text-stone-400"
                 }`}
               >
                 <span className="break-all leading-snug">{batch ? (batch === "-" ? "Tanpa batch" : batch) : "Pilih Batch..."}</span>
-                <svg className="w-4 h-4 text-slate-500 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                <svg className="w-4 h-4 text-stone-500 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
@@ -724,7 +724,7 @@ export default function ReturnFormPage() {
                 className="input-field text-xs py-2.5 font-semibold"
               />
               {showDistriDropdown && distriHistory.length > 0 && (
-                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-xl shadow-lg max-h-40 overflow-y-auto divide-y divide-slate-100">
+                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-xl border border-stone-200 rounded-xl shadow-lg max-h-40 overflow-y-auto divide-y divide-stone-100">
                   {distriHistory
                     .filter((h) => !distriEvent.trim() || h.toLowerCase().includes(distriEvent.toLowerCase()))
                     .map((item, idx) => (
@@ -736,7 +736,7 @@ export default function ReturnFormPage() {
                           setDistriEvent(item);
                           setShowDistriDropdown(false);
                         }}
-                        className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 break-words"
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-stone-800 hover:bg-stone-50 break-words"
                       >
                         {item}
                       </button>
@@ -769,8 +769,8 @@ export default function ReturnFormPage() {
                     onClick={() => toggleKeterangan(opt)}
                     className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
                       active
-                        ? "bg-[#0F172A] text-white border-[#0F172A] shadow-xs"
-                        : "bg-white/75 text-slate-700 border-white/90 hover:bg-white"
+                        ? "bg-[#1C1917] text-white border-[#1C1917] shadow-xs"
+                        : "bg-white/75 text-stone-700 border-white/90 hover:bg-white"
                     }`}
                   >
                     {active ? "✓ " : ""}{opt}
@@ -781,7 +781,7 @@ export default function ReturnFormPage() {
           </div>
 
           {/* Buttons */}
-          <div className="flex gap-2.5 pt-3 border-t border-slate-200/70">
+          <div className="flex gap-2.5 pt-3 border-t border-stone-200/70">
             <button
               type="button"
               onClick={() => navigate("/")}

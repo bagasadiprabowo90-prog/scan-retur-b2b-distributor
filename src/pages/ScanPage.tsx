@@ -581,7 +581,7 @@ export default function ScanPage() {
                     aria-pressed={active}
                     aria-label={`Zoom ${formatZoom(z)} kali`}
                     className={`h-10 min-w-[2.75rem] px-3 rounded-full text-xs font-bold transition-colors disabled:opacity-60 ${
-                      active ? "bg-white text-slate-900" : "text-white hover:bg-white/20"
+                      active ? "bg-white text-stone-900" : "text-white hover:bg-white/20"
                     }`}
                   >
                     {formatZoom(z)}×
@@ -624,154 +624,129 @@ export default function ScanPage() {
     ? new Set(session.items.map((item) => item.sku || item.barcode)).size
     : 0;
 
-  // ---------- IDLE RENDER (GLACIER SAGE & FROSTED GLASS) ----------
-  const lastScan =
-    session && session.items.length > 0
-      ? session.items[session.items.length - 1]
-      : null;
-
-  const heroTitle =
-    flowMode === "verify"
-      ? session
-        ? "Siap scan klaim retur?"
-        : "Mulai sesi scan retur?"
-      : "Siap input retur?";
-
-  const heroSubtitle =
-    flowMode === "verify"
-      ? session
-        ? `${session.storeName}${session.noSJ ? ` • SJ #${session.noSJ}` : ""} • ${totalSessionPcs} pcs (${totalSessionSku} SKU) telah discan`
-        : "Mulai sesi toko atau baca foto lembar SJ dulu, lalu scan barang untuk verifikasi."
-      : "Arahkan kamera ke barcode produk atau cari manual di bawah. Data disimpan langsung ke Google Sheet.";
-
-  const modePillBase =
-    "px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all active:scale-95";
-  const modePillIdle =
-    "bg-white/75 backdrop-blur-md text-slate-700 border border-white/90 hover:bg-white";
-  const modePillActive = "bg-[#0F172A] text-white shadow-sm";
+  // ---------- IDLE RENDER ----------
+  const segBase =
+    "py-2 rounded-full text-xs font-bold transition-all active:scale-[0.98]";
+  const segActive = "bg-[#1C1917] text-white shadow-sm";
+  const segIdle = "text-stone-600 hover:text-stone-900";
 
   return (
     <div className={`space-y-3.5 ${showProductDropdown ? "pb-64" : ""}`}>
       {successToast && (
-        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-emerald-50/90 text-emerald-900 border border-emerald-200/80 backdrop-blur-md">
+        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-emerald-50/90 text-emerald-900 border border-emerald-200/80">
           {successToast}
         </div>
       )}
 
       {error && (
-        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-red-50/90 text-red-900 border border-red-200/80 backdrop-blur-md">
+        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-red-50/90 text-red-900 border border-red-200/80">
           {error}
         </div>
       )}
 
-      {/* Hero Card: judul, orb scan, dan scan terakhir */}
-      <div className="card p-5 space-y-4">
-        <div className="text-center space-y-1">
-          <h2 className="text-lg font-extrabold text-slate-900 tracking-tight leading-snug">
-            {heroTitle}
-          </h2>
-          <p className="text-xs text-slate-500 font-medium leading-relaxed break-words max-w-[300px] mx-auto">
-            {heroSubtitle}
-          </p>
-        </div>
-
-        <div className="flex justify-center py-1">
-          <button
-            type="button"
-            onClick={handlePrimaryScanTrigger}
-            className="w-36 h-36 rounded-full scan-orb-btn flex flex-col items-center justify-center text-white transition-all cursor-pointer"
-            aria-label="Scan barcode"
-          >
-            <svg
-              className="w-9 h-9 text-white"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 7V5a1 1 0 011-1h2M20 7V5a1 1 0 00-1-1h-2M4 17v2a1 1 0 001 1h2M20 17v2a1 1 0 01-1 1h-2M8 9v6M12 9v6M16 9v6"
-              />
-            </svg>
-            <span className="mt-2 px-3 py-0.5 rounded-full bg-slate-950/45 border border-white/25 text-[10px] font-bold tracking-wider uppercase">
-              SCAN BARCODE
-            </span>
-          </button>
-        </div>
-
-        {lastScan && (
-          <div className="bg-white/85 border border-white rounded-2xl px-3.5 py-2.5 shadow-sm flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
-                Scan terakhir
-              </p>
-              <p className="text-xs font-bold text-slate-900 leading-snug break-words">
-                {lastScan.product}
-              </p>
-              <p className="font-mono text-[11px] text-slate-500 mt-0.5 break-words">
-                Batch #{lastScan.batch || "-"} • Qty: {lastScan.qty} Pcs
-              </p>
-            </div>
-            <span className="shrink-0 mt-0.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-              Tersimpan
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Pilihan alur kerja & aksi cepat */}
-      <div className="flex flex-wrap items-center justify-center gap-2">
+      {/* Pilihan alur */}
+      <div className="grid grid-cols-2 gap-1 p-1 rounded-full bg-white/60 border border-white/80">
         <button
           type="button"
           onClick={() => changeFlowMode("verify")}
-          className={`${modePillBase} ${flowMode === "verify" ? modePillActive : modePillIdle}`}
+          className={`${segBase} ${flowMode === "verify" ? segActive : segIdle}`}
         >
-          Verifikasi SJ
+          Klaim SJ
         </button>
         <button
           type="button"
           onClick={() => changeFlowMode("direct")}
-          className={`${modePillBase} ${flowMode === "direct" ? modePillActive : modePillIdle}`}
+          className={`${segBase} ${flowMode === "direct" ? segActive : segIdle}`}
         >
           Input Manual
         </button>
+      </div>
+
+      {/* Toko aktif (alur Klaim SJ) */}
+      {flowMode === "verify" && (
+        <div className="card p-3">
+          {session ? (
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-stone-900 leading-snug break-words">
+                  {session.storeName}
+                </p>
+                <p className="text-[11px] text-stone-500 mt-0.5 break-words">
+                  {session.noSJ ? `SJ ${session.noSJ} · ` : ""}
+                  {totalSessionPcs} pcs · {totalSessionSku} SKU
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowNewStoreModal(true)}
+                  className="px-3 py-1.5 rounded-full bg-white/90 border border-stone-200 text-[11px] font-bold text-stone-700 hover:bg-white"
+                >
+                  Ganti
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/verification")}
+                  className="px-3 py-1.5 rounded-full bg-[#1C1917] text-white text-[11px] font-bold hover:bg-stone-800"
+                >
+                  Verifikasi
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => navigate("/verification", { state: { autoOpenScan: true } })}
+                className="btn-outline py-2.5"
+              >
+                Foto SJ
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowNewStoreModal(true)}
+                className="btn-primary py-2.5"
+              >
+                Mulai Toko
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tombol scan */}
+      <div className="flex flex-col items-center gap-3 py-3">
         <button
           type="button"
-          onClick={() => {
-            changeFlowMode("verify");
-            navigate("/verification", { state: { autoOpenScan: true } });
-          }}
-          className={`${modePillBase} ${modePillIdle}`}
+          onClick={handlePrimaryScanTrigger}
+          className="w-36 h-36 rounded-full scan-orb-btn flex flex-col items-center justify-center text-white transition-all cursor-pointer"
+          aria-label="Scan barcode"
         >
-          Baca SJ (AI)
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            changeFlowMode("verify");
-            setShowNewStoreModal(true);
-          }}
-          className={`${modePillBase} ${modePillIdle}`}
-        >
-          {session && flowMode === "verify" ? "Ganti Toko" : "+ Toko"}
+          <svg
+            className="w-9 h-9 text-white"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4 7V5a1 1 0 011-1h2M20 7V5a1 1 0 00-1-1h-2M4 17v2a1 1 0 001 1h2M20 17v2a1 1 0 01-1 1h-2M8 9v6M12 9v6M16 9v6"
+            />
+          </svg>
+          <span className="mt-2 px-3 py-0.5 rounded-full bg-black/35 border border-white/25 text-[10px] font-bold tracking-wider">
+            SCAN BARCODE
+          </span>
         </button>
       </div>
 
       {/* Cari produk */}
-      <div ref={searchCardRef} className="card p-3.5 space-y-2.5 rounded-3xl">
-        <div className="flex items-center justify-between gap-2 px-1">
-          <span className="text-xs font-bold text-slate-900">
-            {loadingProducts ? "Memuat produk..." : `${products.length} produk tersedia`}
-          </span>
-          <span className="text-[11px] text-slate-500 font-medium">Sheet Sync Aktif</span>
-        </div>
-
+      <div ref={searchCardRef} className="card p-3 space-y-2">
         <div ref={dropdownRef} className="space-y-2">
           <div className="relative">
             <svg
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
+              className="absolute left-3.5 top-1/2 -transtone-y-1/2 w-4 h-4 text-stone-400 pointer-events-none"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -804,9 +779,11 @@ export default function ScanPage() {
                   searchCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
               }}
-              placeholder="Cari produk, barcode, atau SKU..."
+              placeholder={
+                loadingProducts ? "Memuat produk..." : `Cari ${products.length} produk (nama, barcode, SKU)`
+              }
               disabled={loadingProducts}
-              className="w-full pl-10 pr-9 py-2.5 rounded-full bg-white/90 border border-white text-xs font-medium text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+              className="w-full pl-10 pr-9 py-2.5 rounded-full bg-white/90 border border-stone-200/80 text-xs font-medium text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
             />
             {productSearch.trim() && (
               <button
@@ -816,7 +793,7 @@ export default function ScanPage() {
                   setShowProductDropdown(false);
                   searchInputRef.current?.focus();
                 }}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 font-bold text-sm"
+                className="absolute right-3.5 top-1/2 -transtone-y-1/2 text-stone-400 hover:text-stone-700 font-bold text-sm"
                 aria-label="Hapus pencarian"
               >
                 ×
@@ -824,7 +801,7 @@ export default function ScanPage() {
             )}
           </div>
 
-          {/* Hasil pencarian (nama produk utuh, tidak dipotong) */}
+          {/* Hasil pencarian (nama produk utuh) */}
           {showProductDropdown && filteredProducts.length > 0 && (
             <div className="space-y-1.5 max-h-64 overflow-y-auto">
               {filteredProducts.slice(0, 50).map((p) => (
@@ -837,29 +814,18 @@ export default function ScanPage() {
                     const effectiveMode = flowMode === "verify" && session ? "verify" : "direct";
                     navigate(`/return-form?barcode=${encodeURIComponent(p.barcode)}&mode=${effectiveMode}`);
                   }}
-                  className="w-full text-left bg-white/85 hover:bg-white border border-white rounded-xl px-3 py-2.5 shadow-sm transition-colors flex items-center justify-between gap-2"
+                  className="w-full text-left bg-white/85 hover:bg-white border border-stone-200/70 rounded-xl px-3 py-2.5 transition-colors"
                 >
-                  <span className="min-w-0 flex-1">
-                    <span className="text-xs font-bold text-slate-900 block leading-snug break-words">
-                      {p.product}
-                    </span>
-                    <span className="font-mono text-[11px] text-slate-500 block mt-0.5 break-all">
-                      {p.sku} • {p.barcode}
-                    </span>
+                  <span className="text-xs font-bold text-stone-900 block leading-snug break-words">
+                    {p.product}
                   </span>
-                  <svg
-                    className="w-3.5 h-3.5 text-slate-400 shrink-0"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.4}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
+                  <span className="font-mono text-[11px] text-stone-500 block mt-0.5 break-all">
+                    {p.sku} · {p.barcode}
+                  </span>
                 </button>
               ))}
               {filteredProducts.length > 50 && (
-                <div className="px-3 py-2 text-[11px] text-slate-500 font-semibold text-center">
+                <div className="px-3 py-2 text-[11px] text-stone-500 font-semibold text-center">
                   +{filteredProducts.length - 50} produk lainnya
                 </div>
               )}
@@ -870,50 +836,25 @@ export default function ScanPage() {
             productSearch.trim() &&
             filteredProducts.length === 0 &&
             !loadingProducts && (
-              <div className="bg-white/85 border border-white rounded-xl px-4 py-3 text-xs font-medium text-slate-500 text-center">
+              <div className="px-4 py-3 text-xs font-medium text-stone-500 text-center">
                 Produk tidak ditemukan
               </div>
             )}
         </div>
       </div>
 
-      {/* Aksi utama bawah */}
-      {flowMode === "verify" && session ? (
-        <button
-          type="button"
-          onClick={() => navigate("/verification")}
-          className="w-full btn-primary py-4 text-sm flex items-center justify-center gap-2 shadow-md"
-        >
-          <span>Simpan &amp; Sinkronisasi Sheet</span>
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M17 7H8M17 7v9" />
-          </svg>
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => navigate("/history")}
-          className="w-full btn-primary py-4 text-sm flex items-center justify-center gap-2 shadow-md"
-        >
-          <span>Buka Riwayat Sheet</span>
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M17 7H8M17 7v9" />
-          </svg>
-        </button>
-      )}
-
       {/* Modal: Mulai / Pilih Sesi Toko */}
       {showNewStoreModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs">
           <div className="bg-white/90 backdrop-blur-xl border border-white rounded-3xl shadow-xl max-w-sm w-full p-5 space-y-4">
-            <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/70">
-              <h3 className="text-sm font-bold text-slate-900">
+            <div className="flex items-center justify-between pb-2.5 border-b border-stone-200/70">
+              <h3 className="text-sm font-bold text-stone-900">
                 {session ? "Ganti Sesi Toko" : "Mulai Sesi Toko Baru"}
               </h3>
               <button
                 type="button"
                 onClick={() => setShowNewStoreModal(false)}
-                className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 text-sm font-bold flex items-center justify-center"
+                className="w-7 h-7 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 text-sm font-bold flex items-center justify-center"
               >
                 ×
               </button>
@@ -933,7 +874,7 @@ export default function ScanPage() {
                 />
                 {distriHistory.length > 0 && (
                   <div className="mt-2">
-                    <span className="text-[11px] font-semibold text-slate-500 block mb-1.5">
+                    <span className="text-[11px] font-semibold text-stone-500 block mb-1.5">
                       Riwayat Toko:
                     </span>
                     <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
@@ -944,8 +885,8 @@ export default function ScanPage() {
                           onClick={() => setNewStoreName(h)}
                           className={`text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors ${
                             newStoreName === h
-                              ? "bg-[#0F172A] text-white"
-                              : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                              ? "bg-[#1C1917] text-white"
+                              : "bg-stone-100 hover:bg-stone-200 text-stone-700"
                           }`}
                         >
                           {h}
@@ -977,8 +918,8 @@ export default function ScanPage() {
                       onClick={() => setNewStoreTargetSheet(s)}
                       className={`py-2 rounded-full text-xs font-bold transition-all ${
                         newStoreTargetSheet === s
-                          ? "bg-[#0F172A] text-white shadow-xs"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          ? "bg-[#1C1917] text-white shadow-xs"
+                          : "bg-stone-100 text-stone-600 hover:bg-stone-200"
                       }`}
                     >
                       Sheet {s}
@@ -987,7 +928,7 @@ export default function ScanPage() {
                 </div>
               </div>
 
-              <div className="flex gap-2.5 pt-2 border-t border-slate-200/70">
+              <div className="flex gap-2.5 pt-2 border-t border-stone-200/70">
                 <button
                   type="button"
                   onClick={() => setShowNewStoreModal(false)}

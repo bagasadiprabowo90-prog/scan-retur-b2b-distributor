@@ -31,8 +31,8 @@ function BatchChip({
       onClick={() => onPick(item)}
       className={`flex flex-col items-center rounded-2xl px-3.5 py-2 min-w-[92px] border transition-all active:scale-[0.98] ${
         active
-          ? "bg-[#0F172A] text-white border-[#0F172A] shadow-sm"
-          : "bg-white/80 text-slate-800 border-slate-200/90 hover:bg-white shadow-2xs"
+          ? "bg-[#1C1917] text-white border-[#1C1917] shadow-sm"
+          : "bg-white/80 text-stone-800 border-stone-200/90 hover:bg-white shadow-2xs"
       }`}
     >
       <span className="font-mono font-bold text-xs leading-tight break-all text-center">
@@ -40,7 +40,7 @@ function BatchChip({
       </span>
       <span
         className={`text-[10px] font-medium mt-0.5 leading-tight ${
-          active ? "text-slate-300" : "text-slate-500"
+          active ? "text-stone-300" : "text-stone-500"
         }`}
       >
         Exp {item.expDate || "-"}
@@ -114,30 +114,30 @@ export default function BatchPickerModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={onClose} />
 
       {/* Panel */}
       <div className="relative bg-white/95 backdrop-blur-xl w-full max-w-md rounded-3xl border border-white shadow-xl max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header (Full Product Name, Not Truncated) */}
-        <div className="flex items-start justify-between px-4 py-3.5 border-b border-slate-200/70">
+        <div className="flex items-start justify-between px-4 py-3.5 border-b border-stone-200/70">
           <div className="min-w-0 pr-3 flex-1">
-            <h3 className="font-extrabold text-sm text-slate-900">
+            <h3 className="font-extrabold text-sm text-stone-900">
               {hasProduct ? "Pilih Batch Produk" : "Pilih / Buat Batch"}
             </h3>
             {hasProduct ? (
-              <p className="text-xs text-slate-600 font-medium leading-snug break-words mt-0.5">
+              <p className="text-xs text-stone-600 font-medium leading-snug break-words mt-0.5">
                 {product!.product}
-                <span className="font-mono font-semibold text-slate-500"> • {product!.sku}</span>
+                <span className="font-mono font-semibold text-stone-500"> • {product!.sku}</span>
               </p>
             ) : (
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-stone-500 mt-0.5">
                 Pilih produk dulu untuk melihat batch per produk
               </p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700"
+            className="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-stone-100 hover:bg-stone-200 text-xs font-bold text-stone-700"
             aria-label="Tutup"
           >
             ✕
@@ -151,8 +151,8 @@ export default function BatchPickerModal({
             onClick={() => setMode("pick")}
             className={`py-2 rounded-full text-xs font-semibold transition-all ${
               mode === "pick"
-                ? "bg-[#0F172A] text-white shadow-xs"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                ? "bg-[#1C1917] text-white shadow-xs"
+                : "bg-stone-100 text-stone-600 hover:bg-stone-200"
             }`}
           >
             {hasProduct ? `Batch Produk (${chips.length})` : `Semua Batch (${chips.length})`}
@@ -162,8 +162,8 @@ export default function BatchPickerModal({
             onClick={() => setMode("new")}
             className={`py-2 rounded-full text-xs font-semibold transition-all ${
               mode === "new"
-                ? "bg-[#0F172A] text-white shadow-xs"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                ? "bg-[#1C1917] text-white shadow-xs"
+                : "bg-stone-100 text-stone-600 hover:bg-stone-200"
             }`}
           >
             + Buat Batch Baru
@@ -187,7 +187,7 @@ export default function BatchPickerModal({
                     <button
                       type="button"
                       onClick={() => setQ("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs"
+                      className="absolute right-3 top-1/2 -transtone-y-1/2 text-stone-500 font-bold text-xs"
                     >
                       ✕
                     </button>
@@ -198,12 +198,12 @@ export default function BatchPickerModal({
               {productBatchesLoading && hasProduct ? (
                 <div className="flex flex-wrap gap-2 py-2">
                   {[0, 1, 2, 3].map((i) => (
-                    <div key={i} className="h-12 w-24 rounded-2xl bg-slate-100 animate-pulse" />
+                    <div key={i} className="h-12 w-24 rounded-2xl bg-stone-100 animate-pulse" />
                   ))}
                 </div>
               ) : filtered.length === 0 ? (
-                <div className="text-center py-6 space-y-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl p-4">
-                  <p className="text-slate-700 text-xs font-semibold">
+                <div className="text-center py-6 space-y-2.5 bg-stone-50 border border-stone-200/80 rounded-2xl p-4">
+                  <p className="text-stone-700 text-xs font-semibold">
                     {chips.length === 0
                       ? hasProduct
                         ? "Produk ini belum punya batch di master data"
@@ -271,9 +271,9 @@ export default function BatchPickerModal({
               </div>
 
               {hasProduct && (
-                <p className="text-xs text-slate-500 leading-snug">
+                <p className="text-xs text-stone-500 leading-snug">
                   Batch baru akan dicatat di master data untuk SKU{" "}
-                  <span className="font-bold text-slate-900">{product!.sku}</span>.
+                  <span className="font-bold text-stone-900">{product!.sku}</span>.
                 </p>
               )}
 
@@ -302,21 +302,21 @@ export default function BatchPickerModal({
       {/* Confirm Dialog */}
       {confirmOpen && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setConfirmOpen(false)} />
+          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={() => setConfirmOpen(false)} />
           <div className="relative bg-white/95 backdrop-blur-xl rounded-3xl border border-white shadow-xl p-5 max-w-xs w-full space-y-3">
-            <h3 className="font-bold text-sm text-slate-900">Simpan Batch Baru?</h3>
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5 text-xs text-slate-800">
+            <h3 className="font-bold text-sm text-stone-900">Simpan Batch Baru?</h3>
+            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 space-y-1.5 text-xs text-stone-800">
               <div className="flex justify-between">
-                <span className="font-medium text-slate-500">Batch:</span>
+                <span className="font-medium text-stone-500">Batch:</span>
                 <span className="font-mono font-bold">{newLot.trim().toUpperCase()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="font-medium text-slate-500">Exp:</span>
+                <span className="font-medium text-stone-500">Exp:</span>
                 <span className="font-bold">{newExp.trim()}</span>
               </div>
               {hasProduct && (
                 <div className="flex justify-between">
-                  <span className="font-medium text-slate-500">SKU:</span>
+                  <span className="font-medium text-stone-500">SKU:</span>
                   <span className="font-mono font-bold">{product!.sku}</span>
                 </div>
               )}
