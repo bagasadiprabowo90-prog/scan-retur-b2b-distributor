@@ -72,9 +72,9 @@ export default function App() {
     : "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z";
 
   return (
-    <div className="min-h-screen w-full max-w-[430px] mx-auto flex flex-col text-stone-900 relative">
+    <div className="min-h-screen w-full max-w-[430px] mx-auto flex flex-col text-stone-900 relative bg-gradient-to-b from-[#ECE8E0] via-[#E2DDD3] to-[#D6D0C4] shadow-[0_0_48px_rgba(28,25,23,0.12)]">
       {/* Header seragam untuk semua tab: ikon tab | judul + subjudul | akun */}
-      <header className="sticky top-0 z-40 px-4 pt-3 pb-3 bg-gradient-to-b from-[#ECE8E0] via-[#ECE8E0]/90 to-[#ECE8E0]/0 backdrop-blur-[2px]">
+      <header className="sticky top-0 z-40 px-4 py-3 bg-[#E6E1D8]/95 backdrop-blur-md border-b border-white/70 shadow-[0_2px_12px_rgba(28,25,23,0.06)]">
         <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
           {showBottomNav ? (
             <div
@@ -155,7 +155,7 @@ export default function App() {
       )}
 
       {/* Main Content */}
-      <main className={`flex-1 px-4 py-2 ${showBottomNav ? "pb-24" : "pb-8"}`}>
+      <main className={`flex-1 px-4 py-3 ${showBottomNav ? "pb-4" : "pb-8"}`}>
         <Routes>
           <Route path="/" element={<ScanPage />} />
           <Route path="/return-form" element={<ReturnFormPage />} />
@@ -167,8 +167,8 @@ export default function App() {
 
       {/* Bottom Frosted Pill Navigation */}
       {showBottomNav && (
-        <nav className="fixed bottom-0 left-1/2 -transtone-x-1/2 w-full max-w-[430px] z-50 px-4 pb-3 pt-1.5 bg-gradient-to-t from-[#D6D0C4] via-[#D6D0C4]/90 to-transparent">
-          <div className="bg-white/75 backdrop-blur-xl border border-white/85 rounded-full p-1.5 shadow-[0_8px_24px_rgba(15,23,42,0.08)] grid grid-cols-3 gap-1">
+        <nav className="sticky bottom-0 z-50 px-4 pt-2 pb-3 bg-[#DDD8CD]/95 backdrop-blur-md border-t border-white/70 shadow-[0_-2px_12px_rgba(28,25,23,0.06)]">
+          <div className="bg-white/75 border border-white/85 rounded-full p-1 grid grid-cols-3 gap-1">
             <NavTab
               active={isHome}
               label="Scan"
@@ -221,7 +221,7 @@ function NavTab({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center justify-center gap-1.5 rounded-full py-2 px-2 text-xs font-bold transition-all ${
+      className={`flex items-center justify-center gap-1.5 rounded-full py-2.5 px-2 text-xs font-bold whitespace-nowrap transition-all ${
         active
           ? "bg-[#1C1917] text-white shadow-xs"
           : "text-stone-600 hover:text-stone-900 hover:bg-white/50"

@@ -715,38 +715,34 @@ export default function ScanPage() {
       )}
 
       {/* Tombol scan */}
-      <div className="flex flex-col items-center gap-3 py-3">
-        <button
-          type="button"
-          onClick={handlePrimaryScanTrigger}
-          className="w-36 h-36 rounded-full scan-orb-btn flex flex-col items-center justify-center text-white transition-all cursor-pointer"
-          aria-label="Scan barcode"
+      <button
+        type="button"
+        onClick={handlePrimaryScanTrigger}
+        className="w-full rounded-2xl scan-card-btn flex flex-col items-center justify-center gap-2.5 py-8 text-white transition-all cursor-pointer"
+        aria-label="Scan barcode"
+      >
+        <svg
+          className="w-11 h-11 text-white"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.8}
         >
-          <svg
-            className="w-9 h-9 text-white"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M4 7V5a1 1 0 011-1h2M20 7V5a1 1 0 00-1-1h-2M4 17v2a1 1 0 001 1h2M20 17v2a1 1 0 01-1 1h-2M8 9v6M12 9v6M16 9v6"
-            />
-          </svg>
-          <span className="mt-2 px-3 py-0.5 rounded-full bg-black/35 border border-white/25 text-[10px] font-bold tracking-wider">
-            SCAN BARCODE
-          </span>
-        </button>
-      </div>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M4 7V5a1 1 0 011-1h2M20 7V5a1 1 0 00-1-1h-2M4 17v2a1 1 0 001 1h2M20 17v2a1 1 0 01-1 1h-2M8 9v6M12 9v6M16 9v6"
+          />
+        </svg>
+        <span className="text-sm font-extrabold tracking-wider">SCAN BARCODE</span>
+      </button>
 
       {/* Cari produk */}
       <div ref={searchCardRef} className="card p-3 space-y-2">
         <div ref={dropdownRef} className="space-y-2">
           <div className="relative">
             <svg
-              className="absolute left-3.5 top-1/2 -transtone-y-1/2 w-4 h-4 text-stone-400 pointer-events-none"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -793,7 +789,7 @@ export default function ScanPage() {
                   setShowProductDropdown(false);
                   searchInputRef.current?.focus();
                 }}
-                className="absolute right-3.5 top-1/2 -transtone-y-1/2 text-stone-400 hover:text-stone-700 font-bold text-sm"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 font-bold text-sm"
                 aria-label="Hapus pencarian"
               >
                 ×

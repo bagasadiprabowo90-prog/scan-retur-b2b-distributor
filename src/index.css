@@ -40,28 +40,28 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Tombol scan bola hijau (Alabaster Pearl) */
-.scan-orb-btn {
-  background: radial-gradient(
-    circle at 36% 28%,
-    #7FE8BC 0%,
-    #1FB584 42%,
-    #0B8560 80%,
-    #054A36 100%
-  );
+/* Di layar lebar: area luar kolom ponsel dibuat lebih gelap agar kolom terlihat jelas */
+@media (min-width: 431px) {
+  html,
+  body {
+    background: #CFC9BD;
+  }
+}
+
+/* Kartu tombol scan (Alabaster Pearl) */
+.scan-card-btn {
+  background: linear-gradient(160deg, #1FB584 0%, #0B8560 55%, #076B4C 100%);
   box-shadow:
-    inset 0 6px 14px rgba(255, 255, 255, 0.65),
-    inset 0 -8px 16px rgba(4, 52, 38, 0.6),
-    0 14px 28px -6px rgba(11, 110, 80, 0.4),
-    0 0 0 4px rgba(255, 255, 255, 0.55);
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 8px 20px -6px rgba(11, 110, 80, 0.45);
 }
 
-.scan-orb-btn:hover {
-  filter: brightness(1.04);
+.scan-card-btn:hover {
+  filter: brightness(1.05);
 }
 
-.scan-orb-btn:active {
-  transform: scale(0.96);
+.scan-card-btn:active {
+  transform: scale(0.985);
 }
 
 /* Fullscreen scanner styles */

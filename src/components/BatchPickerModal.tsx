@@ -187,7 +187,7 @@ export default function BatchPickerModal({
                     <button
                       type="button"
                       onClick={() => setQ("")}
-                      className="absolute right-3 top-1/2 -transtone-y-1/2 text-stone-500 font-bold text-xs"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-500 font-bold text-xs"
                     >
                       ✕
                     </button>
