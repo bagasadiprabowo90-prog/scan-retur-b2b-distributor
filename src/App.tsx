@@ -56,44 +56,61 @@ export default function App() {
     ? "Riwayat Sheet"
     : "Form Retur Produk";
 
+  const headerSubtitle = isHome
+    ? "Scan & Input Retur"
+    : isVerification
+    ? "Klaim SJ & Rekonsiliasi"
+    : isHistory
+    ? "Data Google Sheet"
+    : "Isi Detail Barang";
+
+  // Ikon kiri header = ikon tab aktif, sehingga header dan tab bawah selalu seragam.
+  const headerIconPath = isHome
+    ? "M4 7V5a1 1 0 011-1h2M20 7V5a1 1 0 00-1-1h-2M4 17v2a1 1 0 001 1h2M20 17v2a1 1 0 01-1 1h-2M7 12h10"
+    : isVerification
+    ? "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+    : "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z";
+
   return (
     <div className="min-h-screen w-full max-w-[430px] mx-auto flex flex-col text-slate-900 relative">
-      {/* Soft Mineral & Frosted Glass Header */}
-      <header className="sticky top-0 z-40 px-4 pt-3 pb-2 bg-[#DCE5EA]/80 backdrop-blur-lg">
-        <div className="flex items-center justify-between gap-2">
-          {!isHome ? (
+      {/* Header seragam untuk semua tab: ikon tab | judul + subjudul | akun */}
+      <header className="sticky top-0 z-40 px-4 pt-3 pb-3 bg-gradient-to-b from-[#DCE5EA] via-[#DCE5EA]/90 to-[#DCE5EA]/0 backdrop-blur-[2px]">
+        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+          {showBottomNav ? (
+            <div
+              className="w-10 h-10 rounded-full bg-[#0F172A] text-white shadow-sm flex items-center justify-center shrink-0"
+              aria-hidden="true"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={headerIconPath} />
+              </svg>
+            </div>
+          ) : (
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="w-9 h-9 rounded-full bg-white/80 backdrop-blur-md border border-white/90 shadow-2xs flex items-center justify-center text-slate-800 hover:bg-white active:scale-95 transition-all shrink-0"
+              className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md border border-white/90 shadow-sm flex items-center justify-center text-slate-800 hover:bg-white active:scale-95 transition-all shrink-0"
               aria-label="Kembali"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => navigate("/verification")}
-              className="w-9 h-9 rounded-full bg-white/80 backdrop-blur-md border border-white/90 shadow-2xs flex items-center justify-center text-slate-800 hover:bg-white active:scale-95 transition-all shrink-0"
-              aria-label="Verifikasi & Batch"
-              title="Verifikasi & Batch"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-            </button>
           )}
 
-          <h1 className="text-sm font-bold text-slate-900 tracking-tight text-center">
-            {headerTitle}
-          </h1>
+          <div className="min-w-0 text-center">
+            <h1 className="text-sm font-extrabold text-slate-900 tracking-tight leading-tight">
+              {headerTitle}
+            </h1>
+            <p className="text-[11px] font-medium text-slate-500 leading-tight mt-0.5">
+              {headerSubtitle}
+            </p>
+          </div>
 
           <button
             type="button"
             onClick={() => setLogoutConfirm(true)}
-            className="bg-white/85 backdrop-blur-md border border-white/90 rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-2xs hover:bg-white active:scale-95 transition-all shrink-0"
+            className="bg-white/85 backdrop-blur-md border border-white/90 rounded-full px-3 py-2 flex items-center gap-1.5 shadow-sm hover:bg-white active:scale-95 transition-all shrink-0"
             title="Akun & Logout"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />

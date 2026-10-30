@@ -625,46 +625,65 @@ export default function ScanPage() {
     : 0;
 
   // ---------- IDLE RENDER (GLACIER SAGE & FROSTED GLASS) ----------
+  const lastScan =
+    session && session.items.length > 0
+      ? session.items[session.items.length - 1]
+      : null;
+
+  const heroTitle =
+    flowMode === "verify"
+      ? session
+        ? "Siap scan klaim retur?"
+        : "Mulai sesi scan retur?"
+      : "Siap input retur?";
+
+  const heroSubtitle =
+    flowMode === "verify"
+      ? session
+        ? `${session.storeName}${session.noSJ ? ` • SJ #${session.noSJ}` : ""} • ${totalSessionPcs} pcs (${totalSessionSku} SKU) telah discan`
+        : "Mulai sesi toko atau baca foto lembar SJ dulu, lalu scan barang untuk verifikasi."
+      : "Arahkan kamera ke barcode produk atau cari manual di bawah. Data disimpan langsung ke Google Sheet.";
+
+  const modePillBase =
+    "px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all active:scale-95";
+  const modePillIdle =
+    "bg-white/75 backdrop-blur-md text-slate-700 border border-white/90 hover:bg-white";
+  const modePillActive = "bg-[#0F172A] text-white shadow-sm";
+
   return (
-    <div className={`space-y-4 ${showProductDropdown ? "pb-64" : ""}`}>
+    <div className={`space-y-3.5 ${showProductDropdown ? "pb-64" : ""}`}>
       {successToast && (
-        <div className="rounded-2xl px-4 py-3 text-xs font-bold bg-emerald-500/90 text-white backdrop-blur-md shadow-sm">
-          ✓ {successToast}
+        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-emerald-50/90 text-emerald-900 border border-emerald-200/80 backdrop-blur-md">
+          {successToast}
         </div>
       )}
 
       {error && (
-        <div className="rounded-2xl px-4 py-3 text-xs font-bold bg-red-500/90 text-white backdrop-blur-md shadow-sm">
+        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-red-50/90 text-red-900 border border-red-200/80 backdrop-blur-md">
           {error}
         </div>
       )}
 
-      {/* Hero Section & 3D Blue Scan Orb */}
-      <div className="text-center pt-2 pb-1 space-y-4">
-        <div className="space-y-1 px-2">
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight leading-snug break-words">
-            {flowMode === "verify" && session
-              ? session.storeName
-              : "Mulai sesi scan retur?"}
+      {/* Hero Card: judul, orb scan, dan scan terakhir */}
+      <div className="card p-5 space-y-4">
+        <div className="text-center space-y-1">
+          <h2 className="text-lg font-extrabold text-slate-900 tracking-tight leading-snug">
+            {heroTitle}
           </h2>
-          <p className="text-xs text-slate-600 max-w-[280px] mx-auto leading-relaxed">
-            {flowMode === "verify"
-              ? session
-                ? `${session.noSJ ? `SJ #${session.noSJ} • ` : ""}Sheet ${session.targetSheet} • ${totalSessionPcs} pcs (${totalSessionSku} SKU) telah discan`
-                : "Mulai sesi toko atau foto lembar SJ terlebih dahulu sebelum scan klaim retur untuk verifikasi."
-              : "Scan barcode produk atau cari manual di bawah untuk menyimpan langsung ke Google Sheet."}
+          <p className="text-xs text-slate-500 font-medium leading-relaxed break-words max-w-[300px] mx-auto">
+            {heroSubtitle}
           </p>
         </div>
 
-        {/* 3D Glossy Blue Scan Orb Button */}
-        <div className="py-1 flex flex-col items-center gap-3.5">
+        <div className="flex justify-center py-1">
           <button
             type="button"
             onClick={handlePrimaryScanTrigger}
             className="w-36 h-36 rounded-full scan-orb-btn flex flex-col items-center justify-center text-white transition-all cursor-pointer"
+            aria-label="Scan barcode"
           >
             <svg
-              className="w-9 h-9 text-white drop-shadow-xs"
+              className="w-9 h-9 text-white"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -676,138 +695,83 @@ export default function ScanPage() {
                 d="M4 7V5a1 1 0 011-1h2M20 7V5a1 1 0 00-1-1h-2M4 17v2a1 1 0 001 1h2M20 17v2a1 1 0 01-1 1h-2M8 9v6M12 9v6M16 9v6"
               />
             </svg>
-            <span className="mt-2 px-3 py-0.5 rounded-full bg-slate-950/40 backdrop-blur-xs border border-white/30 text-[10px] font-bold tracking-wider uppercase">
+            <span className="mt-2 px-3 py-0.5 rounded-full bg-slate-950/45 border border-white/25 text-[10px] font-bold tracking-wider uppercase">
               SCAN BARCODE
             </span>
           </button>
-
-          {/* Status Pill */}
-          <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white/80 backdrop-blur-md border border-white/90 text-[11px] font-mono font-semibold text-slate-700 shadow-2xs">
-            {flowMode === "direct" ? (
-              <span>Siap Scan • Simpan otomatis ke Sheet</span>
-            ) : session ? (
-              <span>Sesi Verifikasi Aktif • {totalSessionPcs} Pcs</span>
-            ) : (
-              <span>Mode Klaim SJ • Pilih toko atau foto SJ</span>
-            )}
-          </div>
         </div>
+
+        {lastScan && (
+          <div className="bg-white/85 border border-white rounded-2xl px-3.5 py-2.5 shadow-sm flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                Scan terakhir
+              </p>
+              <p className="text-xs font-bold text-slate-900 leading-snug break-words">
+                {lastScan.product}
+              </p>
+              <p className="font-mono text-[11px] text-slate-500 mt-0.5 break-words">
+                Batch #{lastScan.batch || "-"} • Qty: {lastScan.qty} Pcs
+              </p>
+            </div>
+            <span className="shrink-0 mt-0.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+              Tersimpan
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Konteks Sesi Toko (Ketika Mode Klaim SJ & Verifikasi dipilih) */}
-      {flowMode === "verify" && (
-        <div className="card p-3">
-          {session ? (
-            <div className="flex items-center justify-between gap-2.5">
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                <div className="w-9 h-9 rounded-full bg-[#0F172A] text-white flex items-center justify-center shrink-0">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </svg>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-slate-900 leading-snug break-words">
-                    {session.storeName}
-                  </p>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    {session.items.length} scan • Sheet {session.targetSheet}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowNewStoreModal(true)}
-                  className="px-2.5 py-1.5 rounded-full bg-white/85 border border-white text-[11px] font-bold text-slate-700 hover:bg-white transition-all"
-                >
-                  Ganti
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate("/verification")}
-                  className="px-3 py-1.5 rounded-full bg-[#0F172A] text-white text-[11px] font-bold hover:bg-slate-800 transition-all"
-                >
-                  Verifikasi SJ
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  changeFlowMode("verify");
-                  navigate("/verification", { state: { autoOpenScan: true } });
-                }}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/85 hover:bg-white border border-white text-xs font-bold text-slate-800 shadow-2xs transition-all active:scale-95"
-              >
-                <svg className="w-4 h-4 text-slate-700 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span>Baca Foto SJ</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowNewStoreModal(true)}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-xs font-bold text-white shadow-2xs transition-all active:scale-95"
-              >
-                <span>+ Mulai Sesi Toko</span>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Horizontal Mode Switcher Pills */}
-      <div className="flex items-center justify-center gap-2">
+      {/* Pilihan alur kerja & aksi cepat */}
+      <div className="flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"
           onClick={() => changeFlowMode("verify")}
-          className={`px-3.5 py-2 rounded-full text-xs font-bold transition-all ${
-            flowMode === "verify"
-              ? "bg-[#0F172A] text-white shadow-sm"
-              : "bg-white/65 backdrop-blur-md text-slate-700 border border-white/80 hover:bg-white/85"
-          }`}
+          className={`${modePillBase} ${flowMode === "verify" ? modePillActive : modePillIdle}`}
         >
-          Klaim SJ & Verifikasi
+          Verifikasi SJ
         </button>
-
         <button
           type="button"
           onClick={() => changeFlowMode("direct")}
-          className={`px-3.5 py-2 rounded-full text-xs font-bold transition-all ${
-            flowMode === "direct"
-              ? "bg-[#0F172A] text-white shadow-sm"
-              : "bg-white/65 backdrop-blur-md text-slate-700 border border-white/80 hover:bg-white/85"
-          }`}
+          className={`${modePillBase} ${flowMode === "direct" ? modePillActive : modePillIdle}`}
         >
-          Input Manual (Sheet)
+          Input Manual
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            changeFlowMode("verify");
+            navigate("/verification", { state: { autoOpenScan: true } });
+          }}
+          className={`${modePillBase} ${modePillIdle}`}
+        >
+          Baca SJ (AI)
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            changeFlowMode("verify");
+            setShowNewStoreModal(true);
+          }}
+          className={`${modePillBase} ${modePillIdle}`}
+        >
+          {session && flowMode === "verify" ? "Ganti Toko" : "+ Toko"}
         </button>
       </div>
 
-      {/* Bottom Frosted Glass Dock Card: Cari Produk & Quick Actions */}
-      <div
-        ref={searchCardRef}
-        className="bg-white/65 backdrop-blur-xl border border-white/85 rounded-3xl p-3.5 shadow-[0_8px_30px_rgba(15,23,42,0.06)] space-y-2.5"
-      >
-        <div className="flex items-center justify-between px-1">
+      {/* Cari produk */}
+      <div ref={searchCardRef} className="card p-3.5 space-y-2.5 rounded-3xl">
+        <div className="flex items-center justify-between gap-2 px-1">
           <span className="text-xs font-bold text-slate-900">
             {loadingProducts ? "Memuat produk..." : `${products.length} produk tersedia`}
           </span>
-          <span className="text-[11px] text-slate-500 font-medium">
-            B2B Distributor • Sheet Sync
-          </span>
+          <span className="text-[11px] text-slate-500 font-medium">Sheet Sync Aktif</span>
         </div>
 
-        <div
-          ref={dropdownRef}
-          className="relative bg-white/90 border border-white rounded-2xl p-2.5 shadow-2xs space-y-2.5"
-        >
-          {/* Search Input */}
+        <div ref={dropdownRef} className="space-y-2">
           <div className="relative">
             <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -840,9 +804,9 @@ export default function ScanPage() {
                   searchCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
               }}
-              placeholder="Cari nama produk, nomor batch, atau SKU..."
+              placeholder="Cari produk, barcode, atau SKU..."
               disabled={loadingProducts}
-              className="w-full pl-9 pr-8 py-2 rounded-xl bg-transparent text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none"
+              className="w-full pl-10 pr-9 py-2.5 rounded-full bg-white/90 border border-white text-xs font-medium text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/25"
             />
             {productSearch.trim() && (
               <button
@@ -852,7 +816,7 @@ export default function ScanPage() {
                   setShowProductDropdown(false);
                   searchInputRef.current?.focus();
                 }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 font-bold text-sm"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 font-bold text-sm"
                 aria-label="Hapus pencarian"
               >
                 ×
@@ -860,76 +824,9 @@ export default function ScanPage() {
             )}
           </div>
 
-          {/* Quick Action Buttons Row inside Dock */}
-          <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  changeFlowMode("verify");
-                  setShowNewStoreModal(true);
-                }}
-                className="w-8 h-8 rounded-full bg-[#E8EFF3] hover:bg-[#DCE5EA] text-slate-700 flex items-center justify-center transition-colors"
-                title="Mulai / Ganti Sesi Toko"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  changeFlowMode("verify");
-                  navigate("/verification", { state: { autoOpenScan: true } });
-                }}
-                className="w-8 h-8 rounded-full bg-[#E8EFF3] hover:bg-[#DCE5EA] text-slate-700 flex items-center justify-center transition-colors"
-                title="Baca Foto Lembar SJ (AI)"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate("/verification")}
-                className="w-8 h-8 rounded-full bg-[#E8EFF3] hover:bg-[#DCE5EA] text-slate-700 flex items-center justify-center transition-colors"
-                title="Verifikasi & Batch"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate("/history")}
-                className="w-8 h-8 rounded-full bg-[#E8EFF3] hover:bg-[#DCE5EA] text-slate-700 flex items-center justify-center transition-colors"
-                title="Riwayat Sheet"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={handlePrimaryScanTrigger}
-              className="bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1.5 shadow-xs active:scale-95 transition-all"
-            >
-              <span>Mulai & Scan</span>
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M17 7H8M17 7v9" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Search Results Dropdown (Full Product Names, Never Truncated) */}
+          {/* Hasil pencarian (nama produk utuh, tidak dipotong) */}
           {showProductDropdown && filteredProducts.length > 0 && (
-            <div className="absolute z-30 left-0 right-0 top-full mt-2 bg-white/95 backdrop-blur-xl border border-white rounded-2xl shadow-xl max-h-64 overflow-y-auto divide-y divide-slate-100">
+            <div className="space-y-1.5 max-h-64 overflow-y-auto">
               {filteredProducts.slice(0, 50).map((p) => (
                 <button
                   key={p.barcode}
@@ -940,18 +837,29 @@ export default function ScanPage() {
                     const effectiveMode = flowMode === "verify" && session ? "verify" : "direct";
                     navigate(`/return-form?barcode=${encodeURIComponent(p.barcode)}&mode=${effectiveMode}`);
                   }}
-                  className="w-full text-left px-3.5 py-2.5 hover:bg-sky-50/70 transition-colors"
+                  className="w-full text-left bg-white/85 hover:bg-white border border-white rounded-xl px-3 py-2.5 shadow-sm transition-colors flex items-center justify-between gap-2"
                 >
-                  <span className="text-xs font-bold text-slate-900 block leading-snug break-words">
-                    {p.product}
+                  <span className="min-w-0 flex-1">
+                    <span className="text-xs font-bold text-slate-900 block leading-snug break-words">
+                      {p.product}
+                    </span>
+                    <span className="font-mono text-[11px] text-slate-500 block mt-0.5 break-all">
+                      {p.sku} • {p.barcode}
+                    </span>
                   </span>
-                  <span className="font-mono text-[11px] text-slate-500 font-medium block mt-0.5">
-                    {p.sku} • {p.barcode}
-                  </span>
+                  <svg
+                    className="w-3.5 h-3.5 text-slate-400 shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.4}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
                 </button>
               ))}
               {filteredProducts.length > 50 && (
-                <div className="px-3.5 py-2 text-[11px] text-slate-500 font-semibold text-center bg-slate-50/80">
+                <div className="px-3 py-2 text-[11px] text-slate-500 font-semibold text-center">
                   +{filteredProducts.length - 50} produk lainnya
                 </div>
               )}
@@ -962,12 +870,37 @@ export default function ScanPage() {
             productSearch.trim() &&
             filteredProducts.length === 0 &&
             !loadingProducts && (
-              <div className="absolute z-30 left-0 right-0 top-full mt-2 bg-white/95 backdrop-blur-xl border border-white rounded-2xl shadow-xl px-4 py-3 text-xs font-medium text-slate-500 text-center">
+              <div className="bg-white/85 border border-white rounded-xl px-4 py-3 text-xs font-medium text-slate-500 text-center">
                 Produk tidak ditemukan
               </div>
             )}
         </div>
       </div>
+
+      {/* Aksi utama bawah */}
+      {flowMode === "verify" && session ? (
+        <button
+          type="button"
+          onClick={() => navigate("/verification")}
+          className="w-full btn-primary py-4 text-sm flex items-center justify-center gap-2 shadow-md"
+        >
+          <span>Simpan &amp; Sinkronisasi Sheet</span>
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M17 7H8M17 7v9" />
+          </svg>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => navigate("/history")}
+          className="w-full btn-primary py-4 text-sm flex items-center justify-center gap-2 shadow-md"
+        >
+          <span>Buka Riwayat Sheet</span>
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M17 7H8M17 7v9" />
+          </svg>
+        </button>
+      )}
 
       {/* Modal: Mulai / Pilih Sesi Toko */}
       {showNewStoreModal && (
