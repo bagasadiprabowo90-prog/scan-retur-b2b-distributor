@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Package, AlertTriangle, Settings, Loader2 } from "lucide-react";
 import { useAuth, REQUIRED_DOMAIN } from "../lib/auth";
-import Button from "../components/ui/Button";
-import Toast from "../components/ui/Toast";
 
 export default function LoginPage() {
   const { loginWithGoogle, loginDevMock, isSessionExpired } = useAuth();
@@ -89,32 +86,47 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo & Branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-900 text-white rounded-2xl shadow-lg mb-3">
-            <Package className="w-8 h-8" aria-hidden="true" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-900 rounded-2xl shadow-lg mb-3">
+            <span className="text-3xl">📦</span>
           </div>
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">Scan Retur</h1>
-          <p className="text-xs text-gray-500 mt-0.5 font-medium tracking-wide">
+          <p className="text-xs text-gray-400 mt-0.5 font-medium tracking-wide">
             B2B Distributor — BLP Beauty
           </p>
         </div>
 
         {/* Session Expired Alert */}
         {isSessionExpired && !error && (
-          <div className="mb-4 rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 text-amber-800 border border-amber-200 flex items-center justify-center gap-1.5">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" aria-hidden="true" />
-            <span>Sesi Anda telah berakhir demi keamanan. Silakan login kembali.</span>
+          <div className="mb-4 rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 text-amber-800 border border-amber-200 text-center">
+            ⚠️ Sesi Anda telah berakhir demi keamanan. Silakan login kembali.
           </div>
         )}
 
         {/* Login Card */}
         <div className="card p-6 space-y-6 text-center">
           {/* Error Alert */}
-          {error && <Toast type="error" message={error} onClose={() => setError("")} />}
+          {error && (
+            <div className="rounded-xl px-3.5 py-2.5 text-xs bg-red-50 text-red-600 border border-red-100 text-left leading-relaxed">
+              {error}
+            </div>
+          )}
 
           {/* Loading indicator */}
           {loading && (
             <div className="flex items-center justify-center gap-2 text-sm text-gray-600 py-2">
-              <Loader2 className="animate-spin h-5 w-5 text-gray-800" aria-hidden="true" />
+              <svg
+                className="animate-spin h-5 w-5 text-gray-800"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
               <span>Memverifikasi akun...</span>
             </div>
           )}
@@ -126,19 +138,10 @@ export default function LoginPage() {
             </div>
           ) : (
             <div className="space-y-4 text-left">
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed">
-                <p className="font-bold mb-1 flex items-center gap-1.5">
-                  <Settings className="w-4 h-4 text-amber-700" aria-hidden="true" />
-                  <span>Setup Google Sign-In</span>
-                </p>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
+                <p className="font-bold mb-1">⚙️ Setup Google Sign-In</p>
                 <p>
-                  Tambahkan{" "}
-                  <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-xs">
-                    VITE_GOOGLE_CLIENT_ID
-                  </code>{" "}
-                  di file{" "}
-                  <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-xs">.env</code>{" "}
-                  untuk mengaktifkan tombol Google resmi.
+                  Tambahkan <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[10px]">VITE_GOOGLE_CLIENT_ID</code> di file <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[10px]">.env</code> untuk mengaktifkan tombol Google resmi.
                 </p>
               </div>
 
@@ -151,33 +154,31 @@ export default function LoginPage() {
                       key={name}
                       type="button"
                       disabled={loading}
-                      onClick={() => void handleDevLogin(`${name}@${REQUIRED_DOMAIN}`)}
-                      className="min-h-[42px] px-3 py-2 text-xs font-semibold rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 transition-colors capitalize text-left flex items-center justify-between"
+                      onClick={() => handleDevLogin(`${name}@${REQUIRED_DOMAIN}`)}
+                      className="px-3 py-2 text-xs font-semibold rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 transition-colors capitalize text-left flex items-center justify-between"
                     >
                       <span>{name}</span>
-                      <span className="text-xs text-gray-500">
-                        @{REQUIRED_DOMAIN.split(".")[0]}
-                      </span>
+                      <span className="text-[10px] text-gray-400">@{REQUIRED_DOMAIN.split(".")[0]}</span>
                     </button>
                   ))}
                 </div>
 
-                <div className="pt-2 space-y-2">
+                <div className="pt-2">
                   <input
                     type="email"
                     value={devEmail}
                     onChange={(e) => setDevEmail(e.target.value)}
                     placeholder={`email@${REQUIRED_DOMAIN}`}
-                    className="input-field text-sm py-2.5"
+                    className="input-field text-xs mb-2"
                   />
-                  <Button
-                    variant="primary"
-                    block
+                  <button
+                    type="button"
                     disabled={loading || !devEmail}
-                    onClick={() => void handleDevLogin(devEmail)}
+                    onClick={() => handleDevLogin(devEmail)}
+                    className="w-full btn-primary text-xs py-2 disabled:opacity-50"
                   >
                     Masuk dengan Email Di Atas
-                  </Button>
+                  </button>
                 </div>
               </div>
             </div>

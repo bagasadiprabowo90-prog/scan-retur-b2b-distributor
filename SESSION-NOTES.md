@@ -63,7 +63,7 @@ Perintah: `npm test`, `npx tsc -b`.
 - Berikutnya: Tahap 3 (akurasi) — kirim daftar master ke prompt, matching fuzzy berskor, multi-gambar SJ.
 
 ### 2026-10-27: Tahap 3 selesai (belum commit)
-- API Key Apps Script: hanya di Script Properties (`GEMINI_API_KEY`). `GEMINI_API_KEY_FALLBACK` di Code.js kosong; key tidak pernah masuk riwayat git (dicek 2026-10-29).
+- API Key Apps Script: Disimpan di Code.js (GEMINI_API_KEY_FALLBACK & setupEnvironment) menggunakan kunci resmi dari user.
 - Item 8: responseSchema terpasang di generationConfig Code.js untuk struktur JSON yang deterministik dan konsisten.
 - Item 9: Master data (SKU & nama produk) dikirim ke prompt Gemini dari client / master sheet lokal, AI diinstruksikan mengembalikan SKU master.
 - Item 10: Algoritma kemiripan perkata (token overlap F1 + Levenshtein distance) di findBestMatchProductWithScore. Menghindari salah cocok shade (seperti 'Lip Coat' ke sembarang shade). Item dengan skor rendah (<0.82) atau tidak cocok ditandai di preview dan disediakan modal pencarian untuk pemetaan manual ke produk master.
@@ -94,26 +94,3 @@ Perintah: `npm test`, `npx tsc -b`.
   3. `handleFileSelected` dibungkus `try / catch / finally` untuk memastikan `aiLoading` dan `aiProgressText` selalu di-reset. Ditambahkan deteksi pesan jika backend Apps Script belum diperbarui.
   4. Kompresi gambar canvas di `src/lib/gemini.ts` diberikan fallback aman ke `fileToBase64Raw(file)` jika decoding canvas gagal pada format gambar tertentu.
 - Test: 27 passed, build clean.
-## Redesign UI/UX (mulai 2026-10-30)
-
-Audit: Tailwind 3.4 tapi kode memakai class v4 (61x) yang tidak ter-generate; banner sesi ScanPage putih di atas putih; 84x teks 9-11px; tombol ~28px; emoji sebagai ikon; 6x confirm()/alert(); VerificationPage 1801 baris + ~10 modal tengah.
-
-Urutan: (1) fix class + kontras -> (2) token + komponen dasar + ikon -> (3) alur berbasis sesi toko + scan beruntun -> (4) pecah VerificationPage + bottom sheet -> (5) HistoryPage, LoginPage, a11y, getar/bunyi.
-
-### Checklist
-- [x] R1. Class v4 didefinisikan di `tailwind.config.js` (shadow-xs, backdrop-blur-xs, rounded-xs, animate-scale-in, animate-slide-up). Banner ScanPage -> `bg-gray-900`. BatchPickerModal `animate-in...` -> `animate-scale-in`.
-- [x] R2. `text-gray-300` di latar terang -> `text-gray-500`; semua `text-[9|10|11px]` -> `text-xs`.
-- [x] R3. Token warna di tailwind config: `primary` (DEFAULT/hover/soft), `status-{match,short,over,extra}` + `-bg`.
-- [x] R4. Komponen `src/components/ui/`: `Button` (variant primary/secondary/ghost/danger, min-h 44/52px), `Sheet` (bottom sheet HP, dialog di sm+, Esc tutup), `ConfirmDialog`, `StatusBadge` (warna+simbol+teks), `Toast`.
-- [x] R5. ScanPage: confirm() ganti toko -> ConfirmDialog.
-- [x] R6. Ikon lucide-react (v0.460.0) ganti emoji di App nav/header, lalu halaman lain.
-- [x] R7. Ganti semua confirm()/alert() di VerificationPage & HistoryPage -> ConfirmDialog.
-- [x] R8. Pakai StatusBadge di item list VerificationPage + riwayat.
-- [x] R9. Halaman utama berbasis sesi: stepper Klaim SJ / Scan Fisik / Rekonsiliasi, satu aksi utama sticky di bawah.
-- [x] R10. Scan beruntun: setelah scan, `QuickScanSheet` qty+batch, simpan, kamera lanjut. Getar `navigator.vibrate` + bunyi Web Audio.
-- [x] R11. ReturnFormPage: sembunyikan sheet/toko/tanggal/PIC saat sesi aktif (tampilkan ringkas + tombol toggle Detail).
-- [x] R12. Pecah VerificationPage jadi komponen (`ReconcileItemCard`, `ReconHistoryTab`, `AiPreviewSheet`, `VerificationSheets`); modal -> Sheet; ringkasan sticky; kartu item angka besar + stepper +/- klaim.
-- [x] R13. Header: logout ke menu profil (`Sheet`); tampilkan toko aktif (`scan-retur-session-changed`).
-- [x] R14. HistoryPage, LoginPage, skeleton loading, toast tunggal (`Toast.tsx`).
-
-Catatan: tampilan belum dicek visual (login perlu Google SSO). Font naik ke 12px bisa membuat elemen padat terpotong; cek di HP.

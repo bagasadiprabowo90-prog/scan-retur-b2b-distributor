@@ -1,19 +1,6 @@
-import { useEffect, useState, type ReactNode } from "react";
-import {
-  ScanBarcode,
-  ClipboardCheck,
-  History,
-  ArrowLeft,
-  Package,
-  Store,
-  LogOut,
-  ChevronDown,
-} from "lucide-react";
+import { useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useAuth, type AppUser } from "./lib/auth";
-import { getActiveSession, type StoreSession } from "./lib/session";
-import Sheet from "./components/ui/Sheet";
-import Button from "./components/ui/Button";
 import LoginPage from "./pages/LoginPage";
 import ScanPage from "./pages/ScanPage";
 import ReturnFormPage from "./pages/ReturnFormPage";
@@ -24,7 +11,7 @@ function UserAvatar({ user, size = "sm" }: { user: AppUser; size?: "sm" | "lg" }
   const [hasError, setHasError] = useState(false);
   const initial = (user.displayName || user.username || "U").charAt(0).toUpperCase();
 
-  const sizeClasses = size === "lg" ? "w-12 h-12 text-lg" : "w-6 h-6 text-xs";
+  const sizeClasses = size === "lg" ? "w-12 h-12 text-lg" : "w-5 h-5 text-[10px]";
 
   if (user.picture && !hasError) {
     return (
@@ -52,24 +39,11 @@ export default function App() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [activeSession, setActiveSession] = useState<StoreSession | null>(getActiveSession);
-
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
   const isHome = location.pathname === "/" || location.pathname === "";
   const isHistory = location.pathname === "/history";
   const isVerification = location.pathname === "/verification";
   const showBottomNav = isHome || isHistory || isVerification;
-
-  useEffect(() => {
-    const sync = () => setActiveSession(getActiveSession());
-    sync();
-    window.addEventListener("scan-retur-session-changed", sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener("scan-retur-session-changed", sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, [location.pathname]);
 
   if (!user) return <LoginPage />;
 
@@ -77,119 +51,74 @@ export default function App() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-gray-900 text-white sticky top-0 z-50">
-        <div className="max-w-lg mx-auto flex items-center justify-between px-4 h-14 gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="max-w-lg mx-auto flex items-center justify-between px-4 h-14">
+          <div className="flex items-center gap-2.5 min-w-0">
             {!isHome && (
               <button
-                type="button"
                 onClick={() => navigate("/")}
-                className="flex items-center justify-center w-11 h-11 -ml-2 rounded-lg hover:bg-white/10 transition-colors shrink-0"
+                className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 transition-colors shrink-0"
                 aria-label="Kembali"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <span className="text-base">←</span>
               </button>
             )}
-            <Package className="w-5 h-5 shrink-0 text-gray-300" aria-hidden="true" />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h1 className="text-sm font-bold leading-tight tracking-tight shrink-0">
-                  Scan Retur
-                </h1>
-                {activeSession && (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/verification")}
-                    className="inline-flex items-center gap-1 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 px-2 py-0.5 rounded-full text-xs font-semibold truncate max-w-[160px] hover:bg-emerald-500/30 transition-colors"
-                    title={`Toko aktif: ${activeSession.storeName}`}
-                  >
-                    <Store className="w-3 h-3 shrink-0" aria-hidden="true" />
-                    <span className="truncate">{activeSession.storeName}</span>
-                  </button>
-                )}
-              </div>
-              {!activeSession && (
-                <p className="text-xs text-gray-400 leading-tight truncate">B2B Distributor</p>
-              )}
+            <span className="text-xl shrink-0">📦</span>
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold leading-tight tracking-tight">Scan Retur</h1>
+              <p className="text-[10px] text-gray-400 leading-tight">B2B Distributor</p>
             </div>
           </div>
-
-          {/* Profile Menu Trigger */}
-          <button
-            type="button"
-            onClick={() => setProfileOpen(true)}
-            aria-label="Menu profil pengguna"
-            className="flex items-center gap-1.5 bg-white/10 hover:bg-white/15 text-white/95 text-xs font-medium pl-2 pr-2.5 min-h-[40px] rounded-xl transition-colors shrink-0"
-          >
-            <UserAvatar user={user} size="sm" />
-            <span className="truncate max-w-[90px] hidden xs:inline sm:inline">
-              {user.displayName}
-            </span>
-            <ChevronDown className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1.5 bg-white/10 text-white/90 text-[11px] font-medium px-2 py-1 rounded-lg">
+              <UserAvatar user={user} size="sm" />
+              <span className="truncate max-w-[110px]">{user.displayName}</span>
+            </div>
+            <button
+              onClick={() => setLogoutConfirm(true)}
+              className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 transition-colors"
+              aria-label="Logout"
+              title="Logout"
+            >
+              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Profile & Logout Sheet */}
-      <Sheet
-        open={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        title="Profil Pengguna"
-        footer={
-          <>
-            <Button variant="secondary" block onClick={() => setProfileOpen(false)}>
-              Tutup
-            </Button>
-            <Button
-              variant="danger"
-              block
-              icon={<LogOut className="w-4 h-4" />}
-              onClick={() => {
-                setProfileOpen(false);
-                logout();
-              }}
-            >
-              Logout
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4 py-1">
-          <div className="flex items-center gap-3">
-            <UserAvatar user={user} size="lg" />
-            <div className="min-w-0">
-              <p className="font-bold text-base text-gray-900 truncate">{user.displayName}</p>
+      {/* Logout Confirm Dialog */}
+      {logoutConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setLogoutConfirm(false)} />
+          <div className="relative card p-5 max-w-xs w-full space-y-4 text-center">
+            <div className="flex justify-center mb-1">
+              <UserAvatar user={user} size="lg" />
+            </div>
+            <h3 className="font-bold text-base text-gray-900">Logout?</h3>
+            <p className="text-sm text-gray-500">
+              Keluar dari akun <strong className="text-gray-700">{user.displayName}</strong>
               {user.email && (
-                <p className="text-xs text-gray-500 truncate">{user.email}</p>
-              )}
+                <span className="block text-xs text-gray-400 mt-0.5">{user.email}</span>
+              )}?
+            </p>
+            <div className="flex gap-2.5">
+              <button
+                onClick={() => setLogoutConfirm(false)}
+                className="flex-1 btn-outline"
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => { setLogoutConfirm(false); logout(); }}
+                className="flex-1 bg-red-500 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-red-600 active:scale-[0.98] transition-all"
+              >
+                Logout
+              </button>
             </div>
           </div>
-
-          {activeSession && (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <span className="text-xs font-semibold text-gray-500 block">
-                  Sesi Toko Aktif
-                </span>
-                <p className="text-sm font-bold text-gray-900 truncate">
-                  {activeSession.storeName}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Sheet {activeSession.targetSheet} · {activeSession.items.length} scan
-                </p>
-              </div>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setProfileOpen(false);
-                  navigate("/verification");
-                }}
-              >
-                Buka
-              </Button>
-            </div>
-          )}
         </div>
-      </Sheet>
+      )}
 
       {/* Pages */}
       <main className={`max-w-lg mx-auto px-4 py-4 ${showBottomNav ? "pb-24" : "pb-6"}`}>
@@ -205,24 +134,9 @@ export default function App() {
       {showBottomNav && (
         <nav className="fixed bottom-0 inset-x-0 z-50 bg-white border-t border-gray-100 shadow-lg">
           <div className="max-w-lg mx-auto grid grid-cols-3 gap-1.5 px-3 py-2">
-            <NavTab
-              active={isHome}
-              label="Scan"
-              icon={<ScanBarcode className="w-5 h-5" />}
-              onClick={() => navigate("/")}
-            />
-            <NavTab
-              active={isVerification}
-              label="Verifikasi"
-              icon={<ClipboardCheck className="w-5 h-5" />}
-              onClick={() => navigate("/verification")}
-            />
-            <NavTab
-              active={isHistory}
-              label="Riwayat"
-              icon={<History className="w-5 h-5" />}
-              onClick={() => navigate("/history")}
-            />
+            <NavTab active={isHome} label="Scan" icon="📷" onClick={() => navigate("/")} />
+            <NavTab active={isVerification} label="Verifikasi" icon="🔍" onClick={() => navigate("/verification")} />
+            <NavTab active={isHistory} label="Riwayat" icon="🕘" onClick={() => navigate("/history")} />
           </div>
         </nav>
       )}
@@ -230,27 +144,18 @@ export default function App() {
   );
 }
 
-function NavTab({
-  active,
-  icon,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
+function NavTab({ active, icon, label, onClick }: { active: boolean; icon: string; label: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-current={active ? "page" : undefined}
-      className={`flex flex-col items-center justify-center gap-0.5 rounded-xl min-h-[52px] text-xs font-semibold transition-all ${
-        active ? "bg-primary text-white" : "text-gray-500 hover:bg-gray-50"
+      className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all ${
+        active
+          ? "bg-gray-900 text-white"
+          : "text-gray-400 hover:bg-gray-50"
       }`}
     >
-      {icon}
+      <span className="text-base leading-none">{icon}</span>
       <span>{label}</span>
     </button>
   );
