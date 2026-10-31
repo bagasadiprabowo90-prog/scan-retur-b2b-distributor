@@ -11,6 +11,7 @@ import {
   fetchProducts,
   type BatchItem,
   type ProductItem,
+  type ReturnHistoryItem,
 } from "../lib/api";
 
 const MONTH_ABBR = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
@@ -409,6 +410,30 @@ export default function ReturnFormPage() {
       }
 
       pendingSubmitRef.current = null;
+
+      // Update cache riwayat lokal langsung agar sinkron seketika
+      try {
+        const raw = localStorage.getItem("scan-retur-history-cache");
+        const parsed = raw ? JSON.parse(raw) : { history: [], ts: Date.now() };
+        const newHistItem: ReturnHistoryItem = {
+          sheet: res.sheet,
+          rowNumber: res.appendedRow,
+          receiveDate,
+          distriEvent,
+          product: selectedProduct?.product || "",
+          barcode: selectedProduct?.barcode || "",
+          batch,
+          expDate,
+          qty: Number(qty),
+          keterangan: keteranganList.join("; "),
+          pic,
+        };
+        const updatedHistory = [newHistItem, ...(Array.isArray(parsed.history) ? parsed.history : [])];
+        localStorage.setItem(
+          "scan-retur-history-cache",
+          JSON.stringify({ history: updatedHistory, ts: Date.now() })
+        );
+      } catch {}
 
       // Flow 1 (Verifikasi SJ): Simpan juga ke sesi toko aktif untuk rekonsiliasi
       if (isVerifyMode) {

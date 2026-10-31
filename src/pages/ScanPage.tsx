@@ -5,7 +5,12 @@ import {
   Html5QrcodeScannerState,
   Html5QrcodeSupportedFormats,
 } from "html5-qrcode";
-import { fetchProducts, type ProductItem } from "../lib/api";
+import {
+  fetchProducts,
+  fetchReturnHistory,
+  type ProductItem,
+  type ReturnHistoryItem,
+} from "../lib/api";
 import {
   getActiveSession,
   startStoreSession,
@@ -165,6 +170,16 @@ async function applyCameraTuning(
   return true;
 }
 
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+
+function getTodayFormatted(): string {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mon = MONTH_ABBR[d.getMonth()];
+  const yyyy = d.getFullYear();
+  return `${dd}-${mon}-${yyyy}`;
+}
+
 function formatZoom(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
@@ -238,6 +253,108 @@ export default function ScanPage() {
       return [];
     }
   }, [showNewStoreModal]);
+
+  const targetSheetSaved = useMemo<"Bagas" | "Dimas">(() => {
+    try {
+      const raw = localStorage.getItem("scan-retur-target-sheet");
+      if (raw === "Bagas" || raw === "Dimas") return raw;
+    } catch {}
+    return "Bagas";
+  }, []);
+
+  const [historyItems, setHistoryItems] = useState<ReturnHistoryItem[]>(() => {
+    try {
+      const raw = localStorage.getItem("scan-retur-history-cache");
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed?.history) ? parsed.history : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const refreshHistory = useCallback(async () => {
+    try {
+      const raw = localStorage.getItem("scan-retur-history-cache");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed?.history)) {
+          setHistoryItems(parsed.history);
+        }
+      }
+    } catch {}
+
+    const res = await fetchReturnHistory(25);
+    if (res.ok && res.history) {
+      setHistoryItems(res.history);
+      try {
+        localStorage.setItem(
+          "scan-retur-history-cache",
+          JSON.stringify({ history: res.history, ts: Date.now() })
+        );
+      } catch {}
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshHistory();
+  }, [refreshHistory, location.state]);
+
+  const todayStats = useMemo(() => {
+    const todayStr = getTodayFormatted().toLowerCase();
+    const now = new Date();
+    const isoDate = now.toISOString().split("T")[0];
+    const dd = String(now.getDate()).padStart(2, "0");
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const yyyy = String(now.getFullYear());
+    const altSlash = `${dd}/${mm}/${yyyy}`;
+    const altDash = `${dd}-${mm}-${yyyy}`;
+
+    const itemsToday = historyItems.filter((item) => {
+      if (!item.receiveDate) return false;
+      const lower = item.receiveDate.trim().toLowerCase();
+      return (
+        lower === todayStr ||
+        lower.startsWith(isoDate) ||
+        lower === altSlash ||
+        lower === altDash
+      );
+    });
+
+    const totalPcs = itemsToday.reduce((acc, item) => acc + (Number(item.qty) || 0), 0);
+    return {
+      count: itemsToday.length,
+      pcs: totalPcs,
+    };
+  }, [historyItems]);
+
+  const recentList = useMemo(() => {
+    if (flowMode === "verify" && session && session.items.length > 0) {
+      return [...session.items].reverse().slice(0, 5).map((item) => ({
+        id: item.id,
+        product: item.product,
+        barcode: item.barcode,
+        batch: item.batch,
+        expDate: item.expDate,
+        qty: item.qty,
+        distriEvent: item.distriEvent,
+        subtext: item.timestamp
+          ? new Date(item.timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
+          : item.receiveDate,
+      }));
+    }
+
+    return historyItems.slice(0, 5).map((item, idx) => ({
+      id: `${item.sheet}-${item.rowNumber}-${idx}`,
+      product: item.product,
+      barcode: item.barcode,
+      batch: item.batch,
+      expDate: item.expDate,
+      qty: item.qty,
+      distriEvent: item.distriEvent,
+      subtext: item.receiveDate,
+    }));
+  }, [flowMode, session, historyItems]);
 
   const handleStartSession = (e: React.FormEvent) => {
     e.preventDefault();
@@ -837,6 +954,116 @@ export default function ScanPage() {
               </div>
             )}
         </div>
+      </div>
+
+      {/* Ringkasan Cepat */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="card p-2.5 text-center">
+          <span className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider block">
+            {flowMode === "verify" ? "Fisik Sesi" : "Total Hari Ini"}
+          </span>
+          <span className="text-base font-extrabold text-stone-900 mt-0.5 block leading-tight">
+            {flowMode === "verify" ? totalSessionPcs : todayStats.pcs}{" "}
+            <span className="text-[11px] font-medium text-stone-500">pcs</span>
+          </span>
+        </div>
+        <div className="card p-2.5 text-center">
+          <span className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider block">
+            {flowMode === "verify" ? "Total SKU" : "Item Retur"}
+          </span>
+          <span className="text-base font-extrabold text-stone-900 mt-0.5 block leading-tight">
+            {flowMode === "verify" ? totalSessionSku : todayStats.count}{" "}
+            <span className="text-[11px] font-medium text-stone-500">
+              {flowMode === "verify" ? "sku" : "scan"}
+            </span>
+          </span>
+        </div>
+        <div className="card p-2.5 text-center">
+          <span className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider block">
+            Sheet Tujuan
+          </span>
+          <span className="text-base font-extrabold text-stone-900 mt-0.5 block leading-tight">
+            {flowMode === "verify" ? (session?.targetSheet ?? newStoreTargetSheet) : targetSheetSaved}
+          </span>
+        </div>
+      </div>
+
+      {/* Daftar Scan Terakhir */}
+      <div className="card p-3 space-y-2.5">
+        <div className="flex items-center justify-between pb-1.5 border-b border-stone-200/60">
+          <div className="flex items-center gap-1.5">
+            <svg
+              className="w-3.5 h-3.5 text-stone-500"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-xs font-bold text-stone-800">
+              {flowMode === "verify" && session ? "Scan Sesi Ini" : "Scan Terakhir"}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate(flowMode === "verify" && session ? "/verification" : "/history")}
+            className="text-[11px] font-bold text-stone-600 hover:text-stone-900 flex items-center gap-0.5"
+          >
+            <span>{flowMode === "verify" && session ? "Buka Rekon" : "Lihat Semua"}</span>
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
+        {recentList.length === 0 ? (
+          <div className="py-6 text-center text-stone-400">
+            <p className="text-xs font-medium">Belum ada data scan</p>
+            <p className="text-[11px] mt-0.5 text-stone-400">Barcode atau produk yang diinput akan muncul di sini</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {recentList.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between gap-2.5 p-2 rounded-xl bg-white/70 border border-stone-200/50"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-stone-900 truncate">
+                    {item.product}
+                  </p>
+                  <div className="flex items-center gap-1.5 text-[11px] text-stone-500 mt-0.5 font-medium truncate">
+                    {item.distriEvent && <span>{item.distriEvent}</span>}
+                    {item.batch && (
+                      <>
+                        <span>•</span>
+                        <span className="font-mono">Lot {item.batch}</span>
+                      </>
+                    )}
+                    {item.expDate && (
+                      <>
+                        <span>•</span>
+                        <span>Exp {item.expDate}</span>
+                      </>
+                    )}
+                    {item.subtext && (
+                      <>
+                        <span>•</span>
+                        <span className="text-stone-400">{item.subtext}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#1C1917] text-white text-[11px] font-extrabold font-mono">
+                    {item.qty} pcs
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Modal: Mulai / Pilih Sesi Toko */}
