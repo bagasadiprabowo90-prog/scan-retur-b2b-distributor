@@ -835,15 +835,15 @@ export default function ScanPage() {
       <button
         type="button"
         onClick={handlePrimaryScanTrigger}
-        className="w-full rounded-2xl scan-card-btn flex flex-col items-center justify-center gap-2.5 py-8 text-white transition-all cursor-pointer"
+        className="w-full rounded-2xl scan-card-btn flex items-center justify-center gap-2.5 py-3 px-4 text-white shadow-sm hover:brightness-105 active:scale-[0.985] transition-all cursor-pointer"
         aria-label="Scan barcode"
       >
         <svg
-          className="w-11 h-11 text-white"
+          className="w-5 h-5 text-white shrink-0"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth={1.8}
+          strokeWidth={2}
         >
           <path
             strokeLinecap="round"
@@ -851,11 +851,11 @@ export default function ScanPage() {
             d="M4 7V5a1 1 0 011-1h2M20 7V5a1 1 0 00-1-1h-2M4 17v2a1 1 0 001 1h2M20 17v2a1 1 0 01-1 1h-2M8 9v6M12 9v6M16 9v6"
           />
         </svg>
-        <span className="text-sm font-extrabold tracking-wider">SCAN BARCODE</span>
+        <span className="text-xs font-extrabold tracking-wider">SCAN BARCODE</span>
       </button>
 
       {/* Cari produk */}
-      <div ref={searchCardRef} className="card p-3 space-y-2">
+      <div ref={searchCardRef} className="card p-2.5 space-y-2">
         <div ref={dropdownRef} className="space-y-2">
           <div className="relative">
             <svg
