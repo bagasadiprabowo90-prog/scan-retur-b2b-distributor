@@ -6,9 +6,9 @@ export default {
       colors: {
         // Aksi utama: satu warna untuk semua tombol primer
         primary: {
-          DEFAULT: "#111827",
-          hover: "#1f2937",
-          soft: "#f3f4f6",
+          DEFAULT: "#0f172a",
+          hover: "#1e293b",
+          soft: "#f1f5f9",
         },
         // Status rekonsiliasi (lihat src/components/ui/StatusBadge.tsx)
         status: {
@@ -22,9 +22,14 @@ export default {
           "extra-bg": "#f5f3ff",
         },
       },
+      fontFamily: {
+        sans: ["'Plus Jakarta Sans'", "-apple-system", "BlinkMacSystemFont", "Inter", "sans-serif"],
+        mono: ["'JetBrains Mono'", "monospace"],
+      },
       // Class bergaya Tailwind v4 yang sudah terpakai di kode; didefinisikan agar ter-generate di v3
       boxShadow: {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        "2xs": "0 1px 1px 0 rgb(0 0 0 / 0.03)",
       },
       backdropBlur: {
         xs: "2px",

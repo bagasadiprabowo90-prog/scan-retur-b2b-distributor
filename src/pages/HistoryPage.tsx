@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+import { Edit3, FileSpreadsheet, Package, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { fetchReturnHistory, editReturn, deleteReturn, type ReturnHistoryItem, type CreateReturnPayload } from "../lib/api";
 import { syncDeleteWithActiveSession, syncEditWithActiveSession } from "../lib/session";
+
+function getCategoryBadge(productName: string) {
+  const p = (productName || "").toUpperCase();
+  if (p.includes("CUSHION")) return { label: "CC", bg: "bg-purple-50 text-purple-700 border-purple-200/60" };
+  if (p.includes("LIP") || p.includes("COAT")) return { label: "LC", bg: "bg-amber-50 text-amber-700 border-amber-200/60" };
+  if (p.includes("BALM")) return { label: "BM", bg: "bg-rose-50 text-rose-700 border-rose-200/60" };
+  if (p.includes("POWDER")) return { label: "PW", bg: "bg-blue-50 text-blue-700 border-blue-200/60" };
+  if (p.includes("BROW") || p.includes("EYE")) return { label: "EB", bg: "bg-teal-50 text-teal-700 border-teal-200/60" };
+  return { label: "PR", bg: "bg-slate-100 text-slate-700 border-slate-200/60" };
+}
 
 const HISTORY_LIMIT = 200;
 const PAGE_SIZE = 20;
@@ -143,158 +154,166 @@ export default function HistoryPage() {
       {/* Toast */}
       {toast && (
         <div
-          className={`rounded-2xl px-4 py-3 text-xs font-semibold backdrop-blur-xl border shadow-xs ${
+          className={`rounded-2xl px-4 py-3 text-xs font-semibold border shadow-xs ${
             toast.type === "ok"
-              ? "bg-emerald-50/90 text-emerald-900 border-emerald-200/80"
-              : "bg-red-50/90 text-red-900 border-red-200/80"
+              ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+              : "bg-red-50 text-red-900 border-red-200"
           }`}
         >
           {toast.msg}
         </div>
       )}
 
-      {/* Stats + Search */}
-      <div className="card p-4 space-y-3">
-        <div className="flex items-center justify-between gap-2.5">
-          <div className="grid grid-cols-2 gap-2.5 flex-1">
-            <div className="bg-white/75 border border-white/90 rounded-2xl px-3.5 py-2.5 shadow-2xs">
-              <p className="text-base font-extrabold text-stone-900 leading-none tabular-nums">
-                {filteredHistory.length}
-              </p>
-              <p className="text-[11px] text-stone-500 font-semibold mt-1">
-                Baris Data
-              </p>
+      {/* Bento Stats & Actions Grid */}
+      <div className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              Ringkasan Data
+            </span>
+            <div className="text-xl font-black text-slate-900 font-mono tracking-tight mt-0.5">
+              {totalQty.toLocaleString()}{" "}
+              <span className="text-xs font-sans font-semibold text-slate-500">pcs total</span>
             </div>
-            <div className="bg-white/75 border border-white/90 rounded-2xl px-3.5 py-2.5 shadow-2xs">
-              <p className="text-base font-extrabold text-stone-900 leading-none tabular-nums">
-                {totalQty.toLocaleString()}
-              </p>
-              <p className="text-[11px] text-stone-500 font-semibold mt-1">
-                Total Pcs
-              </p>
-            </div>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+              {filteredHistory.length} baris dari {history.length} data sheet
+            </p>
           </div>
 
           <button
             type="button"
             onClick={() => void loadHistory()}
             disabled={loading}
-            className="h-11 px-4 flex items-center justify-center gap-1.5 rounded-full bg-white/85 hover:bg-white border border-white/90 shadow-xs text-xs font-semibold text-stone-800 disabled:opacity-40 transition-all shrink-0"
-            title="Refresh"
+            className="min-h-[40px] px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-xs font-bold text-slate-700 flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
+            title="Refresh Data dari Sheet"
           >
-            <svg className={`w-4 h-4 text-stone-700 ${loading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span>Refresh</span>
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${loading ? "animate-spin" : ""}`} />
+            <span>{loading ? "Memuat..." : "Refresh"}</span>
           </button>
         </div>
 
+        {/* Search Micro-Trigger / Input */}
         <div className="relative">
-          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" strokeWidth={2} />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari produk, distri, atau batch..."
-            className="input-field pl-10 py-2.5 text-xs"
+            placeholder="Cari produk, barcode, distri, atau lot..."
+            className="w-full min-h-[44px] pl-10 pr-9 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-700 cursor-pointer"
+              aria-label="Hapus filter"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
       {error && (
-        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-red-50/90 text-red-900 border border-red-200">
+        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-red-50 text-red-900 border border-red-200">
           {error}
         </div>
       )}
 
       {!error && warnings.length > 0 && (
-        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-amber-50/90 text-amber-900 border border-amber-200 space-y-0.5">
+        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-200 space-y-0.5">
           {warnings.map((w, i) => <p key={i}>{w}</p>)}
         </div>
       )}
 
-      {/* List */}
+      {/* List History Bento Cards */}
       {loading && history.length === 0 ? (
-        <div className="card px-4 py-12 text-center text-xs font-semibold text-stone-500 animate-pulse">
-          Memuat riwayat...
+        <div className="bg-white border border-slate-200/90 rounded-2xl px-4 py-12 text-center text-xs font-semibold text-slate-400 animate-pulse">
+          Memuat riwayat dari Google Sheet...
         </div>
       ) : !error && filteredHistory.length === 0 && !loading ? (
-        <div className="card px-4 py-12 text-center text-xs font-semibold text-stone-500">
-          Tidak ada data riwayat
+        <div className="bg-white border border-slate-200/90 rounded-2xl px-4 py-12 text-center text-xs font-semibold text-slate-400">
+          Tidak ada data riwayat yang cocok dengan pencarian.
         </div>
       ) : (
         <div className="space-y-3">
           {visibleHistory.map((item) => {
             const key = `${item.sheet}-${item.rowNumber}`;
+            const badge = getCategoryBadge(item.product);
+
             return (
-              <div key={key} className="card p-4 space-y-2.5">
-                {/* Top: Full Product Name (No Truncate) + Qty Badge */}
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-xs font-bold text-stone-900 leading-snug break-words flex-1">
-                    {item.product || "-"}
-                  </p>
-                  <span className="bg-[#1C1917] text-white font-mono text-[11px] font-bold px-3 py-1 rounded-full whitespace-nowrap tabular-nums shrink-0">
-                    {item.qty.toLocaleString()} Pcs
-                  </span>
-                </div>
-
-                {/* Metadata Badges */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] font-semibold text-stone-700 bg-white/80 border border-white/90 px-2.5 py-0.5 rounded-full">
-                    {item.receiveDate || "-"}
-                  </span>
-                  <span
-                    className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
-                      item.sheet === "Bagas"
-                        ? "bg-teal-50/90 text-teal-900 border-teal-200/80"
-                        : "bg-amber-50/90 text-amber-900 border-amber-200/80"
-                    }`}
-                  >
-                    Sheet {item.sheet}
-                  </span>
-                  {item.pic && (
-                    <span className="text-[11px] font-semibold text-stone-600 bg-white/80 border border-white/90 px-2.5 py-0.5 rounded-full">
-                      PIC: {item.pic}
+              <div key={key} className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs space-y-3">
+                {/* Header: Category Badge + Product + Qty Pill */}
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs shrink-0 ${badge.bg}`}>
+                    {badge.label}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-extrabold text-slate-900 leading-snug break-words">
+                      {item.product || "-"}
+                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                      <span className="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                        {item.receiveDate || "-"}
+                      </span>
+                      <span
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
+                          item.sheet === "Bagas"
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : "bg-amber-50 text-amber-800 border-amber-200"
+                        }`}
+                      >
+                        Sheet {item.sheet}
+                      </span>
+                      {item.pic && (
+                        <span className="text-[10px] font-medium text-slate-500 bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded-md">
+                          PIC: {item.pic}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="inline-block bg-slate-900 text-white font-mono text-xs font-black px-2.5 py-1 rounded-xl shadow-2xs whitespace-nowrap tabular-nums">
+                      {item.qty.toLocaleString()} pcs
                     </span>
-                  )}
+                  </div>
                 </div>
 
-                {/* Structured Details Grid (Well-spaced columns, no truncated barcode or distri) */}
-                <div className="bg-white/60 border border-white/80 rounded-xl p-3 space-y-2">
-                  <div className="grid grid-cols-3 gap-3">
+                {/* Structured Details Bento Grid */}
+                <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-2.5 space-y-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <span className="block text-[10px] font-semibold text-stone-400 uppercase">
+                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                         Barcode
                       </span>
-                      <span className="font-mono text-xs font-bold text-stone-800 break-all">
+                      <span className="font-mono text-[11px] font-bold text-slate-800 break-all">
                         {item.barcode || "-"}
                       </span>
                     </div>
                     <div>
-                      <span className="block text-[10px] font-semibold text-stone-400 uppercase">
+                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                         Batch
                       </span>
-                      <span className="font-mono text-xs font-bold text-stone-800 break-words">
+                      <span className="font-mono text-[11px] font-bold text-slate-800 break-words">
                         {item.batch || "-"}
                       </span>
                     </div>
                     <div>
-                      <span className="block text-[10px] font-semibold text-stone-400 uppercase">
+                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                         Exp Date
                       </span>
-                      <span className="text-xs font-bold text-stone-800 break-words">
+                      <span className="text-[11px] font-bold text-emerald-700 break-words">
                         {item.expDate || "-"}
                       </span>
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-stone-200/60 flex items-baseline justify-between gap-3">
-                    <span className="text-[10px] font-semibold text-stone-400 uppercase shrink-0">
+                  <div className="pt-2 border-t border-slate-200/60 flex items-baseline justify-between gap-3">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
                       Distri / Event
                     </span>
-                    <span className="text-xs font-bold text-stone-800 text-right break-words">
+                    <span className="text-xs font-bold text-slate-800 text-right break-words truncate">
                       {item.distriEvent || "-"}
                     </span>
                   </div>
@@ -302,26 +321,28 @@ export default function HistoryPage() {
 
                 {/* Keterangan */}
                 {item.keterangan && (
-                  <div className="text-xs font-medium text-stone-700 bg-white/75 border border-white/90 rounded-xl px-3 py-1.5 break-words">
-                    Kondisi: <span className="font-bold text-stone-900">{item.keterangan}</span>
+                  <div className="text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 break-words">
+                    Kondisi: <strong className="text-slate-900">{item.keterangan}</strong>
                   </div>
                 )}
 
-                {/* Edit / Delete */}
-                <div className="flex justify-end gap-2 pt-1">
+                {/* Edit & Hapus Buttons */}
+                <div className="flex justify-end gap-2 pt-1 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => openEdit(item)}
-                    className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-stone-700 bg-white/85 border border-white/90 hover:bg-white shadow-2xs transition-all"
+                    className="min-h-[32px] px-3 py-1 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer flex items-center gap-1"
                   >
-                    Edit
+                    <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Edit</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeleteItem(item)}
-                    className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-red-700 bg-red-50/80 border border-red-200/80 hover:bg-red-100/80 transition-all"
+                    className="min-h-[32px] px-3 py-1 rounded-xl text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-all cursor-pointer flex items-center gap-1"
                   >
-                    Hapus
+                    <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                    <span>Hapus</span>
                   </button>
                 </div>
               </div>
@@ -333,91 +354,91 @@ export default function HistoryPage() {
             <button
               type="button"
               onClick={() => setVisibleCount((v) => v + PAGE_SIZE)}
-              className="w-full btn-outline py-2.5"
+              className="w-full min-h-[44px] py-2.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 text-xs font-bold text-slate-700 shadow-2xs transition-colors cursor-pointer"
             >
               Muat Lagi ({filteredHistory.length - visibleCount} tersisa)
             </button>
           )}
 
           {!hasMore && filteredHistory.length > 0 && (
-            <p className="text-center text-xs font-medium text-stone-500 py-2">
-              {filteredHistory.length} data ditampilkan
+            <p className="text-center text-xs font-medium text-slate-400 py-2">
+              Semua {filteredHistory.length} data ditampilkan
             </p>
           )}
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Edit Modal (Bento Dialog) */}
       {editItem && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-12 overflow-y-auto">
-          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={() => setEditItem(null)} />
-          <div className="relative card p-4 max-w-sm w-full space-y-3.5 mb-8 bg-white/95">
-            <div className="flex items-center justify-between pb-2.5 border-b border-stone-200/70">
-              <h3 className="font-bold text-sm text-stone-900">Edit Data Sheet</h3>
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-800">
-                {editItem.sheet} • Row {editItem.rowNumber}
+          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-xs" onClick={() => setEditItem(null)} />
+          <div className="relative bg-white border border-slate-200 rounded-3xl p-5 max-w-sm w-full space-y-3.5 mb-8 shadow-2xl">
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+              <h3 className="font-extrabold text-sm text-slate-900">Edit Data Sheet</h3>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                Sheet {editItem.sheet} · Row {editItem.rowNumber}
               </span>
             </div>
 
             <div className="space-y-2.5">
               <EField label="Produk">
-                <input value={editForm.product} onChange={(e) => setEditForm(f => ({ ...f, product: e.target.value }))} className="input-field text-xs py-2" />
+                <input value={editForm.product} onChange={(e) => setEditForm(f => ({ ...f, product: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
               </EField>
               <EField label="Barcode">
-                <input value={editForm.barcode} onChange={(e) => setEditForm(f => ({ ...f, barcode: e.target.value }))} className="input-field font-mono text-xs py-2" />
+                <input value={editForm.barcode} onChange={(e) => setEditForm(f => ({ ...f, barcode: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
               </EField>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5">
                 <EField label="Batch">
-                  <input value={editForm.batch} onChange={(e) => setEditForm(f => ({ ...f, batch: e.target.value }))} className="input-field font-mono text-xs py-2" />
+                  <input value={editForm.batch} onChange={(e) => setEditForm(f => ({ ...f, batch: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
                 </EField>
                 <EField label="Exp Date">
-                  <input value={editForm.expDate} onChange={(e) => setEditForm(f => ({ ...f, expDate: e.target.value }))} className="input-field text-xs py-2" />
+                  <input value={editForm.expDate} onChange={(e) => setEditForm(f => ({ ...f, expDate: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
                 </EField>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5">
                 <EField label="Receive Date">
-                  <input value={editForm.receiveDate} onChange={(e) => setEditForm(f => ({ ...f, receiveDate: e.target.value }))} className="input-field text-xs py-2" />
+                  <input value={editForm.receiveDate} onChange={(e) => setEditForm(f => ({ ...f, receiveDate: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
                 </EField>
-                <EField label="Qty">
-                  <input type="number" inputMode="numeric" value={editForm.qty} onChange={(e) => setEditForm(f => ({ ...f, qty: Number(e.target.value) }))} className="input-field font-bold text-xs py-2" />
+                <EField label="Qty (Pcs)">
+                  <input type="number" inputMode="numeric" value={editForm.qty} onChange={(e) => setEditForm(f => ({ ...f, qty: Number(e.target.value) }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 font-mono font-bold text-xs text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
                 </EField>
               </div>
               <EField label="Distri / Event">
-                <input value={editForm.distriEvent} onChange={(e) => setEditForm(f => ({ ...f, distriEvent: e.target.value }))} className="input-field text-xs py-2" />
+                <input value={editForm.distriEvent} onChange={(e) => setEditForm(f => ({ ...f, distriEvent: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
               </EField>
               <EField label="Keterangan">
-                <input value={editForm.keterangan} onChange={(e) => setEditForm(f => ({ ...f, keterangan: e.target.value }))} className="input-field text-xs py-2" />
+                <input value={editForm.keterangan} onChange={(e) => setEditForm(f => ({ ...f, keterangan: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
               </EField>
               <EField label="PIC">
-                <input value={editForm.pic} onChange={(e) => setEditForm(f => ({ ...f, pic: e.target.value }))} className="input-field text-xs py-2" />
+                <input value={editForm.pic} onChange={(e) => setEditForm(f => ({ ...f, pic: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
               </EField>
             </div>
 
-            <div className="flex gap-2.5 pt-2 border-t border-stone-200/70">
-              <button onClick={() => setEditItem(null)} className="flex-1 btn-outline">Batal</button>
-              <button onClick={handleEditSave} disabled={editSaving} className="flex-1 btn-primary py-2.5 text-xs">
-                {editSaving ? "Menyimpan..." : "Simpan"}
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
+              <button onClick={() => setEditItem(null)} className="flex-1 min-h-[40px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer">Batal</button>
+              <button onClick={handleEditSave} disabled={editSaving} className="flex-1 min-h-[40px] rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer transition-colors shadow-xs">
+                {editSaving ? "Menyimpan..." : "Simpan Perubahan"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete Confirm */}
+      {/* Delete Confirm Modal (Bento Dialog) */}
       {deleteItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={() => setDeleteItem(null)} />
-          <div className="relative card p-5 max-w-xs w-full space-y-4 bg-white/95">
-            <h3 className="font-bold text-base text-stone-900 text-center">Hapus Data Ini?</h3>
-            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 space-y-1 text-xs">
-              <p className="font-bold text-stone-900 leading-snug break-words">{deleteItem.product}</p>
-              <p className="text-stone-600 font-medium">Sheet {deleteItem.sheet} • Row {deleteItem.rowNumber} • Qty {deleteItem.qty}</p>
+          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-xs" onClick={() => setDeleteItem(null)} />
+          <div className="relative bg-white border border-slate-200 rounded-3xl p-5 max-w-xs w-full space-y-4 shadow-2xl">
+            <h3 className="font-extrabold text-base text-slate-900 text-center">Hapus Data Ini?</h3>
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-1 text-xs">
+              <p className="font-extrabold text-slate-900 leading-snug break-words">{deleteItem.product}</p>
+              <p className="text-slate-600 font-medium">Sheet {deleteItem.sheet} • Row {deleteItem.rowNumber} • Qty {deleteItem.qty} pcs</p>
             </div>
-            <p className="text-xs text-stone-500 text-center">Data yang dihapus dari Sheet tidak bisa dikembalikan.</p>
-            <div className="flex gap-2.5">
-              <button onClick={() => setDeleteItem(null)} className="flex-1 btn-outline">Batal</button>
-              <button onClick={handleDelete} disabled={deleteLoading} className="flex-1 bg-red-600 text-white py-2.5 rounded-full text-xs font-bold hover:bg-red-700 disabled:opacity-40 transition-all">
-                {deleteLoading ? "Menghapus..." : "Hapus"}
+            <p className="text-xs text-slate-500 text-center">Data yang dihapus dari Sheet tidak dapat dikembalikan.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteItem(null)} className="flex-1 min-h-[40px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer">Batal</button>
+              <button onClick={handleDelete} disabled={deleteLoading} className="flex-1 min-h-[40px] bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold disabled:opacity-40 transition-colors shadow-xs cursor-pointer">
+                {deleteLoading ? "Menghapus..." : "Hapus Permanen"}
               </button>
             </div>
           </div>

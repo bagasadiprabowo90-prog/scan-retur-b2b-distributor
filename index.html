@@ -2,10 +2,10 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <meta name="theme-color" content="#ECE8E0" />
+    <meta name="theme-color" content="#F8FAFC" />
     <meta name="description" content="Scan & input retur produk B2B distributor ke Google Sheet" />
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json" />
@@ -16,10 +16,14 @@
     <link rel="apple-touch-icon" href="/icon-512.png" />
     <title>Scan Retur</title>
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
     <!-- Google Identity Services (Sign in with Google) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
-  <body class="bg-[#ECE8E0] text-stone-900 min-h-screen">
+  <body class="bg-slate-50 text-slate-900 min-h-screen">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

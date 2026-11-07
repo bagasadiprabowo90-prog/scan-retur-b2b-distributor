@@ -29,10 +29,10 @@ function BatchChip({
     <button
       type="button"
       onClick={() => onPick(item)}
-      className={`flex flex-col items-center rounded-2xl px-3.5 py-2 min-w-[92px] border transition-all active:scale-[0.98] ${
+      className={`flex flex-col items-center rounded-xl px-3 py-2 min-w-[88px] border transition-all active:scale-[0.98] cursor-pointer ${
         active
-          ? "bg-[#1C1917] text-white border-[#1C1917] shadow-sm"
-          : "bg-white/80 text-stone-800 border-stone-200/90 hover:bg-white shadow-2xs"
+          ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+          : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50 shadow-2xs"
       }`}
     >
       <span className="font-mono font-bold text-xs leading-tight break-all text-center">
@@ -40,7 +40,7 @@ function BatchChip({
       </span>
       <span
         className={`text-[10px] font-medium mt-0.5 leading-tight ${
-          active ? "text-stone-300" : "text-stone-500"
+          active ? "text-slate-300" : "text-slate-500"
         }`}
       >
         Exp {item.expDate || "-"}
@@ -144,30 +144,32 @@ export default function BatchPickerModal({
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="grid grid-cols-2 gap-1.5 p-3 pb-0">
-          <button
-            type="button"
-            onClick={() => setMode("pick")}
-            className={`py-2 rounded-full text-xs font-semibold transition-all ${
-              mode === "pick"
-                ? "bg-[#1C1917] text-white shadow-xs"
-                : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-            }`}
-          >
-            {hasProduct ? `Batch Produk (${chips.length})` : `Semua Batch (${chips.length})`}
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("new")}
-            className={`py-2 rounded-full text-xs font-semibold transition-all ${
-              mode === "new"
-                ? "bg-[#1C1917] text-white shadow-xs"
-                : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-            }`}
-          >
-            + Buat Batch Baru
-          </button>
+        {/* Tabs Bento Switcher */}
+        <div className="p-3 pb-0">
+          <div className="flex p-0.5 bg-slate-100 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setMode("pick")}
+              className={`flex-1 py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                mode === "pick"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              {hasProduct ? `Batch Produk (${chips.length})` : `Semua Batch (${chips.length})`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("new")}
+              className={`flex-1 py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                mode === "new"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              + Buat Batch Baru
+            </button>
+          </div>
         </div>
 
         {/* Content */}

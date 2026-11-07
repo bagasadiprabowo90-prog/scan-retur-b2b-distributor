@@ -4,26 +4,33 @@
 
 @layer components {
   .input-field {
-    @apply w-full border border-white/80 rounded-xl px-3.5 py-2.5 text-sm bg-white/85 text-stone-900 placeholder:text-stone-400 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-300 transition-all shadow-sm;
+    @apply w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all shadow-xs;
   }
   .label-field {
-    @apply block text-xs font-semibold text-stone-600 mb-1.5;
+    @apply block text-xs font-bold text-slate-700 mb-1.5;
   }
   .card {
-    @apply bg-white/65 backdrop-blur-xl rounded-2xl border border-white/80 shadow-[0_4px_20px_rgba(15,23,42,0.05)];
+    @apply bg-white rounded-2xl border border-slate-200/80 shadow-[0_1px_3px_0_rgba(15,23,42,0.06),0_1px_2px_-1px_rgba(15,23,42,0.06)];
   }
   .card-header {
-    @apply px-4 py-3 flex items-center justify-between border-b border-stone-200/60;
+    @apply px-4 py-3 flex items-center justify-between border-b border-slate-100;
   }
   .card-body {
     @apply p-4;
   }
   .btn-primary {
-    @apply bg-[#1C1917] text-white py-2.5 px-4 rounded-full text-xs font-bold hover:bg-stone-800 active:scale-[0.98] disabled:opacity-40 transition-all shadow-sm;
+    @apply min-h-[44px] bg-slate-900 text-white py-2.5 px-4 rounded-xl text-xs font-bold hover:bg-slate-800 active:scale-[0.98] disabled:opacity-40 transition-all shadow-xs cursor-pointer;
   }
   .btn-outline {
-    @apply bg-white/80 backdrop-blur-md border border-white/90 text-stone-800 py-2.5 px-4 rounded-full text-xs font-bold hover:bg-white active:scale-[0.98] disabled:opacity-40 transition-all shadow-sm;
+    @apply min-h-[44px] bg-white border border-slate-200 text-slate-800 py-2.5 px-4 rounded-xl text-xs font-bold hover:bg-slate-50 active:scale-[0.98] disabled:opacity-40 transition-all shadow-xs cursor-pointer;
   }
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #0F172A;
+  outline-offset: 2px;
 }
 
 * {
@@ -33,10 +40,9 @@
 html,
 body {
   min-height: 100%;
-  background: linear-gradient(180deg, #ECE8E0 0%, #E2DDD3 52%, #D6D0C4 100%);
-  background-attachment: fixed;
-  color: #1C1917;
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  background-color: #F4F6F9;
+  color: #0F172A;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -44,16 +50,26 @@ body {
 @media (min-width: 431px) {
   html,
   body {
-    background: #CFC9BD;
+    background-color: #CBD5E1;
   }
 }
 
-/* Kartu tombol scan (Alabaster Pearl) */
+/* Kartu tombol scan */
 .scan-card-btn {
-  background: linear-gradient(160deg, #3A3633 0%, #1C1917 55%, #0C0A09 100%);
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 8px 20px -6px rgba(12, 10, 9, 0.5);
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 4px 12px -2px rgba(15, 23, 42, 0.25);
+}
+
+@keyframes heroGlow {
+  0%, 100% { box-shadow: 0 4px 14px rgba(16, 185, 129, 0.12); }
+  50% { box-shadow: 0 6px 24px rgba(16, 185, 129, 0.3); }
+}
+
+.hero-scanner-btn {
+  animation: heroGlow 3.5s ease-in-out infinite;
 }
 
 .scan-card-btn:hover {
@@ -191,5 +207,14 @@ body {
   }
   to {
     opacity: 0;
+  }
+}
+
+/* iOS Safari memperbesar halaman otomatis saat fokus ke input < 16px; paksa 16px khusus iOS */
+@supports (-webkit-touch-callout: none) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 }

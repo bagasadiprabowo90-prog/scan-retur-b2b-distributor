@@ -1,5 +1,38 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowRight,
+  Camera,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  ClipboardCopy,
+  Clock,
+  ExternalLink,
+  FileCheck2,
+  FileSpreadsheet,
+  FileText,
+  Filter,
+  Layers,
+  Minus,
+  PackageCheck,
+  PackagePlus,
+  PackageX,
+  PenTool,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  ScanBarcode,
+  Search,
+  Sparkles,
+  Store,
+  Trash2,
+  UploadCloud,
+  X,
+} from "lucide-react";
 import { useAuth } from "../lib/auth";
 import {
   fetchProducts,
@@ -480,44 +513,42 @@ export default function VerificationPage() {
         </div>
       )}
 
-      {/* Tabs Switcher: Sesi Toko Aktif vs Riwayat Verifikasi */}
-      <div className="grid grid-cols-2 gap-1.5 bg-white/50 backdrop-blur-md p-1 rounded-full border border-white/80 shadow-xs">
-        <button
-          type="button"
-          onClick={() => setActiveTab("current")}
-          className={`py-2 px-3 rounded-full text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === "current"
-              ? "bg-[#1C1917] text-white shadow-sm"
-              : "text-stone-600 hover:text-stone-900"
-          }`}
-        >
-          <span>Sesi Toko Aktif</span>
-          {session && session.items.length > 0 && (
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                activeTab === "current"
-                  ? "bg-white/20 text-white"
-                  : "bg-stone-200 text-stone-800"
-              }`}
-            >
-              {session.items.length}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab("history");
-            setReconHistory(getReconHistory());
-          }}
-          className={`py-2 px-3 rounded-full text-xs font-semibold transition-all ${
-            activeTab === "history"
-              ? "bg-[#1C1917] text-white shadow-sm"
-              : "text-stone-600 hover:text-stone-900"
-          }`}
-        >
-          Riwayat Rekon ({reconHistory.length})
-        </button>
+      {/* Tabs Switcher Bento */}
+      <div className="bg-white p-1 rounded-2xl border border-slate-200/90 shadow-2xs">
+        <div className="flex p-0.5 bg-slate-100 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setActiveTab("current")}
+            className={`flex-1 py-2 rounded-lg text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === "current"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-500 hover:text-slate-900"
+            }`}
+          >
+            <FileCheck2 className={`w-3.5 h-3.5 ${activeTab === "current" ? "text-emerald-600" : ""}`} />
+            <span>Sesi Toko Aktif</span>
+            {session && session.items.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-md text-[10px] font-bold bg-slate-900 text-white">
+                {session.items.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("history");
+              setReconHistory(getReconHistory());
+            }}
+            className={`flex-1 py-2 rounded-lg text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === "history"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-500 hover:text-slate-900"
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>Riwayat Rekon ({reconHistory.length})</span>
+          </button>
+        </div>
       </div>
 
       {/* ======================================================== */}
@@ -527,13 +558,17 @@ export default function VerificationPage() {
         <>
           {!session ? (
             <div className="space-y-3.5">
-              {/* Frosted Upload SJ Card (Screen 03 Style) */}
-              <div className="card p-4 space-y-3.5">
+              {/* Bento Hero Upload SJ Card */}
+              <div className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs space-y-3.5">
                 <div className="text-center space-y-0.5 pt-1">
-                  <h2 className="text-base font-extrabold text-stone-900 tracking-tight">
-                    Foto atau unggah lembar SJ
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[10px] uppercase tracking-wide">
+                    <Sparkles className="w-3 h-3 text-emerald-600" />
+                    AI Vision OCR
+                  </span>
+                  <h2 className="text-base font-black text-slate-900 tracking-tight mt-1">
+                    Foto atau Unggah Lembar SJ
                   </h2>
-                  <p className="text-[11px] font-medium text-stone-500">
+                  <p className="text-xs font-medium text-slate-500">
                     Otomatis ekstrak daftar produk, Batch &amp; Qty klaim retur
                   </p>
                 </div>
@@ -542,28 +577,26 @@ export default function VerificationPage() {
                   type="button"
                   onClick={handleOpenAiScan}
                   disabled={aiLoading}
-                  className="w-full border-2 border-dashed border-stone-300/90 hover:border-stone-400 rounded-2xl p-6 bg-white/45 hover:bg-white/70 transition-all flex flex-col items-center justify-center gap-2.5 cursor-pointer group"
+                  className="w-full border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl p-6 bg-slate-50/70 hover:bg-emerald-50/20 transition-all flex flex-col items-center justify-center gap-2.5 cursor-pointer group"
                 >
-                  <div className="w-10 h-10 rounded-full bg-white/90 border border-stone-200 shadow-xs flex items-center justify-center text-stone-700 group-hover:scale-105 transition-transform">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
+                  <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-center text-slate-800 group-hover:scale-105 group-hover:border-emerald-300 transition-all">
+                    <Camera className="w-5 h-5 text-emerald-600" strokeWidth={2.2} />
                   </div>
                   <div className="space-y-0.5 text-center">
-                    <p className="text-xs font-bold text-stone-800">
+                    <p className="text-xs font-extrabold text-slate-900">
                       {aiLoading ? "Membaca Dokumen..." : "Ambil foto lembar SJ di sini"}
                     </p>
-                    <p className="text-[11px] font-medium text-stone-400">
-                      Atau pilih dari galeri perangkat
+                    <p className="text-xs font-medium text-slate-400">
+                      Kamera ponsel atau upload gambar / PDF
                     </p>
                   </div>
                 </button>
               </div>
 
-              {/* Modul Verifikasi & Retur (2x3 Frosted Grid) */}
+              {/* Bento Quick Action Grid */}
               <div className="space-y-2">
-                <span className="text-xs font-bold text-stone-800 px-1 block">
-                  Modul Verifikasi &amp; Retur
+                <span className="text-xs font-extrabold text-slate-900 px-1 block">
+                  Aksi Cepat Verifikasi &amp; Retur
                 </span>
                 <div className="grid grid-cols-3 gap-2.5">
                   <button
@@ -574,14 +607,12 @@ export default function VerificationPage() {
                       } catch {}
                       navigate("/");
                     }}
-                    className="card p-3 flex flex-col items-center justify-center gap-2 hover:bg-white/85 active:scale-[0.98] transition-all text-center"
+                    className="bg-white hover:bg-slate-50 border border-slate-200/90 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 shadow-2xs active:scale-[0.98] transition-all text-center cursor-pointer"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-white/90 border border-stone-200/80 flex items-center justify-center text-stone-800 shadow-2xs">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 7V5a1 1 0 011-1h2M20 7V5a1 1 0 00-1-1h-2M4 17v2a1 1 0 001 1h2M20 17v2a1 1 0 01-1 1h-2M7 12h10" />
-                      </svg>
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-900 shadow-2xs">
+                      <ScanBarcode className="w-4 h-4 text-emerald-600" strokeWidth={2.2} />
                     </div>
-                    <span className="text-[11px] font-semibold text-stone-800 leading-tight">
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
                       Scan Barcode
                     </span>
                   </button>
@@ -594,14 +625,12 @@ export default function VerificationPage() {
                       } catch {}
                       navigate("/", { state: { openNewStore: true } });
                     }}
-                    className="card p-3 flex flex-col items-center justify-center gap-2 hover:bg-white/85 active:scale-[0.98] transition-all text-center"
+                    className="bg-white hover:bg-slate-50 border border-slate-200/90 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 shadow-2xs active:scale-[0.98] transition-all text-center cursor-pointer"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-white/90 border border-stone-200/80 flex items-center justify-center text-stone-800 shadow-2xs">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-900 shadow-2xs">
+                      <Store className="w-4 h-4 text-slate-800" strokeWidth={2.2} />
                     </div>
-                    <span className="text-[11px] font-semibold text-stone-800 leading-tight">
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
                       + Mulai Toko
                     </span>
                   </button>
@@ -610,14 +639,12 @@ export default function VerificationPage() {
                     type="button"
                     onClick={handleOpenAiScan}
                     disabled={aiLoading}
-                    className="card p-3 flex flex-col items-center justify-center gap-2 hover:bg-white/85 active:scale-[0.98] transition-all text-center"
+                    className="bg-white hover:bg-slate-50 border border-slate-200/90 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 shadow-2xs active:scale-[0.98] transition-all text-center cursor-pointer"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-white/90 border border-stone-200/80 flex items-center justify-center text-stone-800 shadow-2xs">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-900 shadow-2xs">
+                      <FileText className="w-4 h-4 text-slate-800" strokeWidth={2.2} />
                     </div>
-                    <span className="text-[11px] font-semibold text-stone-800 leading-tight">
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
                       Baca Foto SJ
                     </span>
                   </button>
@@ -630,14 +657,12 @@ export default function VerificationPage() {
                       } catch {}
                       navigate("/");
                     }}
-                    className="card p-3 flex flex-col items-center justify-center gap-2 hover:bg-white/85 active:scale-[0.98] transition-all text-center"
+                    className="bg-white hover:bg-slate-50 border border-slate-200/90 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 shadow-2xs active:scale-[0.98] transition-all text-center cursor-pointer"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-white/90 border border-stone-200/80 flex items-center justify-center text-stone-800 shadow-2xs">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-900 shadow-2xs">
+                      <PenTool className="w-4 h-4 text-slate-800" strokeWidth={2.2} />
                     </div>
-                    <span className="text-[11px] font-semibold text-stone-800 leading-tight">
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
                       Input Manual
                     </span>
                   </button>
@@ -648,14 +673,12 @@ export default function VerificationPage() {
                       setActiveTab("history");
                       setReconHistory(getReconHistory());
                     }}
-                    className="card p-3 flex flex-col items-center justify-center gap-2 hover:bg-white/85 active:scale-[0.98] transition-all text-center"
+                    className="bg-white hover:bg-slate-50 border border-slate-200/90 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 shadow-2xs active:scale-[0.98] transition-all text-center cursor-pointer"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-white/90 border border-stone-200/80 flex items-center justify-center text-stone-800 shadow-2xs">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                      </svg>
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-900 shadow-2xs">
+                      <FileSpreadsheet className="w-4 h-4 text-slate-800" strokeWidth={2.2} />
                     </div>
-                    <span className="text-[11px] font-semibold text-stone-800 leading-tight">
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
                       Riwayat Rekon
                     </span>
                   </button>
@@ -663,63 +686,111 @@ export default function VerificationPage() {
                   <button
                     type="button"
                     onClick={() => navigate("/history")}
-                    className="card p-3 flex flex-col items-center justify-center gap-2 hover:bg-white/85 active:scale-[0.98] transition-all text-center"
+                    className="bg-white hover:bg-slate-50 border border-slate-200/90 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 shadow-2xs active:scale-[0.98] transition-all text-center cursor-pointer"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-white/90 border border-stone-200/80 flex items-center justify-center text-stone-800 shadow-2xs">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-900 shadow-2xs">
+                      <Clock className="w-4 h-4 text-slate-800" strokeWidth={2.2} />
                     </div>
-                    <span className="text-[11px] font-semibold text-stone-800 leading-tight">
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
                       Riwayat Sheet
                     </span>
                   </button>
                 </div>
               </div>
 
-              {/* Primary Bottom Pill Button */}
+              {/* Primary Bento Action Button */}
               <button
                 type="button"
                 onClick={handleOpenAiScan}
                 disabled={aiLoading}
-                className="w-full btn-primary py-3.5 text-xs font-bold shadow-md"
+                className="w-full py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
               >
-                {aiLoading ? "Membaca Lembar SJ..." : "Analisis SJ dengan AI & Verifikasi"}
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+                <span>{aiLoading ? "Membaca Lembar SJ..." : "Analisis SJ dengan AI & Verifikasi"}</span>
               </button>
             </div>
           ) : (
             <>
-              {/* Store Metadata & Summary Card (Screen 01 Header Card Style) */}
-              <div className="card p-3.5 space-y-3">
-                <div className="flex items-start gap-3">
-                  {/* Black Circle Cube Icon */}
-                  <div className="w-10 h-10 rounded-full bg-[#1C1917] text-white flex items-center justify-center shrink-0 shadow-xs">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
-                  </div>
-
+              {/* Active Store Context Hero (Bento Logistics Pattern) */}
+              <div className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs space-y-3.5">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-xs font-extrabold text-stone-900 leading-snug break-words">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[10px] uppercase tracking-wide">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Sesi Siap
+                      </span>
+                      {session.noSJ && (
+                        <span className="text-xs font-mono text-slate-500 font-semibold truncate">
+                          SJ #{session.noSJ}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-sm font-black text-slate-900 mt-1.5 leading-snug break-words">
                       {session.storeName}
-                      {session.noSJ ? ` (SJ #${session.noSJ})` : ""}
-                    </h2>
-                    <p className="text-[11px] text-stone-500 font-medium mt-0.5 leading-snug">
-                      {matchCount} dari {reconItems.length} produk sesuai • Fisik{" "}
-                      <strong className="text-stone-800">{totalPhysical} pcs</strong> vs Klaim{" "}
-                      <strong className="text-stone-800">{totalClaim} pcs</strong>
-                    </p>
-                    <p className="text-[10px] text-stone-400 font-medium mt-0.5">
-                      {session.receiveDate || "Hari Ini"} • Sheet {session.targetSheet}
-                      {diffCount > 0 && unconfirmedDiffCount > 0
-                        ? ` • ${unconfirmedDiffCount} selisih belum dikonfirmasi`
-                        : ""}
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      {session.receiveDate || "Hari Ini"} · Target: <strong className="text-slate-700">Sheet {session.targetSheet}</strong>
                     </p>
                   </div>
                 </div>
 
-                {/* Quick Action Pills Row */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-stone-200/60">
+                {/* Asymmetric Bento Metrics Grid */}
+                <div className="grid grid-cols-5 gap-2.5">
+                  {/* Left Big Metric (3 cols) */}
+                  <div className="col-span-3 bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-400">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+                        Fisik vs Klaim
+                      </span>
+                      <PackageCheck className="w-4 h-4 text-emerald-600" strokeWidth={2.2} />
+                    </div>
+                    <div className="mt-2">
+                      <div className="text-xl font-black text-slate-900 tracking-tight font-mono leading-none">
+                        {totalPhysical} <span className="text-xs font-semibold text-slate-500 font-sans">/ {totalClaim} pcs</span>
+                      </div>
+                      <div className="w-full bg-slate-200/70 rounded-full h-1.5 mt-2.5 overflow-hidden">
+                        <div
+                          className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${totalClaim > 0 ? Math.min(100, Math.round((totalPhysical / totalClaim) * 100)) : totalPhysical > 0 ? 100 : 8}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-semibold mt-1.5 block">
+                        {totalClaim > 0
+                          ? `${Math.round((totalPhysical / totalClaim) * 100)}% kuantitas terpenuhi`
+                          : `${reconItems.length} SKU dalam daftar`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right Stacked Metrics (2 cols) */}
+                  <div className="col-span-2 space-y-2">
+                    <div className="bg-emerald-50/70 border border-emerald-200/70 rounded-2xl p-2.5">
+                      <span className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider block">
+                        Sesuai SJ
+                      </span>
+                      <div className="text-base font-black text-emerald-900 font-mono mt-0.5">
+                        {matchCount} <span className="text-[10px] text-emerald-700 font-sans font-normal">SKU</span>
+                      </div>
+                    </div>
+                    <div className={`rounded-2xl p-2.5 border ${
+                      diffCount > 0
+                        ? "bg-amber-50/70 border-amber-200/70 text-amber-900"
+                        : "bg-slate-50/80 border-slate-200/80 text-slate-600"
+                    }`}>
+                      <span className="text-[9px] font-bold uppercase tracking-wider block opacity-80">
+                        Selisih
+                      </span>
+                      <div className="text-base font-black font-mono mt-0.5">
+                        {diffCount} <span className="text-[10px] font-sans font-normal opacity-80">SKU</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Action Toolbar */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => {
@@ -728,17 +799,19 @@ export default function VerificationPage() {
                       } catch {}
                       navigate("/");
                     }}
-                    className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#1C1917] text-white hover:bg-stone-800 transition-colors"
+                    className="min-h-[34px] px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
                   >
-                    + Scan Fisik
+                    <ScanBarcode className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>+ Scan Fisik</span>
                   </button>
                   <button
                     type="button"
                     onClick={handleOpenAiScan}
                     disabled={aiLoading}
-                    className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/85 text-stone-700 border border-white/90 hover:bg-white transition-colors"
+                    className="min-h-[34px] px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
-                    {aiLoading ? "Membaca..." : "Baca Foto SJ"}
+                    <Camera className="w-3.5 h-3.5 text-slate-600" />
+                    <span>{aiLoading ? "Membaca..." : "Foto SJ"}</span>
                   </button>
                   <button
                     type="button"
@@ -747,39 +820,42 @@ export default function VerificationPage() {
                       setSkuSearch("");
                       setSelectedProductToAdd(null);
                     }}
-                    className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/85 text-stone-700 border border-white/90 hover:bg-white transition-colors"
+                    className="min-h-[34px] px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
                   >
-                    + SKU SJ
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>SKU SJ</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setScannedListModalOpen(true)}
-                    className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/85 text-stone-700 border border-white/90 hover:bg-white transition-colors"
+                    className="min-h-[34px] px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
                   >
-                    Scan ({session.items.length})
+                    <PackageCheck className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Scan ({session.items.length})</span>
                   </button>
                   <button
                     type="button"
                     onClick={handleMatchAll}
-                    className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/85 text-stone-700 border border-white/90 hover:bg-white transition-colors"
+                    className="min-h-[34px] px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
                   >
-                    Samakan
+                    <RotateCcw className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Samakan</span>
                   </button>
                 </div>
 
-                {/* Filter Pills */}
-                <div className="flex items-center justify-between pt-1.5 border-t border-stone-200/60 text-xs">
-                  <span className="text-[11px] font-semibold text-stone-500">Filter:</span>
-                  <div className="flex gap-1">
+                {/* Filter Segmented Control */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Filter:</span>
+                  <div className="flex gap-1 p-0.5 bg-slate-100 rounded-xl">
                     {(["all", "diff", "match"] as const).map((tab) => (
                       <button
                         key={tab}
                         type="button"
                         onClick={() => setFilterStatus(tab)}
-                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition-all ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                           filterStatus === tab
-                            ? "bg-[#1C1917] text-white"
-                            : "bg-white/70 text-stone-600 border border-white/80 hover:bg-white"
+                            ? "bg-white text-slate-900 shadow-xs"
+                            : "text-slate-500 hover:text-slate-900"
                         }`}
                       >
                         {tab === "all"
@@ -793,10 +869,10 @@ export default function VerificationPage() {
                 </div>
               </div>
 
-              {/* Items List (Screen 01 Frosted Card Rows) */}
+              {/* Items List (Bento Reconciliation Cards) */}
               <div className="space-y-2.5">
                 {filteredItems.length === 0 ? (
-                  <div className="card p-6 text-center text-xs font-medium text-stone-500">
+                  <div className="bg-white border border-slate-200/90 rounded-2xl p-6 text-center text-xs font-medium text-slate-400">
                     Tidak ada item pada filter ini.
                   </div>
                 ) : (
@@ -827,56 +903,60 @@ export default function VerificationPage() {
                         : `SKU ${item.sku}`;
 
                     return (
-                      <div key={item.key} className="card p-3.5 space-y-2.5 transition-all">
+                      <div
+                        key={item.key}
+                        className={`bg-white rounded-2xl p-3.5 space-y-2.5 transition-all border ${
+                          isMatch
+                            ? "border-slate-200/90 hover:border-slate-300"
+                            : isUnscanned || isUnder
+                            ? "border-amber-200 bg-amber-50/20"
+                            : "border-indigo-200 bg-indigo-50/20"
+                        } shadow-2xs`}
+                      >
                         <div className="flex items-start justify-between gap-2.5">
-                          {/* Left Status Circle Icon + Full Product Info */}
+                          {/* Left Status Icon + Product Details */}
                           <div className="flex items-start gap-2.5 min-w-0 flex-1">
                             <div
-                              className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 border text-xs font-bold ${
+                              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border text-xs font-bold ${
                                 isMatch
-                                  ? "bg-white/90 border-stone-300 text-stone-800"
+                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                                   : isUnscanned || isUnder
-                                  ? "bg-amber-50/90 border-amber-300 text-amber-800"
-                                  : "bg-teal-50/90 border-teal-300 text-teal-800"
+                                  ? "bg-amber-50 border-amber-200 text-amber-700"
+                                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
                               }`}
                             >
                               {isMatch ? (
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
+                                <Check className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />
                               ) : isUnscanned || isUnder ? (
-                                <span>!</span>
+                                <AlertTriangle className="w-4 h-4 text-amber-600" strokeWidth={2.2} />
                               ) : (
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                                <PackagePlus className="w-4 h-4 text-indigo-600" strokeWidth={2.2} />
                               )}
                             </div>
 
                             <div className="min-w-0 flex-1">
-                              {/* Full Product Name — NEVER truncated */}
-                              <h4 className="text-xs font-bold text-stone-900 leading-snug break-words">
+                              <h4 className="text-xs font-extrabold text-slate-900 leading-snug break-words">
                                 {item.product}
                               </h4>
-                              <p className="text-[11px] text-stone-500 font-medium mt-0.5 leading-snug break-words">
-                                {batchLabel} •{" "}
+                              <p className="text-xs text-slate-500 font-medium mt-0.5 leading-snug break-words">
+                                <span className="font-mono text-[11px] text-slate-500">{batchLabel}</span> •{" "}
                                 <span
                                   className={
                                     isMatch
-                                      ? "text-emerald-700 font-semibold"
-                                      : "text-amber-700 font-semibold"
+                                      ? "text-emerald-700 font-bold"
+                                      : "text-amber-700 font-bold"
                                   }
                                 >
                                   {statusText}
                                 </span>
                                 {item.confirmedDiscrepancy && !isMatch && (
-                                  <span className="ml-1 text-stone-600 font-semibold">
+                                  <span className="ml-1 text-slate-700 font-bold">
                                     (✓ Dikonfirmasi)
                                   </span>
                                 )}
                               </p>
                               {item.notes && (
-                                <p className="text-[11px] text-stone-700 bg-white/75 border border-white/90 rounded-lg px-2.5 py-1 mt-1.5 font-medium break-words">
+                                <p className="text-xs text-slate-700 bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1 mt-1.5 font-medium break-words">
                                   Catatan: {item.notes}
                                 </p>
                               )}
@@ -892,12 +972,12 @@ export default function VerificationPage() {
                                 onClick={() =>
                                   handleUpdateClaim(item, Math.max(0, item.claimQty - 1))
                                 }
-                                className="w-6 h-6 rounded-full bg-white/80 hover:bg-white border border-stone-200/90 flex items-center justify-center text-xs font-bold text-stone-700 transition-colors"
+                                className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-700 cursor-pointer active:scale-95 transition-all"
                                 title="Kurangi Klaim SJ"
                               >
-                                -
+                                <Minus className="w-3.5 h-3.5" />
                               </button>
-                              <div className="bg-[#1C1917] text-white px-2.5 py-0.5 rounded-full font-mono text-[11px] font-bold flex items-center gap-0.5">
+                              <div className="bg-slate-900 text-white px-2.5 py-0.5 rounded-lg font-mono text-xs font-bold flex items-center gap-0.5 shadow-2xs">
                                 <input
                                   type="number"
                                   inputMode="numeric"
@@ -905,30 +985,30 @@ export default function VerificationPage() {
                                   onChange={(e) =>
                                     handleUpdateClaim(item, Number(e.target.value) || 0)
                                   }
-                                  className="w-7 bg-transparent text-center text-white font-mono text-[11px] font-bold focus:outline-none tabular-nums"
+                                  className="w-7 bg-transparent text-center text-white font-mono text-xs font-bold focus:outline-none tabular-nums"
                                   title="Jumlah Klaim SJ"
                                 />
-                                <span className="text-[10px] font-normal opacity-80">Pcs</span>
+                                <span className="text-[10px] font-normal text-slate-400">pcs</span>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => handleUpdateClaim(item, item.claimQty + 1)}
-                                className="w-6 h-6 rounded-full bg-white/80 hover:bg-white border border-stone-200/90 flex items-center justify-center text-xs font-bold text-stone-700 transition-colors"
+                                className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-700 cursor-pointer active:scale-95 transition-all"
                                 title="Tambah Klaim SJ"
                               >
-                                +
+                                <Plus className="w-3.5 h-3.5" />
                               </button>
                             </div>
 
-                            <span className="text-[10px] font-semibold text-stone-500">
-                              Fisik: <strong className="text-stone-800">{item.physicalQty} Pcs</strong>
+                            <span className="text-[11px] font-medium text-slate-500">
+                              Fisik: <strong className="text-slate-900 font-mono font-black">{item.physicalQty} pcs</strong>
                             </span>
                           </div>
                         </div>
 
                         {/* Quick Action Row per Item if needed */}
                         {(!isMatch || ((isUnscanned || isUnder) && item.barcode)) && (
-                          <div className="flex items-center justify-end gap-1.5 pt-1.5 border-t border-stone-200/50">
+                          <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
                             {(isUnscanned || isUnder) && item.barcode && (
                               <button
                                 type="button"
@@ -940,7 +1020,7 @@ export default function VerificationPage() {
                                     `/return-form?barcode=${encodeURIComponent(item.barcode)}&mode=verify`
                                   );
                                 }}
-                                className="text-[11px] font-semibold bg-[#1C1917] text-white px-3 py-1 rounded-full hover:bg-stone-800 transition-colors"
+                                className="min-h-[32px] text-xs font-extrabold bg-slate-900 hover:bg-slate-800 text-white px-3 py-1 rounded-xl shadow-2xs cursor-pointer transition-colors"
                               >
                                 Scan Barang
                               </button>
@@ -953,7 +1033,7 @@ export default function VerificationPage() {
                                   setDiscrepancyModalItem(item);
                                   setDiscrepancyNote(item.notes || "");
                                 }}
-                                className="text-[11px] font-semibold text-stone-700 bg-white/80 hover:bg-white border border-stone-200/90 px-3 py-1 rounded-full transition-colors"
+                                className="min-h-[32px] text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 px-3 py-1 rounded-xl cursor-pointer transition-colors"
                               >
                                 {item.confirmedDiscrepancy ? "Edit Catatan" : "Catat Selisih"}
                               </button>
@@ -966,23 +1046,25 @@ export default function VerificationPage() {
                 )}
               </div>
 
-              {/* Bottom Sticky Action Bar (Screen 01 Dark Pill Button) */}
-              <div className="sticky bottom-16 z-40 pt-1">
-                <div className="card p-2.5 flex items-center gap-2 bg-white/80 backdrop-blur-xl">
+              {/* Bottom Sticky Action Bar (Floating Bento Bar) */}
+              <div className="sticky bottom-16 z-30 pt-1">
+                <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl p-2.5 flex items-center gap-2 shadow-lg">
                   <button
                     type="button"
                     onClick={() => handleCopyWhatsApp()}
-                    className="btn-outline py-3 px-4 text-xs font-semibold shrink-0"
+                    className="min-h-[44px] px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-700 text-xs font-extrabold flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0"
                   >
-                    Salin WA
+                    <ClipboardCopy className="w-4 h-4 text-slate-600" />
+                    <span>Salin WA</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleFinishStoreClick}
-                    className="flex-1 btn-primary py-3 px-4 text-xs font-bold shadow-md"
+                    className="flex-1 min-h-[44px] px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-xs cursor-pointer active:scale-[0.98] transition-all"
                   >
-                    Simpan Verifikasi ke Sheet
+                    <FileCheck2 className="w-4 h-4 text-emerald-400" />
+                    <span>Simpan Verifikasi ke Sheet</span>
                   </button>
                 </div>
               </div>
@@ -997,7 +1079,7 @@ export default function VerificationPage() {
       {activeTab === "history" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-bold text-stone-600 uppercase tracking-wider">
+            <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
               Riwayat Rekon ({reconHistory.length})
             </span>
             <button
@@ -1017,14 +1099,15 @@ export default function VerificationPage() {
                   showToast("error", res.error || "Gagal mengambil data dari Google Sheets.");
                 }
               }}
-              className="text-[11px] font-semibold text-stone-700 hover:text-stone-900 bg-white/75 border border-white/90 px-3 py-1 rounded-full transition-colors flex items-center gap-1 shadow-2xs"
+              className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-white border border-slate-200/90 px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
-              <span>Sinkron dari Sheet</span>
+              <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+              <span>Sinkron Sheet</span>
             </button>
           </div>
 
           {reconHistory.length === 0 ? (
-            <div className="card p-8 text-center text-xs text-stone-500">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-8 text-center text-xs font-medium text-slate-400">
               Belum ada riwayat verifikasi toko yang tersimpan.
             </div>
           ) : (
@@ -1038,42 +1121,42 @@ export default function VerificationPage() {
               });
 
               return (
-                <div key={rep.id} className="card p-3.5 space-y-2.5">
+                <div key={rep.id} className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-bold text-stone-900 leading-snug break-words">{rep.storeName}</h3>
-                      <p className="text-[11px] text-stone-500 mt-0.5">
+                      <h3 className="text-sm font-extrabold text-slate-900 leading-snug break-words">{rep.storeName}</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
                         {rep.noSJ ? `SJ: ${rep.noSJ} · ` : ""}
                         {dateStr} · PIC: {rep.pic} (Sheet {rep.targetSheet})
                       </p>
                     </div>
                     <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                      className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold shrink-0 border ${
                         !rep.hasDiscrepancy
-                          ? "bg-emerald-100/90 text-emerald-800"
-                          : "bg-amber-100/90 text-amber-800"
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                          : "bg-amber-50 text-amber-800 border-amber-200"
                       }`}
                     >
                       {!rep.hasDiscrepancy ? "✓ Sesuai" : `${rep.discrepancySkuCount} Selisih`}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 bg-white/60 border border-white/80 p-2 rounded-xl text-center text-xs font-semibold text-stone-800">
+                  <div className="grid grid-cols-3 gap-2 bg-slate-50 border border-slate-200/80 p-2.5 rounded-2xl text-center text-xs font-semibold text-slate-800">
                     <div>
-                      <span className="text-[10px] text-stone-400 block font-medium">Fisik</span>
-                      <span>{rep.totalPhysicalQty} pcs</span>
+                      <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Fisik</span>
+                      <span className="font-mono font-bold text-slate-900">{rep.totalPhysicalQty} pcs</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-stone-400 block font-medium">Klaim SJ</span>
-                      <span>{rep.totalClaimQty} pcs</span>
+                      <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Klaim SJ</span>
+                      <span className="font-mono font-bold text-slate-900">{rep.totalClaimQty} pcs</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-stone-400 block font-medium">Total SKU</span>
-                      <span>{rep.totalSku} SKU</span>
+                      <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Total SKU</span>
+                      <span className="font-mono font-bold text-slate-900">{rep.totalSku} SKU</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1.5 border-t border-stone-200/60 text-xs">
+                  <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-xs">
                     <button
                       type="button"
                       onClick={() =>
@@ -1081,11 +1164,10 @@ export default function VerificationPage() {
                           selectedHistoryReport?.id === rep.id ? null : rep
                         )
                       }
-                      className="font-semibold text-stone-700 hover:text-stone-900"
+                      className="font-bold text-slate-700 hover:text-slate-900 flex items-center gap-1 cursor-pointer"
                     >
-                      {selectedHistoryReport?.id === rep.id
-                        ? "Tutup Rincian ▲"
-                        : "Lihat Rincian ▼"}
+                      <span>{selectedHistoryReport?.id === rep.id ? "Tutup Rincian" : "Lihat Rincian"}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${selectedHistoryReport?.id === rep.id ? "rotate-180" : ""}`} />
                     </button>
 
                     <div className="flex items-center gap-1.5">
@@ -1103,47 +1185,48 @@ export default function VerificationPage() {
                             items: rep.items,
                           })
                         }
-                        className="btn-outline py-1 px-3 text-[11px] font-semibold"
+                        className="min-h-[32px] px-3 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer"
                       >
-                        Salin WA
+                        <ClipboardCopy className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Salin WA</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDeleteHistory(rep.id)}
-                        className="text-stone-400 hover:text-red-600 p-1 rounded-md text-xs font-semibold"
+                        className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg text-xs font-semibold cursor-pointer"
                         title="Hapus riwayat ini"
                       >
-                        Hapus
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
 
                   {/* Expanded Details */}
                   {selectedHistoryReport?.id === rep.id && (
-                    <div className="pt-2 border-t border-stone-200/60 space-y-1.5">
-                      <h5 className="text-[11px] font-bold text-stone-500 uppercase tracking-wide">
+                    <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                      <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                         Rincian Item:
                       </h5>
                       {rep.items.map((it, idx) => (
                         <div
                           key={idx}
-                          className="flex items-start justify-between py-1.5 border-b border-stone-200/50 last:border-0 text-xs gap-2"
+                          className="flex items-start justify-between py-1.5 border-b border-slate-100 last:border-0 text-xs gap-2"
                         >
                           <div className="min-w-0 pr-2 flex-1">
-                            <span className="font-bold text-stone-800 block leading-snug break-words">
+                            <span className="font-bold text-slate-900 block leading-snug break-words">
                               {it.product}
                             </span>
-                            <span className="text-[10px] text-stone-500 font-mono">
+                            <span className="text-[11px] text-slate-500 font-mono">
                               {it.sku}
                               {it.notes ? ` · Catatan: ${it.notes}` : ""}
                             </span>
                           </div>
                           <div className="text-right shrink-0">
-                            <span className="font-mono font-bold text-stone-800">
+                            <span className="font-mono font-bold text-slate-900">
                               {it.physicalQty} / {it.claimQty} pcs
                             </span>
                             <span
-                              className={`block text-[10px] font-bold ${
+                              className={`block text-[11px] font-bold ${
                                 it.status === "match"
                                   ? "text-emerald-600"
                                   : "text-red-600"
@@ -1199,7 +1282,7 @@ export default function VerificationPage() {
                       <span className="font-bold text-stone-900 block leading-snug break-words">
                         {selectedProductToAdd.product}
                       </span>
-                      <span className="font-mono text-stone-500 text-[10px]">
+                      <span className="font-mono text-stone-500 text-xs">
                         {selectedProductToAdd.sku} · {selectedProductToAdd.barcode}
                       </span>
                     </div>
@@ -1233,7 +1316,7 @@ export default function VerificationPage() {
                             <span className="font-bold text-stone-900 block leading-snug break-words">
                               {p.product}
                             </span>
-                            <span className="text-[10px] text-stone-400 font-mono">
+                            <span className="text-xs text-stone-400 font-mono">
                               {p.sku} · {p.barcode}
                             </span>
                           </button>
@@ -1299,7 +1382,7 @@ export default function VerificationPage() {
 
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-xs text-amber-900">
               <p className="font-bold leading-snug break-words">{discrepancyModalItem.product}</p>
-              <p className="font-mono text-[11px] text-amber-800 mt-0.5">
+              <p className="font-mono text-xs text-amber-800 mt-0.5">
                 Fisik: {discrepancyModalItem.physicalQty} pcs · Klaim: {discrepancyModalItem.claimQty} pcs (Selisih: {discrepancyModalItem.diff})
               </p>
             </div>
@@ -1319,7 +1402,7 @@ export default function VerificationPage() {
                     key={chip}
                     type="button"
                     onClick={() => setDiscrepancyNote(chip)}
-                    className="text-[10px] font-semibold bg-stone-100 hover:bg-stone-200 text-stone-700 px-2.5 py-1 rounded-full border border-stone-200"
+                    className="text-xs font-semibold bg-stone-100 hover:bg-stone-200 text-stone-700 px-2.5 py-1 rounded-full border border-stone-200"
                   >
                     {chip}
                   </button>
@@ -1451,7 +1534,7 @@ export default function VerificationPage() {
                   <div className="flex items-center gap-1.5 font-bold">
                     <span>Ada {unmappedCount} produk perlu dicek / dipetakan</span>
                   </div>
-                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                  <p className="text-xs text-amber-800 leading-relaxed">
                     Produk bertanda kuning/merah belum cocok persis dengan Master. Klik <strong>"Petakan"</strong> agar fisik scan nantinya cocok dan tidak muncul selisih dobel.
                   </p>
                 </div>
@@ -1478,22 +1561,22 @@ export default function VerificationPage() {
                       <div className="min-w-0 pr-2 flex-1 space-y-0.5">
                         <div className="flex items-center gap-1 flex-wrap">
                           {isExact && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
                               ✓ Master Eksak
                             </span>
                           )}
                           {!isExact && !isLow && !isUnmatched && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
                               ✓ Cocok ({Math.round((it.matchScore || 1) * 100)}%)
                             </span>
                           )}
                           {isLow && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900">
+                            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-900">
                               Perlu Dicek ({Math.round(it.matchScore * 100)}%)
                             </span>
                           )}
                           {isUnmatched && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
+                            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700">
                               Tidak di Master
                             </span>
                           )}
@@ -1504,13 +1587,13 @@ export default function VerificationPage() {
                         </span>
 
                         {it.rawProduct && it.rawProduct.toLowerCase() !== it.product.toLowerCase() && (
-                          <span className="text-[10px] text-stone-500 block break-words">
+                          <span className="text-xs text-stone-500 block break-words">
                             Teks SJ: <em>"{it.rawProduct}"</em>
                           </span>
                         )}
 
                         <div className="flex items-center gap-2 pt-0.5">
-                          <span className="text-[10px] text-stone-400 font-mono">
+                          <span className="text-xs text-stone-400 font-mono">
                             SKU: {it.sku || "-"}
                           </span>
                           <button
@@ -1519,7 +1602,7 @@ export default function VerificationPage() {
                               setMappingItemIndex(idx);
                               setMappingSearch(it.rawProduct || it.product);
                             }}
-                            className="text-[10px] font-bold text-teal-700 hover:text-teal-900 underline"
+                            className="text-xs font-bold text-teal-700 hover:text-teal-900 underline"
                           >
                             {isUnmatched || isLow ? "Petakan..." : "Ubah..."}
                           </button>
@@ -1527,7 +1610,7 @@ export default function VerificationPage() {
                       </div>
 
                       <div className="shrink-0 flex items-center gap-1 pt-1">
-                        <span className="text-[10px] text-stone-400 font-bold uppercase">Klaim:</span>
+                        <span className="text-xs text-stone-400 font-bold uppercase">Klaim:</span>
                         <input
                           type="number"
                           inputMode="numeric"
@@ -1549,13 +1632,13 @@ export default function VerificationPage() {
               </div>
 
               {session && Object.keys(session.claims).length > 0 && (
-                <div className="shrink-0 grid grid-cols-2 gap-1.5 text-[11px] font-bold">
+                <div className="shrink-0 grid grid-cols-2 gap-1.5 text-xs font-bold">
                   <button
                     type="button"
                     onClick={() => setAiApplyMode("replace")}
                     className={`py-1.5 rounded-full border ${
                       aiApplyMode === "replace"
-                        ? "bg-[#1C1917] text-white border-[#1C1917]"
+                        ? "bg-slate-900 text-white border-slate-900"
                         : "bg-white text-stone-600 border-stone-300"
                     }`}
                   >
@@ -1566,7 +1649,7 @@ export default function VerificationPage() {
                     onClick={() => setAiApplyMode("add")}
                     className={`py-1.5 rounded-full border ${
                       aiApplyMode === "add"
-                        ? "bg-[#1C1917] text-white border-[#1C1917]"
+                        ? "bg-slate-900 text-white border-slate-900"
                         : "bg-white text-stone-600 border-stone-300"
                     }`}
                   >
@@ -1581,7 +1664,7 @@ export default function VerificationPage() {
                   <p className="font-bold text-red-800">
                     Masih ada {unmappedCount} produk belum dipetakan.
                   </p>
-                  <p className="text-[11px] text-red-600 leading-snug">
+                  <p className="text-xs text-red-600 leading-snug">
                     Produk tanpa SKU master berisiko membuat selisih palsu saat barang fisik di-scan.
                   </p>
                   <div className="pt-1">
@@ -1629,7 +1712,7 @@ export default function VerificationPage() {
                 <h3 className="text-sm font-bold text-stone-900">
                   Petakan ke Master Produk
                 </h3>
-                <p className="text-[11px] text-stone-500">
+                <p className="text-xs text-stone-500">
                   Teks SJ: "<em>{aiExtractedData.items[mappingItemIndex]?.rawProduct || aiExtractedData.items[mappingItemIndex]?.product}</em>"
                 </p>
               </div>
@@ -1671,7 +1754,7 @@ export default function VerificationPage() {
                       <span className="font-bold text-xs text-stone-900 block leading-snug break-words">
                         {p.product}
                       </span>
-                      <span className="text-[10px] text-stone-400 font-mono">
+                      <span className="text-xs text-stone-400 font-mono">
                         {p.sku} {p.barcode ? `· ${p.barcode}` : ""}
                       </span>
                     </div>
@@ -1744,7 +1827,7 @@ export default function VerificationPage() {
                 <h3 className="text-sm font-bold text-stone-900">
                   Rincian Hasil Scan Fisik
                 </h3>
-                <p className="text-[11px] text-stone-500">
+                <p className="text-xs text-stone-500">
                   {session.storeName} · Total {session.items.reduce((s, i) => s + i.qty, 0)} pcs ({session.items.length} scan)
                 </p>
               </div>
@@ -1769,10 +1852,10 @@ export default function VerificationPage() {
                       <span className="font-bold text-stone-900 block leading-snug break-words">
                         {it.product}
                       </span>
-                      <p className="text-[10px] text-stone-500 font-mono mt-0.5">
+                      <p className="text-xs text-stone-500 font-mono mt-0.5">
                         Lot: {it.batch || "-"} · Exp: {it.expDate || "-"} · {it.qty} pcs
                       </p>
-                      <p className="text-[10px] text-gray-400">
+                      <p className="text-xs text-gray-400">
                         {it.barcode} · {it.pic}
                       </p>
                     </div>
@@ -1821,7 +1904,7 @@ export default function VerificationPage() {
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-left text-amber-900 space-y-1">
               <p>📍 <strong>Sesi Aktif:</strong> {session?.storeName}</p>
               <p>📄 <strong>Toko di Surat Jalan:</strong> {aiExtractedData.storeName}</p>
-              <p className="text-[11px] text-amber-800 pt-1">
+              <p className="text-xs text-amber-800 pt-1">
                 Surat Jalan yang Anda baca terindikasi milik toko yang berbeda dari sesi scan yang sedang berjalan.
               </p>
             </div>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { Check, ChevronDown, ChevronLeft, FileCheck2, Layers, Minus, Plus, Save, Store, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import BatchPickerModal from "../components/BatchPickerModal";
 import { getActiveSession, addScannedItemToSession, getSessionStoreConflict } from "../lib/session";
@@ -328,6 +329,14 @@ export default function ReturnFormPage() {
     }, 80);
   }, []);
 
+  const adjustQty = useCallback((delta: number) => {
+    setQty((prev) => {
+      const current = Number(prev) || 0;
+      const next = Math.max(1, current + delta);
+      return String(next);
+    });
+  }, []);
+
   const displayedProducts = useMemo(() => filteredProducts.slice(0, 30), [filteredProducts]);
 
   const handleProductKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -506,87 +515,91 @@ export default function ReturnFormPage() {
         </div>
       )}
 
-      {/* Mode & Session Banner */}
+      {/* Mode & Session Bento Banner */}
       {activeSession ? (
         isVerifyMode ? (
-          <div className="card px-4 py-3 flex items-center justify-between gap-2.5">
+          <div className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="bg-[#1C1917] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0">
-                  Verifikasi SJ
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[10px] uppercase tracking-wide">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Sesi Siap
                 </span>
-                <span className="text-xs font-extrabold text-stone-900 leading-snug break-words">
+                <span className="text-xs font-black text-slate-900 leading-snug break-words">
                   {activeSession.storeName}
                 </span>
               </div>
-              <p className="text-[11px] text-stone-500 font-medium mt-0.5">
-                {activeSession.noSJ ? `SJ: ${activeSession.noSJ} • ` : ""}
-                Total Sesi: {activeSession.items.reduce((a, b) => a + b.qty, 0)} pcs ({activeSession.items.length} scan)
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                {activeSession.noSJ ? `SJ #${activeSession.noSJ} · ` : ""}
+                Total: <strong className="text-slate-800 font-mono">{activeSession.items.reduce((a, b) => a + b.qty, 0)} pcs</strong> ({activeSession.items.length} scan)
               </p>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex flex-col gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => handleToggleVerifyMode(false)}
-                className="text-xs font-semibold text-stone-700 bg-white/85 border border-white/90 px-3 py-1.5 rounded-full hover:bg-white transition-colors"
+                className="min-h-[32px] px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-[11px] font-bold text-slate-700 cursor-pointer transition-colors"
               >
                 Ke Sheet Saja
               </button>
               <button
                 type="button"
                 onClick={() => navigate("/verification")}
-                className="text-xs font-semibold text-white bg-[#1C1917] px-3 py-1.5 rounded-full hover:bg-stone-800 transition-colors"
+                className="min-h-[32px] px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold cursor-pointer transition-colors flex items-center justify-center gap-1 shadow-2xs"
               >
-                Cek SJ
+                <FileCheck2 className="w-3 h-3 text-emerald-400" />
+                <span>Cek SJ</span>
               </button>
             </div>
           </div>
         ) : (
-          <div className="card px-4 py-3 flex items-center justify-between gap-2.5">
+          <div className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <span className="bg-stone-200/90 text-stone-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full inline-block">
-                Input Manual (Sheet)
+              <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-extrabold uppercase tracking-wide">
+                Input Manual (Sheet Saja)
               </span>
-              <p className="text-[11px] text-stone-500 font-medium mt-1">
-                Simpan tanpa masuk sesi "{activeSession.storeName}".
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Data akan disimpan langsung tanpa masuk sesi "{activeSession.storeName}".
               </p>
             </div>
             <button
               type="button"
               onClick={() => handleToggleVerifyMode(true)}
-              className="shrink-0 text-xs font-semibold text-white bg-[#1C1917] px-3.5 py-1.5 rounded-full hover:bg-stone-800 transition-colors"
+              className="shrink-0 min-h-[36px] px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer transition-colors shadow-2xs"
             >
-              Ikut Verifikasi
+              Ikut Sesi
             </button>
           </div>
         )
       ) : null}
 
-      {/* Main Form Card */}
-      <form onSubmit={onSubmit} className="card overflow-hidden">
+      {/* Main Form Bento Card */}
+      <form onSubmit={onSubmit} className="bg-white border border-slate-200/90 rounded-3xl shadow-2xs overflow-hidden">
         {/* Loading Progress Bar */}
         {(loadingProducts || loadingBatches) && (
-          <div className="h-1 bg-white/50 overflow-hidden">
-            <div className="h-full w-1/3 bg-[#1C1917] animate-pulse" />
+          <div className="h-1 bg-slate-100 overflow-hidden">
+            <div className="h-full w-1/3 bg-slate-900 animate-pulse" />
           </div>
         )}
 
         <div className="p-4 space-y-4">
           {/* Header Bar: Title + Sheet Switcher */}
-          <div className="flex items-center justify-between pb-3 border-b border-stone-200/70">
-            <span className="text-xs font-bold text-stone-800">
-              Sheet Tujuan
-            </span>
-            <div className="flex gap-1 bg-white/60 p-0.5 rounded-full border border-white/80">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+              <span className="text-xs font-extrabold text-slate-900 block">
+                Sheet Tujuan
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium">Tab spreadsheet target</span>
+            </div>
+            <div className="flex p-0.5 bg-slate-100 rounded-xl border border-slate-200/80">
               {(["Bagas", "Dimas"] as const).map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => { setTargetSheet(s); saveSheet(s); }}
-                  className={`px-3.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                  className={`min-h-[36px] px-4 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                     targetSheet === s
-                      ? "bg-[#1C1917] text-white shadow-xs"
-                      : "text-stone-600 hover:text-stone-900"
+                      ? "bg-white text-slate-900 shadow-xs"
+                      : "text-slate-500 hover:text-slate-900"
                   }`}
                 >
                   {s}
@@ -596,15 +609,17 @@ export default function ReturnFormPage() {
           </div>
 
           {/* Section 1: Produk Selection (Full Product Name, Never Truncated) */}
-          <div>
-            <label className="label-field">Produk Retur</label>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+              Produk Retur
+            </label>
             {selectedProduct ? (
-              <div className="flex items-start justify-between gap-3 bg-white/80 border border-white rounded-xl px-3.5 py-3 shadow-2xs">
+              <div className="flex items-start justify-between gap-3 bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3.5">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-stone-900 leading-snug break-words">
+                  <p className="text-xs font-extrabold text-slate-900 leading-snug break-words">
                     {selectedProduct.product}
                   </p>
-                  <p className="text-[11px] text-stone-500 font-mono font-semibold mt-1">
+                  <p className="text-xs text-slate-500 font-mono font-bold mt-1">
                     {selectedProduct.sku} • {selectedProduct.barcode}
                   </p>
                 </div>
@@ -615,7 +630,7 @@ export default function ReturnFormPage() {
                     setProductSearch("");
                     setTimeout(() => productInputRef.current?.focus(), 60);
                   }}
-                  className="shrink-0 text-xs font-semibold text-stone-700 bg-stone-100/90 hover:bg-stone-200/80 px-3 py-1 rounded-full transition-all"
+                  className="shrink-0 min-h-[32px] px-3 py-1 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 transition-all cursor-pointer shadow-2xs"
                 >
                   Ganti
                 </button>
@@ -636,12 +651,12 @@ export default function ReturnFormPage() {
                   onKeyDown={handleProductKeyDown}
                   placeholder={loadingProducts ? "Memuat produk..." : "Ketik nama produk, barcode, atau SKU"}
                   disabled={loadingProducts}
-                  className="input-field text-sm py-2.5"
+                  className="w-full min-h-[44px] px-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all"
                 />
                 {showProductDropdown && displayedProducts.length > 0 && (
                   <div
                     ref={dropdownRef}
-                    className="absolute z-30 left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-xl border border-stone-200/90 rounded-2xl shadow-lg max-h-56 overflow-y-auto divide-y divide-stone-100"
+                    className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-56 overflow-y-auto divide-y divide-slate-100"
                   >
                     {displayedProducts.map((item, idx) => (
                       <button
@@ -650,14 +665,14 @@ export default function ReturnFormPage() {
                         data-dropdown-item
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => selectProduct(item)}
-                        className={`w-full text-left px-3.5 py-2.5 transition-colors ${
-                          idx === highlightedIdx ? "bg-teal-50/80" : "hover:bg-stone-50"
+                        className={`w-full text-left px-3.5 py-2.5 transition-colors cursor-pointer ${
+                          idx === highlightedIdx ? "bg-emerald-50/70" : "hover:bg-slate-50"
                         }`}
                       >
-                        <span className="text-xs font-bold text-stone-900 block leading-snug break-words">
+                        <span className="text-xs font-bold text-slate-900 block leading-snug break-words">
                           <HighlightText text={item.product} query={debouncedSearch} />
                         </span>
-                        <span className="text-[11px] text-stone-500 block font-mono font-medium mt-0.5">
+                        <span className="text-xs text-slate-500 block font-mono font-medium mt-0.5">
                           <HighlightText text={item.barcode} query={debouncedSearch} />
                           {" • "}
                           <HighlightText text={item.sku} query={debouncedSearch} />
@@ -672,70 +687,116 @@ export default function ReturnFormPage() {
 
           {/* Section 2: Batch & Exp Date */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label-field">Nomor Batch</label>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Nomor Batch (Lot)
+              </label>
               <button
                 ref={batchBtnRef}
                 type="button"
                 onClick={() => setBatchModal(true)}
-                className={`w-full text-left input-field py-2.5 flex items-center justify-between font-mono text-xs ${
-                  batch ? "text-stone-900 font-bold" : "text-stone-400"
+                className={`w-full min-h-[44px] px-3 text-left rounded-xl bg-slate-50 hover:bg-slate-100/70 border border-slate-200 flex items-center justify-between font-mono text-xs transition-colors cursor-pointer ${
+                  batch ? "text-slate-900 font-bold" : "text-slate-400"
                 }`}
               >
-                <span className="break-all leading-snug">{batch ? (batch === "-" ? "Tanpa batch" : batch) : "Pilih Batch..."}</span>
-                <svg className="w-4 h-4 text-stone-500 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
+                <span className="break-all leading-snug truncate">{batch ? (batch === "-" ? "Tanpa batch" : batch) : "Pilih Batch..."}</span>
+                <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
               </button>
             </div>
 
-            <div>
-              <label className="label-field">Exp Date</label>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Exp Date
+              </label>
               <input
                 value={expDate}
                 onChange={(e) => setExpDate(e.target.value)}
                 placeholder="Mis: Sep 2027"
-                className="input-field text-xs py-2.5 font-semibold"
+                className="w-full min-h-[44px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
               />
             </div>
           </div>
 
-          {/* Section 3: Receive Date + Qty */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label-field">Receive Date</label>
+          {/* Section 3: Receive Date + Qty Stepper */}
+          <div className="grid grid-cols-2 gap-3 items-start">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Receive Date
+              </label>
               <input
                 value={receiveDate}
                 onChange={(e) => setReceiveDate(e.target.value)}
                 placeholder="DD-Mon-YYYY"
-                className="input-field text-xs py-2.5 font-semibold"
+                className="w-full min-h-[44px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
               />
             </div>
-            <div>
-              <label className="label-field">Jumlah Fisik (Qty)</label>
-              <input
-                ref={qtyRef}
-                type="number"
-                inputMode="numeric"
-                value={qty}
-                onChange={(e) => setQty(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    distriRef.current?.focus();
-                  }
-                }}
-                placeholder="0"
-                min="1"
-                className="input-field text-sm py-2.5 font-bold"
-              />
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Qty Fisik
+                </label>
+                {qty && Number(qty) > 0 ? (
+                  <span className="text-xs font-mono font-bold text-emerald-700">
+                    {qty} pcs
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => adjustQty(-1)}
+                  disabled={!qty || Number(qty) <= 1}
+                  className="h-11 w-10 flex items-center justify-center text-slate-700 hover:bg-slate-200/80 active:bg-slate-300 font-bold shrink-0 transition-colors disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
+                  aria-label="Kurangi qty"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <input
+                  ref={qtyRef}
+                  type="number"
+                  inputMode="numeric"
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      distriRef.current?.focus();
+                    }
+                  }}
+                  placeholder="1"
+                  min="1"
+                  className="w-full text-center font-black font-mono text-sm py-2.5 bg-transparent border-x border-slate-200 focus:outline-none focus:bg-white text-slate-900"
+                />
+                <button
+                  type="button"
+                  onClick={() => adjustQty(1)}
+                  className="h-11 w-10 flex items-center justify-center text-slate-700 hover:bg-slate-200/80 active:bg-slate-300 font-bold shrink-0 transition-colors cursor-pointer"
+                  aria-label="Tambah qty"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex gap-1 pt-0.5">
+                {[1, 5, 10].map((add) => (
+                  <button
+                    key={add}
+                    type="button"
+                    onClick={() => adjustQty(add)}
+                    className="flex-1 min-h-[30px] py-1 rounded-lg bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold transition-all border border-slate-200 shadow-2xs cursor-pointer"
+                  >
+                    +{add}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Section 4: Distri / Event + PIC */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="relative">
-              <label className="label-field">Distri / Event</label>
+            <div className="relative space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Distri / Event
+              </label>
               <input
                 ref={distriRef}
                 value={distriEvent}
@@ -746,10 +807,10 @@ export default function ReturnFormPage() {
                 onFocus={() => setShowDistriDropdown(true)}
                 onBlur={() => setTimeout(() => setShowDistriDropdown(false), 150)}
                 placeholder="Ketik distri..."
-                className="input-field text-xs py-2.5 font-semibold"
+                className="w-full min-h-[44px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
               />
               {showDistriDropdown && distriHistory.length > 0 && (
-                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-xl border border-stone-200 rounded-xl shadow-lg max-h-40 overflow-y-auto divide-y divide-stone-100">
+                <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg max-h-40 overflow-y-auto divide-y divide-slate-100">
                   {distriHistory
                     .filter((h) => !distriEvent.trim() || h.toLowerCase().includes(distriEvent.toLowerCase()))
                     .map((item, idx) => (
@@ -761,7 +822,7 @@ export default function ReturnFormPage() {
                           setDistriEvent(item);
                           setShowDistriDropdown(false);
                         }}
-                        className="w-full text-left px-3 py-2 text-xs font-semibold text-stone-800 hover:bg-stone-50 break-words"
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 break-words cursor-pointer"
                       >
                         {item}
                       </button>
@@ -770,20 +831,24 @@ export default function ReturnFormPage() {
               )}
             </div>
 
-            <div>
-              <label className="label-field">PIC</label>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                PIC
+              </label>
               <input
                 value={pic}
                 onChange={(e) => setPic(e.target.value)}
                 placeholder="PIC"
-                className="input-field text-xs py-2.5 font-semibold"
+                className="w-full min-h-[44px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
               />
             </div>
           </div>
 
-          {/* Section 5: Keterangan (Soft Frosted Pill Chips) */}
-          <div>
-            <label className="label-field">Kondisi / Keterangan</label>
+          {/* Section 5: Keterangan (Bento Chips) */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+              Kondisi / Keterangan
+            </label>
             <div className="flex flex-wrap gap-1.5 pt-0.5">
               {KETERANGAN_OPTIONS.map((opt) => {
                 const active = keteranganList.includes(opt);
@@ -792,10 +857,10 @@ export default function ReturnFormPage() {
                     key={opt}
                     type="button"
                     onClick={() => toggleKeterangan(opt)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
                       active
-                        ? "bg-[#1C1917] text-white border-[#1C1917] shadow-xs"
-                        : "bg-white/75 text-stone-700 border-white/90 hover:bg-white"
+                        ? "bg-slate-900 text-white border-slate-900 shadow-2xs"
+                        : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
                     }`}
                   >
                     {active ? "✓ " : ""}{opt}
@@ -805,25 +870,28 @@ export default function ReturnFormPage() {
             </div>
           </div>
 
-          {/* Buttons */}
-          <div className="flex gap-2.5 pt-3 border-t border-stone-200/70">
+          {/* Submit Action Buttons */}
+          <div className="flex gap-2.5 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="flex-1 btn-outline py-3 text-xs"
+              className="flex-1 min-h-[46px] rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-extrabold cursor-pointer transition-colors"
             >
               Kembali
             </button>
             <button
               type="submit"
               disabled={!canSubmit || submitting || loadingProducts || loadingBatches}
-              className="flex-1 btn-primary py-3 px-4 text-xs"
+              className="flex-1 min-h-[46px] rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold shadow-sm active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
-              {submitting
-                ? "Menyimpan..."
-                : isVerifyMode
-                ? "Simpan & Verifikasi"
-                : "Simpan ke Sheet"}
+              <Save className="w-4 h-4 text-emerald-400" />
+              <span>
+                {submitting
+                  ? "Menyimpan..."
+                  : isVerifyMode
+                  ? "Simpan & Verifikasi"
+                  : "Simpan ke Sheet"}
+              </span>
             </button>
           </div>
         </div>

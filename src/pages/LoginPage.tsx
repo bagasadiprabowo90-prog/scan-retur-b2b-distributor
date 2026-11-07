@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ArrowRight, ScanLine } from "lucide-react";
 import { useAuth, REQUIRED_DOMAIN } from "../lib/auth";
 
 export default function LoginPage() {
@@ -82,43 +83,41 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen max-w-[430px] mx-auto flex items-center justify-center px-5 bg-gradient-to-b from-[#ECE8E0] via-[#E2DDD3] to-[#D6D0C4] shadow-[0_0_48px_rgba(28,25,23,0.12)]">
-      <div className="w-full">
-        {/* Logo & Branding */}
+    <div className="min-h-screen max-w-[430px] mx-auto flex items-center justify-center px-5 bg-slate-50 shadow-[0_0_50px_rgba(15,23,42,0.08)]">
+      <div className="w-full py-8">
+        {/* Logo & Branding Bento Lockup */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-[#1C1917] text-white shadow-md rounded-2xl mb-3">
-            <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 7V5a1 1 0 011-1h2M20 7V5a1 1 0 00-1-1h-2M4 17v2a1 1 0 001 1h2M20 17v2a1 1 0 01-1 1h-2M7 12h10" />
-            </svg>
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-slate-900 to-slate-800 text-white shadow-md rounded-2xl mb-3">
+            <ScanLine className="w-7 h-7 text-emerald-400" strokeWidth={2.2} />
           </div>
-          <h1 className="text-xl font-extrabold text-stone-900 tracking-tight">
-            Scan Retur B2B
+          <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-1.5">
+            Scan Retur <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase">B2B</span>
           </h1>
-          <p className="text-xs text-stone-500 mt-0.5 font-semibold">
-            BLP Beauty
+          <p className="text-xs text-slate-500 mt-1 font-medium">
+            BLP Beauty Distribution
           </p>
         </div>
 
         {/* Session Expired Alert */}
         {isSessionExpired && !error && (
-          <div className="mb-4 rounded-2xl px-4 py-3 text-xs font-semibold bg-amber-50/90 text-amber-900 border border-amber-200/80 text-center">
+          <div className="mb-4 rounded-2xl px-4 py-3 text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-200 text-center">
             Sesi Anda telah berakhir. Silakan login kembali.
           </div>
         )}
 
-        {/* Login Card */}
-        <div className="card p-5 space-y-4 text-center">
+        {/* Login Bento Card */}
+        <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-xl space-y-4 text-center">
           {/* Error Alert */}
           {error && (
-            <div className="rounded-xl px-3.5 py-2.5 text-xs font-semibold bg-red-50/90 text-red-900 border border-red-200 text-left leading-relaxed">
+            <div className="rounded-xl px-3.5 py-2.5 text-xs font-semibold bg-red-50 text-red-900 border border-red-200 text-left leading-relaxed">
               {error}
             </div>
           )}
 
           {/* Loading indicator */}
           {loading && (
-            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-stone-800 py-2">
-              <div className="h-4 w-4 border-2 border-stone-800 border-t-transparent rounded-full animate-spin" />
+            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-800 py-2">
+              <div className="h-4 w-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
               <span>Memverifikasi akun...</span>
             </div>
           )}
@@ -130,17 +129,17 @@ export default function LoginPage() {
             </div>
           ) : (
             <div className="space-y-4 text-left">
-              <div className="p-3 bg-white/70 border border-white/90 rounded-xl text-[11px] text-stone-700 leading-relaxed">
-                <p className="font-bold text-stone-900 mb-1">Setup Google Sign-In</p>
+              <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs text-slate-600 leading-relaxed">
+                <p className="font-extrabold text-slate-900 mb-1">Setup Google Sign-In</p>
                 <p>
-                  Tambahkan <code className="bg-stone-100 px-1 py-0.5 rounded font-mono text-[10px]">VITE_GOOGLE_CLIENT_ID</code> di file <code className="bg-stone-100 px-1 py-0.5 rounded font-mono text-[10px]">.env</code> untuk tombol Google resmi.
+                  Tambahkan <code className="bg-slate-200/80 px-1 py-0.5 rounded font-mono text-[11px] font-bold text-slate-800">VITE_GOOGLE_CLIENT_ID</code> di file <code className="bg-slate-200/80 px-1 py-0.5 rounded font-mono text-[11px] font-bold text-slate-800">.env</code> untuk tombol Google resmi.
                 </p>
               </div>
 
               {/* Dev Quick Test Area */}
-              <div className="pt-2 border-t border-stone-200/70 space-y-3">
-                <p className="text-xs font-bold text-stone-800">
-                  Pilih Akun (Dev Mode):
+              <div className="pt-2 border-t border-slate-100 space-y-3">
+                <p className="text-xs font-extrabold text-slate-900">
+                  Pilih Akun Cepat (Dev Mode):
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {["bagas", "dimas", "nur", "irwan"].map((name) => (
@@ -149,10 +148,10 @@ export default function LoginPage() {
                       type="button"
                       disabled={loading}
                       onClick={() => handleDevLogin(`${name}@${REQUIRED_DOMAIN}`)}
-                      className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-white/80 hover:bg-white text-stone-800 border border-white/90 shadow-2xs transition-all capitalize text-left flex items-center justify-between"
+                      className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 shadow-2xs transition-all capitalize text-left flex items-center justify-between cursor-pointer"
                     >
                       <span>{name}</span>
-                      <span className="text-[10px] text-stone-400">→</span>
+                      <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
                     </button>
                   ))}
                 </div>
@@ -163,13 +162,13 @@ export default function LoginPage() {
                     value={devEmail}
                     onChange={(e) => setDevEmail(e.target.value)}
                     placeholder={`email@${REQUIRED_DOMAIN}`}
-                    className="input-field text-xs mb-2"
+                    className="w-full min-h-[44px] px-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 mb-2"
                   />
                   <button
                     type="button"
                     disabled={loading || !devEmail}
                     onClick={() => handleDevLogin(devEmail)}
-                    className="w-full btn-primary text-xs py-3 disabled:opacity-50"
+                    className="w-full min-h-[44px] rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold shadow-sm active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
                   >
                     Masuk dengan Email
                   </button>
