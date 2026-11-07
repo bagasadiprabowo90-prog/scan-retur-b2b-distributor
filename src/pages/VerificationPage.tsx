@@ -27,7 +27,6 @@ import {
   RotateCcw,
   ScanBarcode,
   Search,
-  Sparkles,
   Store,
   Trash2,
   UploadCloud,
@@ -513,7 +512,7 @@ export default function VerificationPage() {
         </div>
       )}
 
-      {/* Tabs Switcher Bento */}
+      {/* Tabs Switcher */}
       <div className="bg-white p-1 rounded-2xl border border-slate-200/90 shadow-2xs">
         <div className="flex p-0.5 bg-slate-100 rounded-xl">
           <button
@@ -528,7 +527,7 @@ export default function VerificationPage() {
             <FileCheck2 className={`w-3.5 h-3.5 ${activeTab === "current" ? "text-emerald-600" : ""}`} />
             <span>Sesi Toko Aktif</span>
             {session && session.items.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-md text-[10px] font-bold bg-slate-900 text-white">
+              <span className="px-1.5 py-0.2 rounded-md text-xs font-bold bg-slate-900 text-white">
                 {session.items.length}
               </span>
             )}
@@ -558,12 +557,12 @@ export default function VerificationPage() {
         <>
           {!session ? (
             <div className="space-y-3.5">
-              {/* Bento Hero Upload SJ Card */}
+              {/* Upload Lembar SJ Card */}
               <div className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs space-y-3.5">
                 <div className="text-center space-y-0.5 pt-1">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[10px] uppercase tracking-wide">
-                    <Sparkles className="w-3 h-3 text-emerald-600" />
-                    AI Vision OCR
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs">
+                    <FileText className="w-3.5 h-3.5 text-slate-600" />
+                    Dokumen Surat Jalan
                   </span>
                   <h2 className="text-base font-black text-slate-900 tracking-tight mt-1">
                     Foto atau Unggah Lembar SJ
@@ -593,7 +592,7 @@ export default function VerificationPage() {
                 </button>
               </div>
 
-              {/* Bento Quick Action Grid */}
+              {/* Quick Action Grid */}
               <div className="space-y-2">
                 <span className="text-xs font-extrabold text-slate-900 px-1 block">
                   Aksi Cepat Verifikasi &amp; Retur
@@ -698,26 +697,26 @@ export default function VerificationPage() {
                 </div>
               </div>
 
-              {/* Primary Bento Action Button */}
+              {/* Action Button */}
               <button
                 type="button"
                 onClick={handleOpenAiScan}
                 disabled={aiLoading}
-                className="w-full py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
+                className="w-full min-h-[48px] px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors"
               >
-                <Sparkles className="w-4 h-4 text-emerald-400" />
-                <span>{aiLoading ? "Membaca Lembar SJ..." : "Analisis SJ dengan AI & Verifikasi"}</span>
+                <FileText className="w-4 h-4 text-white" />
+                <span>{aiLoading ? "Membaca Lembar SJ..." : "Baca Lembar SJ & Verifikasi"}</span>
               </button>
             </div>
           ) : (
             <>
-              {/* Active Store Context Hero (Bento Logistics Pattern) */}
+              {/* Active Store Context */}
               <div className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs space-y-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[10px] uppercase tracking-wide">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Sesi Siap
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs ">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Sesi Siap
                       </span>
                       {session.noSJ && (
                         <span className="text-xs font-mono text-slate-500 font-semibold truncate">
@@ -734,12 +733,12 @@ export default function VerificationPage() {
                   </div>
                 </div>
 
-                {/* Asymmetric Bento Metrics Grid */}
+                {/* Ringkasan Verifikasi */}
                 <div className="grid grid-cols-5 gap-2.5">
                   {/* Left Big Metric (3 cols) */}
                   <div className="col-span-3 bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 flex flex-col justify-between">
                     <div className="flex items-center justify-between text-slate-400">
-                      <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+                      <span className="text-xs font-bold text-slate-500">
                         Fisik vs Klaim
                       </span>
                       <PackageCheck className="w-4 h-4 text-emerald-600" strokeWidth={2.2} />
@@ -756,7 +755,7 @@ export default function VerificationPage() {
                           }}
                         />
                       </div>
-                      <span className="text-[10px] text-slate-500 font-semibold mt-1.5 block">
+                      <span className="text-xs text-slate-500 font-semibold mt-1.5 block">
                         {totalClaim > 0
                           ? `${Math.round((totalPhysical / totalClaim) * 100)}% kuantitas terpenuhi`
                           : `${reconItems.length} SKU dalam daftar`}
@@ -767,11 +766,11 @@ export default function VerificationPage() {
                   {/* Right Stacked Metrics (2 cols) */}
                   <div className="col-span-2 space-y-2">
                     <div className="bg-emerald-50/70 border border-emerald-200/70 rounded-2xl p-2.5">
-                      <span className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider block">
+                      <span className="text-xs font-bold text-emerald-700  block">
                         Sesuai SJ
                       </span>
                       <div className="text-base font-black text-emerald-900 font-mono mt-0.5">
-                        {matchCount} <span className="text-[10px] text-emerald-700 font-sans font-normal">SKU</span>
+                        {matchCount} <span className="text-xs text-emerald-700 font-sans font-normal">SKU</span>
                       </div>
                     </div>
                     <div className={`rounded-2xl p-2.5 border ${
@@ -779,11 +778,11 @@ export default function VerificationPage() {
                         ? "bg-amber-50/70 border-amber-200/70 text-amber-900"
                         : "bg-slate-50/80 border-slate-200/80 text-slate-600"
                     }`}>
-                      <span className="text-[9px] font-bold uppercase tracking-wider block opacity-80">
+                      <span className="text-xs font-bold  block opacity-80">
                         Selisih
                       </span>
                       <div className="text-base font-black font-mono mt-0.5">
-                        {diffCount} <span className="text-[10px] font-sans font-normal opacity-80">SKU</span>
+                        {diffCount} <span className="text-xs font-sans font-normal opacity-80">SKU</span>
                       </div>
                     </div>
                   </div>
@@ -845,7 +844,7 @@ export default function VerificationPage() {
 
                 {/* Filter Segmented Control */}
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Filter:</span>
+                  <span className="text-xs font-bold text-slate-400 ">Filter:</span>
                   <div className="flex gap-1 p-0.5 bg-slate-100 rounded-xl">
                     {(["all", "diff", "match"] as const).map((tab) => (
                       <button
@@ -869,7 +868,7 @@ export default function VerificationPage() {
                 </div>
               </div>
 
-              {/* Items List (Bento Reconciliation Cards) */}
+              {/* Daftar Item Rekon */}
               <div className="space-y-2.5">
                 {filteredItems.length === 0 ? (
                   <div className="bg-white border border-slate-200/90 rounded-2xl p-6 text-center text-xs font-medium text-slate-400">
@@ -939,7 +938,7 @@ export default function VerificationPage() {
                                 {item.product}
                               </h4>
                               <p className="text-xs text-slate-500 font-medium mt-0.5 leading-snug break-words">
-                                <span className="font-mono text-[11px] text-slate-500">{batchLabel}</span> •{" "}
+                                <span className="font-mono text-xs text-slate-500">{batchLabel}</span> •{" "}
                                 <span
                                   className={
                                     isMatch
@@ -988,7 +987,7 @@ export default function VerificationPage() {
                                   className="w-7 bg-transparent text-center text-white font-mono text-xs font-bold focus:outline-none tabular-nums"
                                   title="Jumlah Klaim SJ"
                                 />
-                                <span className="text-[10px] font-normal text-slate-400">pcs</span>
+                                <span className="text-xs font-normal text-slate-400">pcs</span>
                               </div>
                               <button
                                 type="button"
@@ -1000,7 +999,7 @@ export default function VerificationPage() {
                               </button>
                             </div>
 
-                            <span className="text-[11px] font-medium text-slate-500">
+                            <span className="text-xs font-medium text-slate-500">
                               Fisik: <strong className="text-slate-900 font-mono font-black">{item.physicalQty} pcs</strong>
                             </span>
                           </div>
@@ -1046,7 +1045,7 @@ export default function VerificationPage() {
                 )}
               </div>
 
-              {/* Bottom Sticky Action Bar (Floating Bento Bar) */}
+              {/* Bottom Action Bar */}
               <div className="sticky bottom-16 z-30 pt-1">
                 <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl p-2.5 flex items-center gap-2 shadow-lg">
                   <button
@@ -1079,7 +1078,7 @@ export default function VerificationPage() {
       {activeTab === "history" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+            <span className="text-xs font-extrabold text-slate-800 ">
               Riwayat Rekon ({reconHistory.length})
             </span>
             <button
@@ -1131,7 +1130,7 @@ export default function VerificationPage() {
                       </p>
                     </div>
                     <span
-                      className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold shrink-0 border ${
+                      className={`px-2.5 py-0.5 rounded-md text-xs font-extrabold shrink-0 border ${
                         !rep.hasDiscrepancy
                           ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                           : "bg-amber-50 text-amber-800 border-amber-200"
@@ -1143,15 +1142,15 @@ export default function VerificationPage() {
 
                   <div className="grid grid-cols-3 gap-2 bg-slate-50 border border-slate-200/80 p-2.5 rounded-2xl text-center text-xs font-semibold text-slate-800">
                     <div>
-                      <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Fisik</span>
+                      <span className="text-xs text-slate-400 block font-bold ">Fisik</span>
                       <span className="font-mono font-bold text-slate-900">{rep.totalPhysicalQty} pcs</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Klaim SJ</span>
+                      <span className="text-xs text-slate-400 block font-bold ">Klaim SJ</span>
                       <span className="font-mono font-bold text-slate-900">{rep.totalClaimQty} pcs</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Total SKU</span>
+                      <span className="text-xs text-slate-400 block font-bold ">Total SKU</span>
                       <span className="font-mono font-bold text-slate-900">{rep.totalSku} SKU</span>
                     </div>
                   </div>
@@ -1204,7 +1203,7 @@ export default function VerificationPage() {
                   {/* Expanded Details */}
                   {selectedHistoryReport?.id === rep.id && (
                     <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                      <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      <h5 className="text-xs font-bold text-slate-400 ">
                         Rincian Item:
                       </h5>
                       {rep.items.map((it, idx) => (
@@ -1216,7 +1215,7 @@ export default function VerificationPage() {
                             <span className="font-bold text-slate-900 block leading-snug break-words">
                               {it.product}
                             </span>
-                            <span className="text-[11px] text-slate-500 font-mono">
+                            <span className="text-xs text-slate-500 font-mono">
                               {it.sku}
                               {it.notes ? ` · Catatan: ${it.notes}` : ""}
                             </span>
@@ -1226,7 +1225,7 @@ export default function VerificationPage() {
                               {it.physicalQty} / {it.claimQty} pcs
                             </span>
                             <span
-                              className={`block text-[11px] font-bold ${
+                              className={`block text-xs font-bold ${
                                 it.status === "match"
                                   ? "text-emerald-600"
                                   : "text-red-600"
@@ -1610,7 +1609,7 @@ export default function VerificationPage() {
                       </div>
 
                       <div className="shrink-0 flex items-center gap-1 pt-1">
-                        <span className="text-xs text-stone-400 font-bold uppercase">Klaim:</span>
+                        <span className="text-xs text-stone-400 font-bold">Klaim:</span>
                         <input
                           type="number"
                           inputMode="numeric"

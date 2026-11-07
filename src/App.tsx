@@ -77,7 +77,7 @@ export default function App() {
           <div className="flex items-center gap-2.5 min-w-0">
             {showBottomNav ? (
               <div
-                className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-900 to-slate-800 text-white shadow-xs flex items-center justify-center shrink-0"
+                className="w-9 h-9 rounded-xl bg-slate-900 text-white shadow-xs flex items-center justify-center shrink-0"
                 aria-hidden="true"
               >
                 <HeaderIcon className="w-4 h-4 text-emerald-400" strokeWidth={2.2} />
@@ -99,12 +99,12 @@ export default function App() {
                   {headerTitle}
                 </h1>
                 {isHome && (
-                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[9px] font-extrabold uppercase shrink-0">
+                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-extrabold shrink-0">
                     B2B
                   </span>
                 )}
               </div>
-              <p className="text-[10px] font-medium text-slate-400 leading-tight mt-0.5 truncate">
+              <p className="text-xs font-medium text-slate-400 leading-tight mt-0.5 truncate">
                 {headerSubtitle}
               </p>
             </div>

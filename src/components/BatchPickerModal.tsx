@@ -39,7 +39,7 @@ function BatchChip({
         {item.lot}
       </span>
       <span
-        className={`text-[10px] font-medium mt-0.5 leading-tight ${
+        className={`text-xs font-medium mt-0.5 leading-tight ${
           active ? "text-slate-300" : "text-slate-500"
         }`}
       >
@@ -258,7 +258,7 @@ export default function BatchPickerModal({
                   value={newLot}
                   onChange={(e) => setNewLot(e.target.value.toUpperCase())}
                   placeholder="Mis: CBF2801"
-                  className="input-field uppercase font-mono font-bold text-xs py-2.5"
+                  className="input-field font-mono font-bold text-xs py-2.5"
                 />
               </div>
 

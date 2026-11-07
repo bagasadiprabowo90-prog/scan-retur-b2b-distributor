@@ -87,11 +87,11 @@ export default function LoginPage() {
       <div className="w-full py-8">
         {/* Logo & Branding Bento Lockup */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-slate-900 to-slate-800 text-white shadow-md rounded-2xl mb-3">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-slate-900 text-white shadow-md rounded-2xl mb-3">
             <ScanLine className="w-7 h-7 text-emerald-400" strokeWidth={2.2} />
           </div>
           <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-1.5">
-            Scan Retur <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase">B2B</span>
+            Scan Retur <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-black">B2B</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1 font-medium">
             BLP Beauty Distribution
@@ -132,7 +132,7 @@ export default function LoginPage() {
               <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs text-slate-600 leading-relaxed">
                 <p className="font-extrabold text-slate-900 mb-1">Setup Google Sign-In</p>
                 <p>
-                  Tambahkan <code className="bg-slate-200/80 px-1 py-0.5 rounded font-mono text-[11px] font-bold text-slate-800">VITE_GOOGLE_CLIENT_ID</code> di file <code className="bg-slate-200/80 px-1 py-0.5 rounded font-mono text-[11px] font-bold text-slate-800">.env</code> untuk tombol Google resmi.
+                  Tambahkan <code className="bg-slate-200/80 px-1 py-0.5 rounded font-mono text-xs font-bold text-slate-800">VITE_GOOGLE_CLIENT_ID</code> di file <code className="bg-slate-200/80 px-1 py-0.5 rounded font-mono text-xs font-bold text-slate-800">.env</code> untuk tombol Google resmi.
                 </p>
               </div>
 

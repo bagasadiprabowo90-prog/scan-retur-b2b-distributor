@@ -521,8 +521,8 @@ export default function ReturnFormPage() {
           <div className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[10px] uppercase tracking-wide">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Sesi Siap
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs ">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Sesi Siap
                 </span>
                 <span className="text-xs font-black text-slate-900 leading-snug break-words">
                   {activeSession.storeName}
@@ -537,14 +537,14 @@ export default function ReturnFormPage() {
               <button
                 type="button"
                 onClick={() => handleToggleVerifyMode(false)}
-                className="min-h-[32px] px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-[11px] font-bold text-slate-700 cursor-pointer transition-colors"
+                className="min-h-[32px] px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer transition-colors"
               >
                 Ke Sheet Saja
               </button>
               <button
                 type="button"
                 onClick={() => navigate("/verification")}
-                className="min-h-[32px] px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold cursor-pointer transition-colors flex items-center justify-center gap-1 shadow-2xs"
+                className="min-h-[32px] px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer transition-colors flex items-center justify-center gap-1 shadow-2xs"
               >
                 <FileCheck2 className="w-3 h-3 text-emerald-400" />
                 <span>Cek SJ</span>
@@ -554,7 +554,7 @@ export default function ReturnFormPage() {
         ) : (
           <div className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-extrabold uppercase tracking-wide">
+              <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 text-xs font-extrabold ">
                 Input Manual (Sheet Saja)
               </span>
               <p className="text-xs text-slate-500 font-medium mt-1">
@@ -588,7 +588,7 @@ export default function ReturnFormPage() {
               <span className="text-xs font-extrabold text-slate-900 block">
                 Sheet Tujuan
               </span>
-              <span className="text-[10px] text-slate-400 font-medium">Tab spreadsheet target</span>
+              <span className="text-xs text-slate-400 font-medium">Tab spreadsheet target</span>
             </div>
             <div className="flex p-0.5 bg-slate-100 rounded-xl border border-slate-200/80">
               {(["Bagas", "Dimas"] as const).map((s) => (
@@ -610,7 +610,7 @@ export default function ReturnFormPage() {
 
           {/* Section 1: Produk Selection (Full Product Name, Never Truncated) */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+            <label className="text-xs font-bold text-slate-500  block">
               Produk Retur
             </label>
             {selectedProduct ? (
@@ -688,7 +688,7 @@ export default function ReturnFormPage() {
           {/* Section 2: Batch & Exp Date */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+              <label className="text-xs font-bold text-slate-500  block">
                 Nomor Batch (Lot)
               </label>
               <button
@@ -705,7 +705,7 @@ export default function ReturnFormPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+              <label className="text-xs font-bold text-slate-500  block">
                 Exp Date
               </label>
               <input
@@ -720,7 +720,7 @@ export default function ReturnFormPage() {
           {/* Section 3: Receive Date + Qty Stepper */}
           <div className="grid grid-cols-2 gap-3 items-start">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+              <label className="text-xs font-bold text-slate-500  block">
                 Receive Date
               </label>
               <input
@@ -732,7 +732,7 @@ export default function ReturnFormPage() {
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                <label className="text-xs font-bold text-slate-500  block">
                   Qty Fisik
                 </label>
                 {qty && Number(qty) > 0 ? (
@@ -794,7 +794,7 @@ export default function ReturnFormPage() {
           {/* Section 4: Distri / Event + PIC */}
           <div className="grid grid-cols-2 gap-3">
             <div className="relative space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+              <label className="text-xs font-bold text-slate-500  block">
                 Distri / Event
               </label>
               <input
@@ -832,7 +832,7 @@ export default function ReturnFormPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+              <label className="text-xs font-bold text-slate-500  block">
                 PIC
               </label>
               <input
@@ -846,7 +846,7 @@ export default function ReturnFormPage() {
 
           {/* Section 5: Keterangan (Bento Chips) */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+            <label className="text-xs font-bold text-slate-500  block">
               Kondisi / Keterangan
             </label>
             <div className="flex flex-wrap gap-1.5 pt-0.5">

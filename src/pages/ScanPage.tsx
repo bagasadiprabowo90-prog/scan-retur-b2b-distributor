@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { AlertCircle, Camera, CheckCircle2, ChevronRight, Clock, FileCheck2, PackageCheck, PenTool, Plus, ScanBarcode, Search } from "lucide-react";
+import { Camera, ChevronRight, Plus, ScanBarcode, Search } from "lucide-react";
 import {
   Html5Qrcode,
   Html5QrcodeScannerState,
@@ -229,20 +229,6 @@ function getTodayFormatted(): string {
 
 function formatZoom(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
-
-function getCategoryBadge(productName: string) {
-  const p = (productName || "").toUpperCase();
-  if (p.includes("CUSHION")) return { label: "CC", bg: "bg-purple-50 text-purple-700 border-purple-200/60" };
-  if (p.includes("LIP") || p.includes("COAT")) return { label: "LC", bg: "bg-amber-50 text-amber-700 border-amber-200/60" };
-  if (p.includes("BALM")) return { label: "BM", bg: "bg-rose-50 text-rose-700 border-rose-200/60" };
-  if (p.includes("POWDER")) return { label: "PW", bg: "bg-blue-50 text-blue-700 border-blue-200/60" };
-  if (p.includes("BROW") || p.includes("EYE")) return { label: "EB", bg: "bg-teal-50 text-teal-700 border-teal-200/60" };
-  const words = (productName || "").trim().split(/\s+/);
-  const label = words.length > 1 && words[0] && words[1]
-    ? (words[0][0] + words[1][0]).toUpperCase()
-    : (productName || "PR").slice(0, 2).toUpperCase();
-  return { label: label || "PR", bg: "bg-slate-100 text-slate-700 border-slate-200/80" };
 }
 
 export default function ScanPage() {
@@ -812,103 +798,82 @@ export default function ScanPage() {
         </div>
       )}
 
-      {/* Pilihan alur Bento Switcher */}
-      <div className="bg-white p-1 rounded-2xl border border-slate-200/90 shadow-2xs">
-        <div className="flex p-0.5 bg-slate-100 rounded-xl">
-          <button
-            type="button"
-            onClick={() => changeFlowMode("verify")}
-            className={`flex-1 py-2 rounded-lg text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              flowMode === "verify"
-                ? "bg-white text-slate-900 shadow-xs"
-                : "text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            <FileCheck2 className={`w-3.5 h-3.5 ${flowMode === "verify" ? "text-emerald-600" : ""}`} />
-            <span>Klaim SJ</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => changeFlowMode("direct")}
-            className={`flex-1 py-2 rounded-lg text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              flowMode === "direct"
-                ? "bg-white text-slate-900 shadow-xs"
-                : "text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            <PenTool className="w-3.5 h-3.5" />
-            <span>Input Manual</span>
-          </button>
-        </div>
+      {/* Pilihan alur */}
+      <div className="flex p-1 bg-slate-200/60 rounded-xl">
+        <button
+          type="button"
+          onClick={() => changeFlowMode("verify")}
+          className={`flex-1 min-h-[40px] rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+            flowMode === "verify" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
+          }`}
+        >
+          Klaim SJ
+        </button>
+        <button
+          type="button"
+          onClick={() => changeFlowMode("direct")}
+          className={`flex-1 min-h-[40px] rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+            flowMode === "direct" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
+          }`}
+        >
+          Input Manual
+        </button>
       </div>
 
       {/* Toko aktif (alur Klaim SJ) */}
       {flowMode === "verify" && (
-        <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-200/90 rounded-3xl p-3.5 shadow-2xs relative overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5">
           {session ? (
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[10px] uppercase tracking-wide">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Sesi Siap
-                  </span>
-                  {session.noSJ && (
-                    <span className="text-xs font-mono text-slate-500 font-semibold truncate">
-                      SJ #{session.noSJ}
-                    </span>
-                  )}
-                </div>
-                <h3 className="text-sm font-black text-slate-900 mt-1.5 leading-snug break-words">
+            <div className="space-y-3">
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">
+                  Toko aktif{session.noSJ ? ` · SJ #${session.noSJ}` : ""}
+                </p>
+                <h3 className="text-base font-bold text-slate-900 leading-snug break-words">
                   {session.storeName}
                 </h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Target: <strong className="text-slate-700">{session.targetSheet}</strong> · {totalSessionPcs} pcs ({totalSessionSku} SKU)
+                <p className="text-sm text-slate-600 mt-0.5">
+                  Sheet {session.targetSheet} · {totalSessionPcs} pcs · {totalSessionSku} SKU
                 </p>
               </div>
-              <div className="flex flex-col gap-1.5 shrink-0">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setShowNewStoreModal(true)}
-                  className="min-h-[36px] px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer transition-colors"
+                  className="min-h-[44px] rounded-lg bg-white border border-slate-300 text-sm font-semibold text-slate-800 cursor-pointer"
                 >
                   Ganti Toko
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate("/verification")}
-                  className="min-h-[36px] px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer transition-colors flex items-center justify-center gap-1 shadow-xs"
+                  className="min-h-[44px] rounded-lg bg-slate-100 border border-slate-200 text-sm font-semibold text-slate-900 cursor-pointer"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Cek SJ</span>
+                  Cek SJ
                 </button>
               </div>
             </div>
           ) : (
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0">
-                  <AlertCircle className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-900">Belum ada Sesi Toko</p>
-                  <p className="text-xs text-slate-500">Mulai sesi atau upload foto Surat Jalan</p>
-                </div>
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Belum ada sesi toko</p>
+                <p className="text-xs text-slate-500">Mulai sesi atau foto Surat Jalan</p>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => navigate("/verification", { state: { autoOpenScan: true } })}
-                  className="btn-outline py-2.5 text-xs flex items-center justify-center gap-1.5"
+                  className="min-h-[44px] rounded-lg bg-white border border-slate-300 text-sm font-semibold text-slate-800 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Camera className="w-3.5 h-3.5 text-slate-600" />
-                  <span>Foto SJ (AI)</span>
+                  <Camera className="w-4 h-4" />
+                  <span>Foto SJ</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowNewStoreModal(true)}
-                  className="btn-primary py-2.5 text-xs flex items-center justify-center gap-1.5"
+                  className="min-h-[44px] rounded-lg bg-slate-900 text-white text-sm font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-4 h-4" />
                   <span>Mulai Toko</span>
                 </button>
               </div>
@@ -917,46 +882,30 @@ export default function ScanPage() {
         </div>
       )}
 
-      {/* Hero Scanner Card (Bento Logistics Pattern) */}
-      <div
-        role="button"
-        tabIndex={0}
+      {/* Tombol utama: Pindai Barcode (di atas Cari Produk agar mudah dijangkau jempol) */}
+      <button
+        type="button"
         onClick={handlePrimaryScanTrigger}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            handlePrimaryScanTrigger();
-          }
-        }}
-        className="w-full bg-slate-950 text-white rounded-3xl p-4 shadow-xl relative overflow-hidden border border-slate-800 cursor-pointer active:scale-[0.985] transition-all hero-scanner-btn select-none"
+        className="w-full min-h-[64px] px-4 rounded-xl bg-slate-900 text-white flex items-center justify-center gap-3 active:bg-slate-800 transition-colors cursor-pointer"
         aria-label="Pindai barcode produk"
       >
-        <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-        <div className="absolute -right-6 -top-6 w-32 h-32 rounded-full bg-emerald-500/15 blur-2xl pointer-events-none" />
+        <ScanBarcode className="w-7 h-7" strokeWidth={2} />
+        <span className="text-base font-bold">Pindai Barcode</span>
+      </button>
 
-        <div className="relative z-10 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 shadow-inner shrink-0">
-              <ScanBarcode className="w-6 h-6 text-emerald-400" strokeWidth={2.2} />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[10px] font-mono tracking-widest text-emerald-400 font-bold uppercase block">
-                Kamera Siap · Barcode & QR
-              </span>
-              <h2 className="text-base font-black text-white tracking-tight leading-tight mt-0.5">
-                PINDAI BARCODE
-              </h2>
-              <p className="text-xs text-slate-400 font-medium truncate mt-0.5">
-                Arahkan lensa ke barcode produk (±20 cm)
-              </p>
-            </div>
-          </div>
-          <div className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white shrink-0">
-            <ChevronRight className="w-4 h-4" strokeWidth={2.5} />
-          </div>
-        </div>
-      </div>
-
+      {/* Cari produk: pencarian dibuka di sheet layar penuh agar layout tidak melompat saat keyboard muncul */}
+      <button
+        type="button"
+        onClick={() => setShowProductDropdown(true)}
+        disabled={loadingProducts}
+        className="w-full min-h-[48px] px-3.5 bg-white border border-slate-300 rounded-xl flex items-center gap-2.5 text-left cursor-pointer disabled:opacity-60"
+        aria-haspopup="dialog"
+      >
+        <Search className="w-4 h-4 text-slate-500 shrink-0" strokeWidth={2} />
+        <span className="text-sm text-slate-500 truncate">
+          {loadingProducts ? "Memuat produk..." : `Cari ${products.length} produk (nama, barcode, SKU)`}
+        </span>
+      </button>
 
       {showProductDropdown && (
         <div
@@ -1049,146 +998,76 @@ export default function ScanPage() {
         </div>
       )}
 
-      {/* Asymmetric Bento Metrics Grid */}
-      <div className="grid grid-cols-5 gap-2.5">
-        {/* Left Big Metric (3 cols) */}
-        <div className="col-span-3 bg-white border border-slate-200/90 rounded-2xl p-3 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider">
-              {flowMode === "verify" ? "Fisik Sesi" : "Total Hari Ini"}
-            </span>
-            <PackageCheck className="w-4 h-4 text-emerald-600" strokeWidth={2.2} />
-          </div>
-          <div className="mt-2">
-            <div className="text-2xl font-black text-slate-900 tracking-tight font-mono leading-none">
-              {flowMode === "verify" ? totalSessionPcs : todayStats.pcs}{" "}
-              <span className="text-xs font-semibold text-slate-500 font-sans">pcs</span>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
-              <div
-                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${Math.min(100, Math.max(8, ((flowMode === "verify" ? totalSessionPcs : todayStats.pcs) > 0 ? 75 : 8)))}%`,
-                }}
-              />
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium mt-1.5 block truncate">
-              {flowMode === "verify" && session ? `${totalSessionSku} SKU tercatat` : `${todayStats.count} kali scan hari ini`}
-            </span>
-          </div>
+      {/* Ringkasan */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-white border border-slate-200 rounded-xl px-3 py-2.5">
+          <p className="text-xs text-slate-500">
+            {flowMode === "verify" ? "Fisik sesi" : "Hari ini"}
+          </p>
+          <p className="text-xl font-bold text-slate-900 tabular-nums leading-tight mt-0.5">
+            {flowMode === "verify" ? totalSessionPcs : todayStats.pcs}
+            <span className="text-xs font-medium text-slate-500 ml-1">pcs</span>
+          </p>
         </div>
-
-        {/* Right Stacked Metrics (2 cols) */}
-        <div className="col-span-2 space-y-2.5">
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-2.5 shadow-2xs">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              {flowMode === "verify" ? "Total SKU" : "Scan Sukses"}
-            </span>
-            <div className="text-base font-black text-slate-900 font-mono mt-0.5">
-              {flowMode === "verify" ? totalSessionSku : todayStats.count}{" "}
-              <span className="text-[10px] text-slate-500 font-sans font-normal">
-                {flowMode === "verify" ? "jenis" : "item"}
-              </span>
-            </div>
-          </div>
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-2.5 shadow-2xs">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Target Sheet
-            </span>
-            <div className="text-xs font-extrabold text-slate-800 truncate mt-0.5 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-              <span className="truncate">
-                {flowMode === "verify" ? (session?.targetSheet ?? newStoreTargetSheet) : targetSheetSaved}
-              </span>
-            </div>
-          </div>
+        <div className="bg-white border border-slate-200 rounded-xl px-3 py-2.5">
+          <p className="text-xs text-slate-500">{flowMode === "verify" ? "Total SKU" : "Scan"}</p>
+          <p className="text-xl font-bold text-slate-900 tabular-nums leading-tight mt-0.5">
+            {flowMode === "verify" ? totalSessionSku : todayStats.count}
+          </p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl px-3 py-2.5">
+          <p className="text-xs text-slate-500">Sheet</p>
+          <p className="text-xl font-bold text-slate-900 leading-tight mt-0.5 truncate">
+            {flowMode === "verify" ? (session?.targetSheet ?? newStoreTargetSheet) : targetSheetSaved}
+          </p>
         </div>
       </div>
 
-      {/* Cari produk: micro-trigger */}
-      <button
-        type="button"
-        onClick={() => setShowProductDropdown(true)}
-        disabled={loadingProducts}
-        className="w-full bg-white hover:bg-slate-50 border border-slate-200/90 rounded-2xl px-3.5 py-3 flex items-center gap-2.5 text-xs text-slate-600 cursor-pointer shadow-2xs transition-colors disabled:opacity-60"
-        aria-haspopup="dialog"
-      >
-        <Search className="w-4 h-4 text-slate-400 shrink-0" strokeWidth={2} />
-        <span className="font-medium text-slate-400 flex-1 text-left truncate">
-          {loadingProducts ? "Memuat produk..." : `Cari ${products.length} produk (nama, barcode, SKU)`}
-        </span>
-        <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-[9px] text-slate-500 font-bold shrink-0">
-          CARI
-        </span>
-      </button>
-
-      {/* Daftar Scan Terakhir (Bento Stream) */}
-      <div className="bg-white border border-slate-200/90 rounded-3xl p-3.5 shadow-2xs space-y-3">
-        <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-          <div>
-            <h4 className="text-xs font-extrabold text-slate-900">
-              {flowMode === "verify" && session ? "Scan Sesi Ini" : "Scan Terakhir"}
-            </h4>
-            <p className="text-[10px] text-slate-400 font-medium truncate">
-              {flowMode === "verify" && session ? session.storeName : "Aktivitas terbaru hari ini"}
-            </p>
-          </div>
+      {/* Scan terakhir */}
+      <div className="bg-white border border-slate-200 rounded-xl">
+        <div className="flex items-center justify-between px-3.5 py-3 border-b border-slate-100">
+          <h4 className="text-sm font-bold text-slate-900">
+            {flowMode === "verify" && session ? "Scan sesi ini" : "Scan terakhir"}
+          </h4>
           <button
             type="button"
             onClick={() => navigate(flowMode === "verify" && session ? "/verification" : "/history")}
-            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5 cursor-pointer"
+            className="min-h-[36px] text-sm font-semibold text-slate-700 flex items-center gap-0.5 cursor-pointer"
           >
-            <span>{flowMode === "verify" && session ? "Buka Rekon" : "Lihat Semua"}</span>
-            <ChevronRight className="w-3.5 h-3.5" strokeWidth={2.2} />
+            <span>{flowMode === "verify" && session ? "Buka rekon" : "Lihat semua"}</span>
+            <ChevronRight className="w-4 h-4" strokeWidth={2} />
           </button>
         </div>
 
         {recentList.length === 0 ? (
-          <div className="py-6 text-center text-slate-400">
-            <p className="text-xs font-medium">Belum ada data scan</p>
-            <p className="text-xs mt-0.5 text-slate-400">Barcode atau produk yang diinput akan muncul di sini</p>
+          <div className="py-8 px-4 text-center">
+            <p className="text-sm font-medium text-slate-600">Belum ada data scan</p>
+            <p className="text-xs mt-0.5 text-slate-500">Produk yang discan akan muncul di sini</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {recentList.map((item) => {
-              const badge = getCategoryBadge(item.product);
-              return (
-                <div
-                  key={item.id}
-                  className="p-2.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 hover:bg-white transition-all flex items-center justify-between gap-2.5"
-                >
-                  <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs shrink-0 ${badge.bg}`}>
-                    {badge.label}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-extrabold text-slate-900 truncate">
-                      {item.product}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-0.5 text-[10px] font-mono text-slate-500 flex-wrap">
-                      {item.distriEvent && (
-                        <span className="text-slate-500 font-sans truncate max-w-[120px]">{item.distriEvent}</span>
-                      )}
-                      {item.batch && (
-                        <span className="bg-slate-200/70 px-1 rounded text-slate-700 font-semibold">
-                          Lot {item.batch}
-                        </span>
-                      )}
-                      {item.expDate && (
-                        <span className="text-emerald-700 font-bold whitespace-nowrap">
-                          Exp {item.expDate}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="inline-block px-2.5 py-1 rounded-xl bg-slate-900 text-white font-mono text-xs font-black shadow-2xs">
-                      {item.qty} pcs
-                    </span>
-                  </div>
+          <ul className="divide-y divide-slate-100">
+            {recentList.map((item) => (
+              <li key={item.id} className="px-3.5 py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-900 leading-snug break-words">
+                    {item.product}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed break-words">
+                    {[
+                      item.distriEvent,
+                      item.batch ? `Lot ${item.batch}` : "",
+                      item.expDate ? `Exp ${item.expDate}` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
                 </div>
-              );
-            })}
-          </div>
+                <span className="shrink-0 text-sm font-bold text-slate-900 tabular-nums whitespace-nowrap">
+                  {item.qty} pcs
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

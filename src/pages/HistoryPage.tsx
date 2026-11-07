@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Edit3, FileSpreadsheet, Package, RefreshCw, Search, Trash2, X } from "lucide-react";
-import { fetchReturnHistory, editReturn, deleteReturn, type ReturnHistoryItem, type CreateReturnPayload } from "../lib/api";
+import { ChevronDown, RefreshCw, Search, X } from "lucide-react";
+import BatchPickerModal from "../components/BatchPickerModal";
+import {
+  fetchReturnHistory,
+  fetchBatchesForBarcode,
+  editReturn,
+  deleteReturn,
+  type BatchItem,
+  type ReturnHistoryItem,
+  type CreateReturnPayload,
+} from "../lib/api";
 import { syncDeleteWithActiveSession, syncEditWithActiveSession } from "../lib/session";
-
-function getCategoryBadge(productName: string) {
-  const p = (productName || "").toUpperCase();
-  if (p.includes("CUSHION")) return { label: "CC", bg: "bg-purple-50 text-purple-700 border-purple-200/60" };
-  if (p.includes("LIP") || p.includes("COAT")) return { label: "LC", bg: "bg-amber-50 text-amber-700 border-amber-200/60" };
-  if (p.includes("BALM")) return { label: "BM", bg: "bg-rose-50 text-rose-700 border-rose-200/60" };
-  if (p.includes("POWDER")) return { label: "PW", bg: "bg-blue-50 text-blue-700 border-blue-200/60" };
-  if (p.includes("BROW") || p.includes("EYE")) return { label: "EB", bg: "bg-teal-50 text-teal-700 border-teal-200/60" };
-  return { label: "PR", bg: "bg-slate-100 text-slate-700 border-slate-200/60" };
-}
 
 const HISTORY_LIMIT = 200;
 const PAGE_SIZE = 20;
@@ -33,6 +32,9 @@ function saveCache(history: ReturnHistoryItem[]) {
   } catch {}
 }
 
+const fieldClass =
+  "w-full min-h-[44px] px-3 rounded-lg bg-white border border-slate-300 text-sm text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900";
+
 export default function HistoryPage() {
   const cached = loadCache();
   const [loading, setLoading] = useState(false);
@@ -50,6 +52,11 @@ export default function HistoryPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "ok" | "err"; msg: string } | null>(null);
 
+  // Batch picker (logika chip yang sama dengan form scan)
+  const [batchModal, setBatchModal] = useState(false);
+  const [productBatches, setProductBatches] = useState<BatchItem[]>([]);
+  const [loadingBatches, setLoadingBatches] = useState(false);
+
   function openEdit(item: ReturnHistoryItem) {
     setEditItem(item);
     setEditForm({
@@ -63,6 +70,42 @@ export default function HistoryPage() {
       keterangan: item.keterangan,
       pic: item.pic,
     });
+  }
+
+  // Muat batch milik produk yang sedang diedit
+  const editBarcode = editItem ? editForm.barcode : "";
+  useEffect(() => {
+    if (!editItem) {
+      setProductBatches([]);
+      setBatchModal(false);
+      return;
+    }
+    const barcode = editBarcode.trim();
+    if (!barcode) {
+      setProductBatches([]);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      setLoadingBatches(true);
+      const res = await fetchBatchesForBarcode(barcode);
+      if (!alive) return;
+      setLoadingBatches(false);
+      setProductBatches(res.ok ? res.batches : []);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [editItem, editBarcode]);
+
+  function handleBatchPicked(item: BatchItem) {
+    setEditForm((f) => ({ ...f, batch: item.lot, expDate: item.expDate || "" }));
+    setBatchModal(false);
+  }
+
+  function handleBatchCreated(lot: string, exp: string) {
+    setEditForm((f) => ({ ...f, batch: lot, expDate: exp }));
+    setBatchModal(false);
   }
 
   async function handleEditSave() {
@@ -150,11 +193,11 @@ export default function HistoryPage() {
   }, [toast]);
 
   return (
-    <div className="space-y-3.5 pb-8">
+    <div className="space-y-3 pb-8">
       {/* Toast */}
       {toast && (
         <div
-          className={`rounded-2xl px-4 py-3 text-xs font-semibold border shadow-xs ${
+          className={`rounded-lg px-4 py-3 text-sm font-medium border ${
             toast.type === "ok"
               ? "bg-emerald-50 text-emerald-900 border-emerald-200"
               : "bg-red-50 text-red-900 border-red-200"
@@ -164,281 +207,261 @@ export default function HistoryPage() {
         </div>
       )}
 
-      {/* Bento Stats & Actions Grid */}
-      <div className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Ringkasan Data
-            </span>
-            <div className="text-xl font-black text-slate-900 font-mono tracking-tight mt-0.5">
-              {totalQty.toLocaleString()}{" "}
-              <span className="text-xs font-sans font-semibold text-slate-500">pcs total</span>
-            </div>
-            <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-              {filteredHistory.length} baris dari {history.length} data sheet
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void loadHistory()}
-            disabled={loading}
-            className="min-h-[40px] px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-xs font-bold text-slate-700 flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
-            title="Refresh Data dari Sheet"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${loading ? "animate-spin" : ""}`} />
-            <span>{loading ? "Memuat..." : "Refresh"}</span>
-          </button>
+      {/* Ringkasan: dua angka sejajar, satuan di label agar tidak bertumpuk */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-white border border-slate-200 rounded-xl px-3.5 py-3">
+          <p className="text-xs text-slate-500">Jumlah baris</p>
+          <p className="text-2xl font-bold text-slate-900 tabular-nums leading-tight mt-0.5">
+            {filteredHistory.length.toLocaleString("id-ID")}
+          </p>
         </div>
+        <div className="bg-white border border-slate-200 rounded-xl px-3.5 py-3">
+          <p className="text-xs text-slate-500">Total qty (pcs)</p>
+          <p className="text-2xl font-bold text-slate-900 tabular-nums leading-tight mt-0.5">
+            {totalQty.toLocaleString("id-ID")}
+          </p>
+        </div>
+      </div>
 
-        {/* Search Micro-Trigger / Input */}
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" strokeWidth={2} />
+      {/* Cari + refresh */}
+      <div className="flex gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari produk, barcode, distri, atau lot..."
-            className="w-full min-h-[44px] pl-10 pr-9 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all"
+            placeholder="Cari produk, barcode, distri, lot"
+            className={`${fieldClass} pl-9 pr-9`}
           />
           {search && (
             <button
               type="button"
               onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-700 cursor-pointer"
-              aria-label="Hapus filter"
+              className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-slate-500 cursor-pointer"
+              aria-label="Hapus pencarian"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
+        <button
+          type="button"
+          onClick={() => void loadHistory()}
+          disabled={loading}
+          className="w-11 min-h-[44px] shrink-0 rounded-lg bg-white border border-slate-300 flex items-center justify-center text-slate-700 disabled:opacity-50 cursor-pointer"
+          aria-label="Muat ulang dari Sheet"
+          title="Muat ulang"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+        </button>
       </div>
 
       {error && (
-        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-red-50 text-red-900 border border-red-200">
+        <div className="rounded-lg px-4 py-3 text-sm font-medium bg-red-50 text-red-900 border border-red-200">
           {error}
         </div>
       )}
 
       {!error && warnings.length > 0 && (
-        <div className="rounded-2xl px-4 py-3 text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-200 space-y-0.5">
+        <div className="rounded-lg px-4 py-3 text-sm bg-amber-50 text-amber-900 border border-amber-200 space-y-0.5">
           {warnings.map((w, i) => <p key={i}>{w}</p>)}
         </div>
       )}
 
-      {/* List History Bento Cards */}
+      {/* Daftar */}
       {loading && history.length === 0 ? (
-        <div className="bg-white border border-slate-200/90 rounded-2xl px-4 py-12 text-center text-xs font-semibold text-slate-400 animate-pulse">
-          Memuat riwayat dari Google Sheet...
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-12 text-center text-sm text-slate-500">
+          Memuat riwayat...
         </div>
       ) : !error && filteredHistory.length === 0 && !loading ? (
-        <div className="bg-white border border-slate-200/90 rounded-2xl px-4 py-12 text-center text-xs font-semibold text-slate-400">
-          Tidak ada data riwayat yang cocok dengan pencarian.
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-12 text-center text-sm text-slate-500">
+          Tidak ada data yang cocok.
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {visibleHistory.map((item) => {
             const key = `${item.sheet}-${item.rowNumber}`;
-            const badge = getCategoryBadge(item.product);
+            const meta = [item.receiveDate, `Sheet ${item.sheet}`, item.pic ? `PIC ${item.pic}` : ""]
+              .filter(Boolean)
+              .join(" · ");
 
             return (
-              <div key={key} className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs space-y-3">
-                {/* Header: Category Badge + Product + Qty Pill */}
-                <div className="flex items-start justify-between gap-2.5">
-                  <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs shrink-0 ${badge.bg}`}>
-                    {badge.label}
-                  </div>
+              <div key={key} className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-3">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-extrabold text-slate-900 leading-snug break-words">
+                    <p className="text-sm font-semibold text-slate-900 leading-snug break-words">
                       {item.product || "-"}
                     </p>
-                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                      <span className="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
-                        {item.receiveDate || "-"}
-                      </span>
-                      <span
-                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
-                          item.sheet === "Bagas"
-                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                            : "bg-amber-50 text-amber-800 border-amber-200"
-                        }`}
-                      >
-                        Sheet {item.sheet}
-                      </span>
-                      {item.pic && (
-                        <span className="text-[10px] font-medium text-slate-500 bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded-md">
-                          PIC: {item.pic}
-                        </span>
-                      )}
-                    </div>
+                    <p className="text-xs text-slate-500 mt-1 break-words">{meta}</p>
                   </div>
-                  <div className="shrink-0 text-right">
-                    <span className="inline-block bg-slate-900 text-white font-mono text-xs font-black px-2.5 py-1 rounded-xl shadow-2xs whitespace-nowrap tabular-nums">
-                      {item.qty.toLocaleString()} pcs
-                    </span>
-                  </div>
+                  <span className="shrink-0 text-sm font-bold text-slate-900 tabular-nums whitespace-nowrap">
+                    {item.qty.toLocaleString("id-ID")} pcs
+                  </span>
                 </div>
 
-                {/* Structured Details Bento Grid */}
-                <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-2.5 space-y-2">
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                        Barcode
-                      </span>
-                      <span className="font-mono text-[11px] font-bold text-slate-800 break-all">
-                        {item.barcode || "-"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                        Batch
-                      </span>
-                      <span className="font-mono text-[11px] font-bold text-slate-800 break-words">
-                        {item.batch || "-"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                        Exp Date
-                      </span>
-                      <span className="text-[11px] font-bold text-emerald-700 break-words">
-                        {item.expDate || "-"}
-                      </span>
-                    </div>
-                  </div>
+                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+                  <dt className="text-slate-500">Barcode</dt>
+                  <dd className="font-mono text-slate-900 break-all">{item.barcode || "-"}</dd>
+                  <dt className="text-slate-500">Batch</dt>
+                  <dd className="font-mono text-slate-900 break-words">{item.batch || "-"}</dd>
+                  <dt className="text-slate-500">Exp</dt>
+                  <dd className="text-slate-900">{item.expDate || "-"}</dd>
+                  <dt className="text-slate-500">Distri</dt>
+                  <dd className="text-slate-900 break-words">{item.distriEvent || "-"}</dd>
+                  {item.keterangan && (
+                    <>
+                      <dt className="text-slate-500">Kondisi</dt>
+                      <dd className="text-slate-900 break-words">{item.keterangan}</dd>
+                    </>
+                  )}
+                </dl>
 
-                  <div className="pt-2 border-t border-slate-200/60 flex items-baseline justify-between gap-3">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
-                      Distri / Event
-                    </span>
-                    <span className="text-xs font-bold text-slate-800 text-right break-words truncate">
-                      {item.distriEvent || "-"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Keterangan */}
-                {item.keterangan && (
-                  <div className="text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 break-words">
-                    Kondisi: <strong className="text-slate-900">{item.keterangan}</strong>
-                  </div>
-                )}
-
-                {/* Edit & Hapus Buttons */}
-                <div className="flex justify-end gap-2 pt-1 border-t border-slate-100">
+                <div className="grid grid-cols-2 gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => openEdit(item)}
-                    className="min-h-[32px] px-3 py-1 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer flex items-center gap-1"
+                    className="min-h-[44px] rounded-lg bg-white border border-slate-300 text-sm font-semibold text-slate-800 cursor-pointer"
                   >
-                    <Edit3 className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Edit</span>
+                    Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeleteItem(item)}
-                    className="min-h-[32px] px-3 py-1 rounded-xl text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-all cursor-pointer flex items-center gap-1"
+                    className="min-h-[44px] rounded-lg bg-white border border-red-300 text-sm font-semibold text-red-700 cursor-pointer"
                   >
-                    <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                    <span>Hapus</span>
+                    Hapus
                   </button>
                 </div>
               </div>
             );
           })}
 
-          {/* Load More */}
           {hasMore && (
             <button
               type="button"
               onClick={() => setVisibleCount((v) => v + PAGE_SIZE)}
-              className="w-full min-h-[44px] py-2.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 text-xs font-bold text-slate-700 shadow-2xs transition-colors cursor-pointer"
+              className="w-full min-h-[48px] rounded-lg bg-white border border-slate-300 text-sm font-semibold text-slate-800 cursor-pointer"
             >
-              Muat Lagi ({filteredHistory.length - visibleCount} tersisa)
+              Muat lagi ({filteredHistory.length - visibleCount} tersisa)
             </button>
           )}
 
           {!hasMore && filteredHistory.length > 0 && (
-            <p className="text-center text-xs font-medium text-slate-400 py-2">
-              Semua {filteredHistory.length} data ditampilkan
+            <p className="text-center text-xs text-slate-500 py-2">
+              {filteredHistory.length} data ditampilkan
             </p>
           )}
         </div>
       )}
 
-      {/* Edit Modal (Bento Dialog) */}
+      {/* Edit Modal */}
       {editItem && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-12 overflow-y-auto">
-          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-xs" onClick={() => setEditItem(null)} />
-          <div className="relative bg-white border border-slate-200 rounded-3xl p-5 max-w-sm w-full space-y-3.5 mb-8 shadow-2xl">
-            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-              <h3 className="font-extrabold text-sm text-slate-900">Edit Data Sheet</h3>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-                Sheet {editItem.sheet} · Row {editItem.rowNumber}
-              </span>
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto">
+          <div className="absolute inset-0 bg-slate-900/50" onClick={() => setEditItem(null)} />
+          <div className="relative bg-white rounded-xl p-4 max-w-sm w-full space-y-3.5 mb-8 shadow-xl">
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-200">
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Edit data</h3>
+                <p className="text-xs text-slate-500">
+                  Sheet {editItem.sheet} · baris {editItem.rowNumber}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditItem(null)}
+                className="w-10 h-10 -mt-1 -mr-1 flex items-center justify-center text-slate-500 cursor-pointer"
+                aria-label="Tutup"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <EField label="Produk">
-                <input value={editForm.product} onChange={(e) => setEditForm(f => ({ ...f, product: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
+                <input value={editForm.product} onChange={(e) => setEditForm(f => ({ ...f, product: e.target.value }))} className={fieldClass} />
               </EField>
               <EField label="Barcode">
-                <input value={editForm.barcode} onChange={(e) => setEditForm(f => ({ ...f, barcode: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
+                <input value={editForm.barcode} onChange={(e) => setEditForm(f => ({ ...f, barcode: e.target.value }))} className={`${fieldClass} font-mono`} />
               </EField>
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-3">
                 <EField label="Batch">
-                  <input value={editForm.batch} onChange={(e) => setEditForm(f => ({ ...f, batch: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
+                  <button
+                    type="button"
+                    onClick={() => setBatchModal(true)}
+                    className={`${fieldClass} flex items-center justify-between text-left font-mono cursor-pointer`}
+                  >
+                    <span className={`truncate ${editForm.batch ? "text-slate-900" : "text-slate-500"}`}>
+                      {editForm.batch ? (editForm.batch === "-" ? "Tanpa batch" : editForm.batch) : "Pilih batch"}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-slate-500 shrink-0 ml-1" />
+                  </button>
                 </EField>
-                <EField label="Exp Date">
-                  <input value={editForm.expDate} onChange={(e) => setEditForm(f => ({ ...f, expDate: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
+                <EField label="Exp date">
+                  <input value={editForm.expDate} onChange={(e) => setEditForm(f => ({ ...f, expDate: e.target.value }))} className={fieldClass} />
                 </EField>
               </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <EField label="Receive Date">
-                  <input value={editForm.receiveDate} onChange={(e) => setEditForm(f => ({ ...f, receiveDate: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
+              <div className="grid grid-cols-2 gap-3">
+                <EField label="Tanggal terima">
+                  <input value={editForm.receiveDate} onChange={(e) => setEditForm(f => ({ ...f, receiveDate: e.target.value }))} className={fieldClass} />
                 </EField>
-                <EField label="Qty (Pcs)">
-                  <input type="number" inputMode="numeric" value={editForm.qty} onChange={(e) => setEditForm(f => ({ ...f, qty: Number(e.target.value) }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 font-mono font-bold text-xs text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
+                <EField label="Qty (pcs)">
+                  <input type="number" inputMode="numeric" value={editForm.qty} onChange={(e) => setEditForm(f => ({ ...f, qty: Number(e.target.value) }))} className={`${fieldClass} font-semibold`} />
                 </EField>
               </div>
               <EField label="Distri / Event">
-                <input value={editForm.distriEvent} onChange={(e) => setEditForm(f => ({ ...f, distriEvent: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
+                <input value={editForm.distriEvent} onChange={(e) => setEditForm(f => ({ ...f, distriEvent: e.target.value }))} className={fieldClass} />
               </EField>
               <EField label="Keterangan">
-                <input value={editForm.keterangan} onChange={(e) => setEditForm(f => ({ ...f, keterangan: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
+                <input value={editForm.keterangan} onChange={(e) => setEditForm(f => ({ ...f, keterangan: e.target.value }))} className={fieldClass} />
               </EField>
               <EField label="PIC">
-                <input value={editForm.pic} onChange={(e) => setEditForm(f => ({ ...f, pic: e.target.value }))} className="w-full min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" />
+                <input value={editForm.pic} onChange={(e) => setEditForm(f => ({ ...f, pic: e.target.value }))} className={fieldClass} />
               </EField>
             </div>
 
-            <div className="flex gap-2 pt-2 border-t border-slate-100">
-              <button onClick={() => setEditItem(null)} className="flex-1 min-h-[40px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer">Batal</button>
-              <button onClick={handleEditSave} disabled={editSaving} className="flex-1 min-h-[40px] rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer transition-colors shadow-xs">
-                {editSaving ? "Menyimpan..." : "Simpan Perubahan"}
+            <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-200">
+              <button type="button" onClick={() => setEditItem(null)} className="min-h-[48px] rounded-lg bg-white border border-slate-300 text-sm font-semibold text-slate-800 cursor-pointer">Batal</button>
+              <button type="button" onClick={handleEditSave} disabled={editSaving} className="min-h-[48px] rounded-lg bg-slate-900 text-white text-sm font-semibold disabled:opacity-50 cursor-pointer">
+                {editSaving ? "Menyimpan..." : "Simpan"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete Confirm Modal (Bento Dialog) */}
+      {/* Batch picker untuk form edit */}
+      <BatchPickerModal
+        open={batchModal}
+        onClose={() => setBatchModal(false)}
+        product={
+          editItem
+            ? { barcode: editForm.barcode, sku: "", product: editForm.product }
+            : null
+        }
+        productBatches={productBatches}
+        productBatchesLoading={loadingBatches}
+        batches={[]}
+        currentLot={editForm.batch}
+        onPickExisting={handleBatchPicked}
+        onCreateNew={handleBatchCreated}
+      />
+
+      {/* Konfirmasi hapus */}
       {deleteItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-xs" onClick={() => setDeleteItem(null)} />
-          <div className="relative bg-white border border-slate-200 rounded-3xl p-5 max-w-xs w-full space-y-4 shadow-2xl">
-            <h3 className="font-extrabold text-base text-slate-900 text-center">Hapus Data Ini?</h3>
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-1 text-xs">
-              <p className="font-extrabold text-slate-900 leading-snug break-words">{deleteItem.product}</p>
-              <p className="text-slate-600 font-medium">Sheet {deleteItem.sheet} • Row {deleteItem.rowNumber} • Qty {deleteItem.qty} pcs</p>
+          <div className="absolute inset-0 bg-slate-900/50" onClick={() => setDeleteItem(null)} />
+          <div className="relative bg-white rounded-xl p-4 max-w-xs w-full space-y-3 shadow-xl">
+            <h3 className="font-bold text-base text-slate-900">Hapus data ini?</h3>
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1 text-sm">
+              <p className="font-semibold text-slate-900 leading-snug break-words">{deleteItem.product}</p>
+              <p className="text-slate-600">Sheet {deleteItem.sheet} · baris {deleteItem.rowNumber} · {deleteItem.qty} pcs</p>
             </div>
-            <p className="text-xs text-slate-500 text-center">Data yang dihapus dari Sheet tidak dapat dikembalikan.</p>
-            <div className="flex gap-2">
-              <button onClick={() => setDeleteItem(null)} className="flex-1 min-h-[40px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer">Batal</button>
-              <button onClick={handleDelete} disabled={deleteLoading} className="flex-1 min-h-[40px] bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold disabled:opacity-40 transition-colors shadow-xs cursor-pointer">
-                {deleteLoading ? "Menghapus..." : "Hapus Permanen"}
+            <p className="text-sm text-slate-600">Data yang dihapus dari Sheet tidak dapat dikembalikan.</p>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button type="button" onClick={() => setDeleteItem(null)} className="min-h-[48px] rounded-lg bg-white border border-slate-300 text-sm font-semibold text-slate-800 cursor-pointer">Batal</button>
+              <button type="button" onClick={handleDelete} disabled={deleteLoading} className="min-h-[48px] rounded-lg bg-red-600 text-white text-sm font-semibold disabled:opacity-50 cursor-pointer">
+                {deleteLoading ? "Menghapus..." : "Hapus"}
               </button>
             </div>
           </div>
@@ -450,8 +473,8 @@ export default function HistoryPage() {
 
 function EField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="label-field">{label}</label>
+    <div className="space-y-1">
+      <label className="block text-sm font-medium text-slate-700">{label}</label>
       {children}
     </div>
   );
