@@ -1,6 +1,6 @@
 // Service worker Scan Retur: hanya meng-cache app shell & aset statis same-origin.
 // Request API (Apps Script / Google) tidak pernah di-cache agar data selalu segar.
-const CACHE = "scan-retur-shell-v5";
+const CACHE = "scan-retur-shell-v6";
 const SHELL = ["/", "/index.html", "/manifest.json", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
