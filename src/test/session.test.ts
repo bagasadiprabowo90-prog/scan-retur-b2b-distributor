@@ -18,6 +18,8 @@ import {
   getTodayReceiveDate,
   formatWhatsAppSummary,
   updateSessionMeta,
+  resetClaims,
+  discardActiveSession,
 } from "../lib/session";
 
 describe("Store Session & Reconciliation Tests", () => {
@@ -426,5 +428,23 @@ describe("Store Session & Reconciliation Tests", () => {
     const okNo = updateSessionMeta({ noSJ: "SJ-77" });
     expect(okNo.ok).toBe(true);
     expect(getActiveSession()?.noSJ).toBe("SJ-77");
+  });
+
+  it("resetClaims menghapus klaim tapi menjaga scan fisik", () => {
+    startStoreSession("Toko R", "", "Bagas", "27-Okt-2026");
+    setClaimItem("SKU1", "Produk 1", "111", 5);
+    addScannedItemToSession({
+      receiveDate: "27-Okt-2026", distriEvent: "Toko R", product: "Produk 1", barcode: "111",
+      sku: "SKU1", batch: "B1", expDate: "Mei-2027", qty: 2, keterangan: "Ok", pic: "Bagas", targetSheet: "Bagas",
+    });
+    const res = resetClaims();
+    expect(res?.claims).toEqual({});
+    expect(getActiveSession()?.items.length).toBe(1);
+  });
+
+  it("discardActiveSession membuang sesi dan mengembalikan jumlah scan", () => {
+    startStoreSession("Toko D", "", "Bagas", "27-Okt-2026");
+    expect(discardActiveSession()).toBe(0);
+    expect(getActiveSession()).toBeNull();
   });
 });

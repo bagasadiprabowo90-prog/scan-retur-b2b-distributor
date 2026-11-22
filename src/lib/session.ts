@@ -203,6 +203,24 @@ export function saveDistriHistory(value: string) {
   } catch {}
 }
 
+// Hapus semua klaim SJ (mis. SJ salah baca). Scan fisik tetap aman.
+export function resetClaims(): StoreSession | null {
+  const session = getActiveSession();
+  if (!session) return null;
+  const updated: StoreSession = { ...session, claims: {} };
+  saveActiveSession(updated);
+  return updated;
+}
+
+// Buang sesi aktif tanpa mengarsipkan laporan. Baris yang sudah tersimpan di
+// Google Sheet TIDAK ikut terhapus. Mengembalikan jumlah scan yang dibuang.
+export function discardActiveSession(): number {
+  const session = getActiveSession();
+  const count = session ? session.items.length : 0;
+  saveActiveSession(null);
+  return count;
+}
+
 function sameStoreName(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }

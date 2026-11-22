@@ -60,6 +60,8 @@ import {
   getDistriHistory,
   saveDistriHistory,
   updateSessionMeta,
+  resetClaims,
+  discardActiveSession,
   getTodayReceiveDate,
   formatWhatsAppSummary,
   type ReconcileItem,
@@ -123,6 +125,7 @@ export default function VerificationPage() {
   const [mappingSearch, setMappingSearch] = useState("");
   const [requireMappingConfirm, setRequireMappingConfirm] = useState(false);
   const [matchAllModalOpen, setMatchAllModalOpen] = useState(false);
+  const [resetModal, setResetModal] = useState<null | "claims" | "session">(null);
   const [matchAllReason, setMatchAllReason] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [reconHistory, setReconHistory] = useState<SavedReconReport[]>(getReconHistory);
@@ -899,6 +902,22 @@ export default function VerificationPage() {
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-slate-600" />
                     <span>Samakan</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResetModal("claims")}
+                    className="min-h-[34px] px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Reset Klaim SJ</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResetModal("session")}
+                    className="min-h-[34px] px-3 py-1 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Batalkan Sesi</span>
                   </button>
                 </div>
 
@@ -1866,6 +1885,75 @@ export default function VerificationPage() {
           </div>
         );
       })()}
+
+      {/* MODAL: RESET KLAIM / BATALKAN SESI */}
+      {resetModal && session && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/50 backdrop-blur-sm">
+          <div
+            className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-4 space-y-3"
+            style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+          >
+            <h3 className="text-base font-bold text-stone-900">
+              {resetModal === "claims" ? "Reset Klaim SJ?" : "Batalkan Sesi Toko?"}
+            </h3>
+            {resetModal === "claims" ? (
+              <p className="text-sm text-stone-600 leading-snug">
+                Semua klaim SJ ({Object.keys(session.claims).length} SKU) dihapus supaya Anda bisa membaca SJ yang benar.
+                Scan fisik ({session.items.length} baris) <strong>tidak berubah</strong>.
+              </p>
+            ) : (
+              <div className="text-sm text-stone-600 leading-snug space-y-2">
+                <p>
+                  Sesi <strong>{session.storeName}</strong> dibuang tanpa menyimpan laporan rekonsiliasi.
+                </p>
+                {session.items.length > 0 ? (
+                  <p className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-2.5 text-xs font-medium">
+                    Ada {session.items.length} scan fisik. Baris tersebut <strong>sudah tersimpan di Google Sheet dan TIDAK ikut terhapus</strong>.
+                    Hapus atau koreksi barisnya lewat Riwayat bila perlu.
+                  </p>
+                ) : (
+                  <p className="text-xs text-stone-500">Belum ada scan fisik, jadi tidak ada data di Sheet yang terpengaruh.</p>
+                )}
+              </div>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setResetModal(null)}
+                className="flex-1 min-h-[48px] rounded-xl border border-stone-300 text-sm font-bold text-stone-700"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (resetModal === "claims") {
+                    resetClaims();
+                    refreshSession();
+                    setResetModal(null);
+                    showToast("success", "Klaim SJ dihapus. Silakan foto SJ yang benar.");
+                  } else {
+                    const n = discardActiveSession();
+                    setSession(null);
+                    setResetModal(null);
+                    showToast(
+                      "success",
+                      n > 0
+                        ? `Sesi dibatalkan. ${n} baris scan tetap ada di Google Sheet.`
+                        : "Sesi dibatalkan."
+                    );
+                  }
+                }}
+                className={`flex-[2] min-h-[48px] rounded-xl text-white text-sm font-bold ${
+                  resetModal === "claims" ? "bg-amber-600" : "bg-red-600"
+                }`}
+              >
+                {resetModal === "claims" ? "Ya, Reset Klaim" : "Ya, Batalkan Sesi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: UBAH NAMA DISTRIBUTOR / NO SJ SESI AKTIF */}
       {renameOpen && session && (
