@@ -17,6 +17,7 @@ import {
   getReconHistory,
   getTodayReceiveDate,
   formatWhatsAppSummary,
+  updateSessionMeta,
 } from "../lib/session";
 
 describe("Store Session & Reconciliation Tests", () => {
@@ -390,5 +391,40 @@ describe("Store Session & Reconciliation Tests", () => {
   it("should provide today's date formatted properly in getTodayReceiveDate", () => {
     const today = getTodayReceiveDate();
     expect(today).toMatch(/^\d{2}-[A-Za-z]{3}-\d{4}$/);
+  });
+
+  it("updateSessionMeta: ubah nama distributor saat belum ada scan, tolak bila kosong", () => {
+    startStoreSession("Toko Lama", "", "Bagas", "27-Okt-2026");
+    const empty = updateSessionMeta({ storeName: "  " });
+    expect(empty.ok).toBe(false);
+
+    const res = updateSessionMeta({ storeName: "CV Sagara Timur Dewata", noSJ: "SJ-9" });
+    expect(res.ok).toBe(true);
+    expect(getActiveSession()?.storeName).toBe("CV Sagara Timur Dewata");
+    expect(getActiveSession()?.noSJ).toBe("SJ-9");
+  });
+
+  it("updateSessionMeta: nama tidak bisa diubah setelah ada scan, No. SJ tetap bisa", () => {
+    startStoreSession("Toko A", "", "Bagas", "27-Okt-2026");
+    addScannedItemToSession({
+      receiveDate: "27-Okt-2026",
+      distriEvent: "Toko A",
+      product: "Lip Coat",
+      barcode: "1",
+      sku: "LPBF01",
+      batch: "AEZ",
+      expDate: "Mei-2027",
+      qty: 2,
+      keterangan: "Ok",
+      pic: "Bagas",
+      targetSheet: "Bagas",
+    });
+    const blocked = updateSessionMeta({ storeName: "Toko B" });
+    expect(blocked.ok).toBe(false);
+    expect(getActiveSession()?.storeName).toBe("Toko A");
+
+    const okNo = updateSessionMeta({ noSJ: "SJ-77" });
+    expect(okNo.ok).toBe(true);
+    expect(getActiveSession()?.noSJ).toBe("SJ-77");
   });
 });

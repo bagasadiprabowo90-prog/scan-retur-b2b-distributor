@@ -3,6 +3,8 @@ import {
   findBestMatchProductWithScore,
   findBestMatchProduct,
   levenshteinSimilarity,
+  mergeSJResults,
+  type ExtractedSJItem,
 } from "../lib/gemini";
 import type { ProductItem } from "../lib/api";
 
@@ -123,5 +125,31 @@ describe("Gemini Product Matching & Similarity Tests", () => {
 
     const notFound = findBestMatchProduct("Minyak Goreng Sawit", "", mockMasterProducts);
     expect(notFound).toBeNull();
+  });
+});
+
+describe("mergeSJResults (halaman SJ lanjutan)", () => {
+  const item = (sku: string, qty: number): ExtractedSJItem => ({
+    sku,
+    product: `Produk ${sku}`,
+    barcode: "",
+    claimQty: qty,
+    rawProduct: "",
+    rawSku: sku,
+    matchScore: 1,
+    matchConfidence: "exact",
+    matchedFromMaster: true,
+  });
+
+  it("menjumlahkan SKU yang sama dan mempertahankan nama toko pertama", () => {
+    const merged = mergeSJResults(
+      { ok: true, storeName: "Toko A", noSJ: "", items: [item("BALM02", 6)], pageCount: 1 },
+      { ok: true, storeName: "Toko B", noSJ: "SJ-1", items: [item("BALM02", 6), item("BALM04", 9)], pageCount: 1 }
+    );
+    expect(merged.storeName).toBe("Toko A");
+    expect(merged.noSJ).toBe("SJ-1");
+    expect(merged.pageCount).toBe(2);
+    expect(merged.items.find((i) => i.sku === "BALM02")?.claimQty).toBe(12);
+    expect(merged.items.find((i) => i.sku === "BALM04")?.claimQty).toBe(9);
   });
 });

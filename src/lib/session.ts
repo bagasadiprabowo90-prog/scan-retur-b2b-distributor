@@ -152,6 +152,57 @@ export function startStoreSession(
   return session;
 }
 
+// Ubah nama toko / No. SJ sesi aktif (mis. SJ tidak mencantumkan nama distributor).
+// Nama toko hanya boleh diubah selama belum ada scan, karena baris yang sudah
+// tersimpan di Google Sheet membawa nama lama dan akan memicu konflik toko.
+export function updateSessionMeta(updates: {
+  storeName?: string;
+  noSJ?: string;
+}): { ok: true; session: StoreSession } | { ok: false; error: string } {
+  const session = getActiveSession();
+  if (!session) return { ok: false, error: "Tidak ada sesi aktif." };
+
+  const next: StoreSession = { ...session };
+
+  if (updates.storeName !== undefined) {
+    const name = updates.storeName.trim();
+    if (!name) return { ok: false, error: "Nama distributor tidak boleh kosong." };
+    if (!sameStoreName(name, session.storeName) && session.items.length > 0) {
+      return {
+        ok: false,
+        error:
+          "Nama distributor tidak bisa diubah setelah ada scan fisik (baris di Sheet masih memakai nama lama). Selesaikan sesi ini atau ubah barisnya di Riwayat.",
+      };
+    }
+    next.storeName = name;
+  }
+  if (updates.noSJ !== undefined) next.noSJ = updates.noSJ.trim();
+
+  saveActiveSession(next);
+  return { ok: true, session: next };
+}
+
+const DISTRI_STORAGE_KEY = "scan-retur-distri-history";
+
+export function getDistriHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(DISTRI_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveDistriHistory(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return;
+  const filtered = getDistriHistory().filter((v) => v !== trimmed);
+  filtered.unshift(trimmed);
+  try {
+    localStorage.setItem(DISTRI_STORAGE_KEY, JSON.stringify(filtered.slice(0, 20)));
+  } catch {}
+}
+
 function sameStoreName(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }

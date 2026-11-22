@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Check, ChevronDown, ChevronLeft, FileCheck2, Layers, Minus, Plus, Save, Store, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, FileCheck2, Layers, Minus, Plus, Save, Store, Trash2, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import BatchPickerModal from "../components/BatchPickerModal";
-import { getActiveSession, addScannedItemToSession, getSessionStoreConflict } from "../lib/session";
+import { getActiveSession, addScannedItemToSession, getSessionStoreConflict, getDistriHistory, saveDistriHistory, normalizeSkuKey, type StoreSession } from "../lib/session";
 import {
   createReturn,
   createReturnRequestId,
@@ -35,7 +35,6 @@ const KETERANGAN_OPTIONS = [
   "Defect (Pecah, Rusak)",
 ];
 
-const DISTRI_STORAGE_KEY = "scan-retur-distri-history";
 const SHEET_STORAGE_KEY = "scan-retur-target-sheet";
 const FLOW_MODE_KEY = "scan-retur-flow-mode";
 
@@ -51,22 +50,10 @@ function saveSheet(sheet: "Bagas" | "Dimas") {
   try { localStorage.setItem(SHEET_STORAGE_KEY, sheet); } catch {}
 }
 
-function getDistriHistory(): string[] {
-  try {
-    const raw = localStorage.getItem(DISTRI_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
+type ReturnLine = { id: string; qty: string; keterangan: string[] };
 
-function saveDistriHistory(value: string) {
-  const list = getDistriHistory();
-  const trimmed = value.trim();
-  if (!trimmed) return;
-  const filtered = list.filter((v) => v !== trimmed);
-  filtered.unshift(trimmed);
-  localStorage.setItem(DISTRI_STORAGE_KEY, JSON.stringify(filtered.slice(0, 20)));
+function newLine(): ReturnLine {
+  return { id: `ln_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, qty: "", keterangan: [] };
 }
 
 function HighlightText({ text, query }: { text: string; query: string }) {
@@ -136,8 +123,9 @@ export default function ReturnFormPage() {
     isVerifyMode && activeSession?.storeName ? activeSession.storeName : ""
   );
   const [distriHistory] = useState<string[]>(getDistriHistory);
-  const [qty, setQty] = useState("");
-  const [keteranganList, setKeteranganList] = useState<string[]>(["Ok"]);
+  // Satu produk+batch bisa punya beberapa baris kondisi (mis. 3 Ok, 2 Pudar, 1 Sticker harga)
+  const [lines, setLines] = useState<ReturnLine[]>(() => [newLine()]);
+  const [sessionSnap, setSessionSnap] = useState<StoreSession | null>(activeSession);
   const [pic, setPic] = useState(user?.displayName ?? "");
   const [targetSheet, setTargetSheet] = useState<"Bagas" | "Dimas">(
     () => (isVerifyMode && activeSession?.targetSheet ? activeSession.targetSheet : getSavedSheet())
@@ -154,10 +142,8 @@ export default function ReturnFormPage() {
   const distriRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const submitLockRef = useRef(false);
-  const pendingSubmitRef = useRef<{
-    fingerprint: string;
-    clientId: string;
-  } | null>(null);
+  // fingerprint baris -> clientId, supaya retry tidak menggandakan baris di Sheet
+  const pendingIdsRef = useRef<Map<string, string>>(new Map());
 
   const debouncedSearch = useDebounce(productSearch, 150);
 
@@ -284,18 +270,47 @@ export default function ReturnFormPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProduct?.barcode, loadingProductBatches, batchesLoadedFor]);
 
-  const canSubmit = useMemo(() => {
-    const q = Number(qty);
-    return (
+  const totalLineQty = useMemo(
+    () => lines.reduce((acc, l) => acc + (Number(l.qty) > 0 ? Number(l.qty) : 0), 0),
+    [lines]
+  );
+
+  const linesValid = useMemo(
+    () =>
+      lines.length > 0 &&
+      lines.every((l) => Number.isFinite(Number(l.qty)) && Number(l.qty) > 0 && l.keterangan.length > 0),
+    [lines]
+  );
+
+  const canSubmit = useMemo(
+    () =>
       !!selectedProduct &&
-      batch.trim() &&
-      expDate.trim() &&
-      receiveDate.trim() &&
-      distriEvent.trim() &&
-      Number.isFinite(q) &&
-      q > 0
-    );
-  }, [selectedProduct, batch, expDate, receiveDate, distriEvent, qty]);
+      !!batch.trim() &&
+      !!expDate.trim() &&
+      !!receiveDate.trim() &&
+      !!distriEvent.trim() &&
+      linesValid,
+    [selectedProduct, batch, expDate, receiveDate, distriEvent, linesValid]
+  );
+
+  // Info klaim SJ untuk SKU terpilih (hanya saat verifikasi sesi)
+  const claimInfo = useMemo(() => {
+    if (!isVerifyMode || !sessionSnap || !selectedProduct) return null;
+    const key = normalizeSkuKey(selectedProduct.sku, selectedProduct.product, selectedProduct.barcode);
+    const claim = sessionSnap.claims[key];
+    const physical = sessionSnap.items
+      .filter((i) => normalizeSkuKey(i.sku, i.product, i.barcode) === key)
+      .reduce((acc, i) => acc + i.qty, 0);
+    return {
+      inSj: !!claim,
+      claimQty: claim?.claimQty ?? 0,
+      physicalQty: physical,
+      remaining: Math.max(0, (claim?.claimQty ?? 0) - physical),
+    };
+  }, [isVerifyMode, sessionSnap, selectedProduct]);
+
+  const isNewBatch =
+    !!batch && batch !== "-" && productBatches.length > 0 && !productBatches.some((b) => b.lot === batch);
 
   // === AUTO-TAB & SCROLL HELPERS ===
   const selectProduct = useCallback((item: ProductItem) => {
@@ -329,12 +344,34 @@ export default function ReturnFormPage() {
     }, 80);
   }, []);
 
-  const adjustQty = useCallback((delta: number) => {
-    setQty((prev) => {
-      const current = Number(prev) || 0;
-      const next = Math.max(1, current + delta);
-      return String(next);
-    });
+  const updateLine = useCallback((id: string, patch: Partial<ReturnLine>) => {
+    setLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  }, []);
+
+  const adjustLineQty = useCallback((id: string, delta: number) => {
+    setLines((prev) =>
+      prev.map((l) => {
+        if (l.id !== id) return l;
+        const next = Math.max(1, (Number(l.qty) || 0) + delta);
+        return { ...l, qty: String(next) };
+      })
+    );
+  }, []);
+
+  const toggleLineKeterangan = useCallback((id: string, opt: string) => {
+    setLines((prev) =>
+      prev.map((l) => {
+        if (l.id !== id) return l;
+        if (opt === "Ok") {
+          return { ...l, keterangan: l.keterangan.includes("Ok") ? [] : ["Ok"] };
+        }
+        const withoutOk = l.keterangan.filter((v) => v !== "Ok");
+        return {
+          ...l,
+          keterangan: withoutOk.includes(opt) ? withoutOk.filter((v) => v !== opt) : [...withoutOk, opt],
+        };
+      })
+    );
   }, []);
 
   const displayedProducts = useMemo(() => filteredProducts.slice(0, 30), [filteredProducts]);
@@ -365,12 +402,17 @@ export default function ReturnFormPage() {
     }
   }, [highlightedIdx]);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  type AfterSave = "scan" | "list" | "batch";
+
+  async function doSubmit(after: AfterSave) {
     if (submitting || !canSubmit || submitLockRef.current) return;
     submitLockRef.current = true;
     setSubmitting(true);
     setToast(null);
+
+    const savedLineIds = new Set<string>();
+    let lastSheet = targetSheet as string;
+    let lastRow = 0;
 
     try {
       // Hanya cek konflik toko apabila sedang dalam Flow 1 (Verifikasi Klaim SJ)
@@ -387,118 +429,128 @@ export default function ReturnFormPage() {
 
       saveDistriHistory(distriEvent);
 
-      const payload = {
-        receiveDate,
-        distriEvent,
-        product: selectedProduct?.product || "",
-        barcode: selectedProduct?.barcode || "",
-        batch,
-        expDate,
-        qty: Number(qty),
-        keterangan: keteranganList.join("; "),
-        pic,
-      };
-      const fingerprint = JSON.stringify({ sheet: targetSheet, payload });
-
-      if (pendingSubmitRef.current?.fingerprint !== fingerprint) {
-        pendingSubmitRef.current = {
-          fingerprint,
-          clientId: createReturnRequestId(),
+      for (const line of lines) {
+        const keterangan = line.keterangan.join("; ");
+        const payload = {
+          receiveDate,
+          distriEvent,
+          product: selectedProduct?.product || "",
+          barcode: selectedProduct?.barcode || "",
+          batch,
+          expDate,
+          qty: Number(line.qty),
+          keterangan,
+          pic,
         };
+        const fingerprint = JSON.stringify({ sheet: targetSheet, payload, lineId: line.id });
+        let clientId = pendingIdsRef.current.get(fingerprint);
+        if (!clientId) {
+          clientId = createReturnRequestId();
+          pendingIdsRef.current.set(fingerprint, clientId);
+        }
+
+        const res = await createReturn(payload, targetSheet, clientId);
+        if (!res.ok) {
+          const done = savedLineIds.size;
+          setToast({
+            type: "error",
+            msg:
+              done > 0
+                ? `${done} baris sudah tersimpan, baris berikutnya gagal: ${res.error}. Tekan simpan lagi untuk melanjutkan sisanya.`
+                : res.error,
+          });
+          return;
+        }
+
+        pendingIdsRef.current.delete(fingerprint);
+        savedLineIds.add(line.id);
+        lastSheet = res.sheet;
+        lastRow = res.appendedRow;
+
+        // Update cache riwayat lokal langsung agar sinkron seketika
+        try {
+          const raw = localStorage.getItem("scan-retur-history-cache");
+          const parsed = raw ? JSON.parse(raw) : { history: [], ts: Date.now() };
+          const newHistItem: ReturnHistoryItem = {
+            sheet: res.sheet,
+            rowNumber: res.appendedRow,
+            receiveDate,
+            distriEvent,
+            product: selectedProduct?.product || "",
+            barcode: selectedProduct?.barcode || "",
+            batch,
+            expDate,
+            qty: Number(line.qty),
+            keterangan,
+            pic,
+          };
+          const updatedHistory = [newHistItem, ...(Array.isArray(parsed.history) ? parsed.history : [])];
+          localStorage.setItem(
+            "scan-retur-history-cache",
+            JSON.stringify({ history: updatedHistory, ts: Date.now() })
+          );
+        } catch {}
+
+        // Flow 1 (Verifikasi SJ): simpan juga ke sesi toko aktif untuk rekonsiliasi
+        if (isVerifyMode) {
+          const updatedSession = addScannedItemToSession({
+            receiveDate,
+            distriEvent,
+            product: selectedProduct?.product || "",
+            barcode: selectedProduct?.barcode || "",
+            sku: selectedProduct?.sku || selectedProduct?.barcode || "",
+            batch,
+            expDate,
+            qty: Number(line.qty),
+            keterangan,
+            pic,
+            targetSheet,
+          });
+          setSessionSnap(updatedSession);
+        }
       }
 
-      const res = await createReturn(
-        payload,
-        targetSheet,
-        pendingSubmitRef.current.clientId
-      );
+      const savedPcs = totalLineQty;
+      const savedRows = lines.length;
+      const summary = `${savedRows} baris (${savedPcs} pcs) tersimpan di sheet ${lastSheet} (row ${lastRow}).`;
 
-      if (!res.ok) {
-        setToast({ type: "error", msg: res.error });
+      if (after === "batch") {
+        // Tetap di produk yang sama, siap input batch lain
+        setLines([newLine()]);
+        setBatch("");
+        setExpDate("");
+        setBatchModal(true);
+        setToast({ type: "success", msg: `${summary} Pilih batch berikutnya untuk produk ini.` });
         return;
       }
 
-      pendingSubmitRef.current = null;
-
-      // Update cache riwayat lokal langsung agar sinkron seketika
-      try {
-        const raw = localStorage.getItem("scan-retur-history-cache");
-        const parsed = raw ? JSON.parse(raw) : { history: [], ts: Date.now() };
-        const newHistItem: ReturnHistoryItem = {
-          sheet: res.sheet,
-          rowNumber: res.appendedRow,
-          receiveDate,
-          distriEvent,
-          product: selectedProduct?.product || "",
-          barcode: selectedProduct?.barcode || "",
-          batch,
-          expDate,
-          qty: Number(qty),
-          keterangan: keteranganList.join("; "),
-          pic,
-        };
-        const updatedHistory = [newHistItem, ...(Array.isArray(parsed.history) ? parsed.history : [])];
-        localStorage.setItem(
-          "scan-retur-history-cache",
-          JSON.stringify({ history: updatedHistory, ts: Date.now() })
-        );
-      } catch {}
-
-      // Flow 1 (Verifikasi SJ): Simpan juga ke sesi toko aktif untuk rekonsiliasi
-      if (isVerifyMode) {
-        const updatedSession = addScannedItemToSession({
-          receiveDate,
-          distriEvent,
-          product: selectedProduct?.product || "",
-          barcode: selectedProduct?.barcode || "",
-          sku: selectedProduct?.sku || selectedProduct?.barcode || "",
-          batch,
-          expDate,
-          qty: Number(qty),
-          keterangan: keteranganList.join("; "),
-          pic,
-          targetSheet,
-        });
-
-        const totalSessionPcs = updatedSession.items.reduce((acc, i) => acc + i.qty, 0);
-
-        navigate("/", {
-          replace: true,
-          state: {
-            successMessage: `Data berhasil disimpan di sheet ${res.sheet} (row ${res.appendedRow})! Total toko "${distriEvent}": ${totalSessionPcs} pcs.`,
-          },
-        });
-      } else {
-        // Flow 2 (Input Manual ke Sheet Saja Tanpa Verifikasi)
-        navigate("/", {
-          replace: true,
-          state: {
-            successMessage: `Data berhasil disimpan di sheet ${res.sheet} (row ${res.appendedRow})!`,
-          },
-        });
-      }
+      const sessionNote = isVerifyMode
+        ? ` Total toko "${distriEvent}": ${getActiveSession()?.items.reduce((a, i) => a + i.qty, 0) ?? 0} pcs.`
+        : "";
+      navigate(after === "list" && isVerifyMode ? "/verification" : "/", {
+        replace: true,
+        state: { successMessage: `Data berhasil disimpan: ${summary}${sessionNote}` },
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kesalahan saat menyimpan data";
       setToast({ type: "error", msg });
     } finally {
+      // Baris yang sudah tersimpan jangan ikut terkirim ulang pada retry
+      if (savedLineIds.size > 0) {
+        setLines((prev) => {
+          const rest = prev.filter((l) => !savedLineIds.has(l.id));
+          return rest.length > 0 ? rest : prev;
+        });
+      }
       setSubmitting(false);
       submitLockRef.current = false;
     }
   }
 
-  const toggleKeterangan = (opt: string) => {
-    setKeteranganList((prev) => {
-      if (opt === "Ok") {
-        return prev.includes("Ok") ? [] : ["Ok"];
-      }
-      const withoutOk = prev.filter((v) => v !== "Ok");
-      if (withoutOk.includes(opt)) {
-        const next = withoutOk.filter((v) => v !== opt);
-        return next.length === 0 ? ["Ok"] : next;
-      }
-      return [...withoutOk, opt];
-    });
-  };
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    void doSubmit("scan");
+  }
 
   return (
     <div className="space-y-3.5 pb-8">
@@ -717,7 +769,7 @@ export default function ReturnFormPage() {
             </div>
           </div>
 
-          {/* Section 3: Receive Date + Qty Stepper */}
+          {/* Section 3: Receive Date + ringkasan klaim */}
           <div className="grid grid-cols-2 gap-3 items-start">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500  block">
@@ -731,64 +783,160 @@ export default function ReturnFormPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-500  block">
-                  Qty Fisik
-                </label>
-                {qty && Number(qty) > 0 ? (
-                  <span className="text-xs font-mono font-bold text-emerald-700">
-                    {qty} pcs
-                  </span>
-                ) : null}
-              </div>
-              <div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs">
-                <button
-                  type="button"
-                  onClick={() => adjustQty(-1)}
-                  disabled={!qty || Number(qty) <= 1}
-                  className="h-11 w-10 flex items-center justify-center text-slate-700 hover:bg-slate-200/80 active:bg-slate-300 font-bold shrink-0 transition-colors disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
-                  aria-label="Kurangi qty"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <input
-                  ref={qtyRef}
-                  type="number"
-                  inputMode="numeric"
-                  value={qty}
-                  onChange={(e) => setQty(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      distriRef.current?.focus();
-                    }
-                  }}
-                  placeholder="1"
-                  min="1"
-                  className="w-full text-center font-black font-mono text-sm py-2.5 bg-transparent border-x border-slate-200 focus:outline-none focus:bg-white text-slate-900"
-                />
-                <button
-                  type="button"
-                  onClick={() => adjustQty(1)}
-                  className="h-11 w-10 flex items-center justify-center text-slate-700 hover:bg-slate-200/80 active:bg-slate-300 font-bold shrink-0 transition-colors cursor-pointer"
-                  aria-label="Tambah qty"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="flex gap-1 pt-0.5">
-                {[1, 5, 10].map((add) => (
-                  <button
-                    key={add}
-                    type="button"
-                    onClick={() => adjustQty(add)}
-                    className="flex-1 min-h-[30px] py-1 rounded-lg bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold transition-all border border-slate-200 shadow-2xs cursor-pointer"
-                  >
-                    +{add}
-                  </button>
-                ))}
+              <span className="text-xs font-bold text-slate-500 block">Total diinput</span>
+              <div className="min-h-[44px] px-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center text-sm font-black font-mono text-emerald-800">
+                {totalLineQty} pcs
               </div>
             </div>
+          </div>
+
+          {/* Section 3b: Info klaim SJ untuk SKU ini */}
+          {claimInfo && (
+            <div
+              className={`rounded-2xl border p-3 text-xs leading-snug ${
+                !claimInfo.inSj
+                  ? "bg-indigo-50 border-indigo-200 text-indigo-900"
+                  : totalLineQty > claimInfo.remaining
+                  ? "bg-amber-50 border-amber-200 text-amber-900"
+                  : "bg-slate-50 border-slate-200 text-slate-700"
+              }`}
+            >
+              {!claimInfo.inSj ? (
+                <p className="font-bold">SKU ini tidak ada di klaim SJ. Barang akan tercatat sebagai "Tidak ada di SJ".</p>
+              ) : (
+                <>
+                  <p className="font-bold">
+                    Klaim SJ {claimInfo.claimQty} pcs · sudah discan {claimInfo.physicalQty} · sisa {claimInfo.remaining}
+                  </p>
+                  {totalLineQty > claimInfo.remaining && (
+                    <p className="mt-0.5">
+                      Total yang akan disimpan ({totalLineQty}) melebihi sisa klaim ({claimInfo.remaining}). Pastikan qty benar.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {isNewBatch && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-900">
+              Batch "{batch}" belum ada di master untuk produk ini. Cek ulang tulisan batch di kemasan.
+            </div>
+          )}
+
+          {/* Section 3c: Qty & Kondisi per baris */}
+          <div className="space-y-2.5">
+            <label className="text-xs font-bold text-slate-500 block">
+              Qty &amp; Kondisi (1 baris = 1 kondisi)
+            </label>
+            {lines.map((line, li) => {
+              const qtyNum = Number(line.qty) || 0;
+              return (
+                <div key={line.id} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3 space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-slate-400 w-5 shrink-0">#{li + 1}</span>
+                    <div className="flex-1 flex items-center rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => adjustLineQty(line.id, -1)}
+                        disabled={qtyNum <= 1}
+                        className="h-12 w-12 flex items-center justify-center text-slate-700 active:bg-slate-200 shrink-0 disabled:opacity-25"
+                        aria-label="Kurangi qty"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <input
+                        ref={li === 0 ? qtyRef : undefined}
+                        type="number"
+                        inputMode="numeric"
+                        value={line.qty}
+                        onChange={(e) => updateLine(line.id, { qty: e.target.value })}
+                        placeholder="0"
+                        min="1"
+                        className="w-full text-center font-black font-mono text-lg py-2.5 bg-transparent border-x border-slate-200 focus:outline-none text-slate-900"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => adjustLineQty(line.id, 1)}
+                        className="h-12 w-12 flex items-center justify-center text-slate-700 active:bg-slate-200 shrink-0"
+                        aria-label="Tambah qty"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {lines.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setLines((prev) => prev.filter((l) => l.id !== line.id))}
+                        className="h-12 w-12 shrink-0 flex items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-400 hover:text-red-600"
+                        aria-label="Hapus baris"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex gap-1.5">
+                    {[1, 5, 10].map((add) => (
+                      <button
+                        key={add}
+                        type="button"
+                        onClick={() => adjustLineQty(line.id, add)}
+                        className="flex-1 min-h-[40px] rounded-xl bg-white active:scale-95 text-slate-700 text-sm font-bold border border-slate-200"
+                      >
+                        +{add}
+                      </button>
+                    ))}
+                    {claimInfo && claimInfo.inSj && claimInfo.remaining > 0 && lines.length === 1 && (
+                      <button
+                        type="button"
+                        onClick={() => updateLine(line.id, { qty: String(claimInfo.remaining) })}
+                        className="flex-1 min-h-[40px] rounded-xl bg-teal-50 border border-teal-300 text-teal-800 text-sm font-bold active:scale-95"
+                      >
+                        = sisa {claimInfo.remaining}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {KETERANGAN_OPTIONS.map((opt) => {
+                      const active = line.keterangan.includes(opt);
+                      const isOk = opt === "Ok";
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => toggleLineKeterangan(line.id, opt)}
+                          className={`min-h-[44px] px-2.5 py-1.5 rounded-xl text-xs font-bold text-left leading-snug border active:scale-[0.98] ${
+                            isOk ? "col-span-2 text-center text-sm" : ""
+                          } ${
+                            active
+                              ? isOk
+                                ? "bg-emerald-600 text-white border-emerald-600"
+                                : "bg-red-600 text-white border-red-600"
+                              : "bg-white text-slate-700 border-slate-300"
+                          }`}
+                        >
+                          {active ? "✓ " : ""}
+                          {isOk ? "Semua OK" : opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {line.keterangan.length === 0 && (
+                    <p className="text-xs font-bold text-red-600">Pilih kondisi barang (wajib).</p>
+                  )}
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setLines((prev) => [...prev, newLine()])}
+              className="w-full min-h-[46px] rounded-2xl border-2 border-dashed border-slate-300 text-sm font-bold text-slate-700 flex items-center justify-center gap-1.5 active:bg-slate-100"
+            >
+              <Plus className="w-4 h-4" />
+              Tambah kondisi lain (batch sama)
+            </button>
           </div>
 
           {/* Section 4: Distri / Event + PIC */}
@@ -844,55 +992,53 @@ export default function ReturnFormPage() {
             </div>
           </div>
 
-          {/* Section 5: Keterangan (Bento Chips) */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-500  block">
-              Kondisi / Keterangan
-            </label>
-            <div className="flex flex-wrap gap-1.5 pt-0.5">
-              {KETERANGAN_OPTIONS.map((opt) => {
-                const active = keteranganList.includes(opt);
-                return (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => toggleKeterangan(opt)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-                      active
-                        ? "bg-slate-900 text-white border-slate-900 shadow-2xs"
-                        : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
-                    }`}
-                  >
-                    {active ? "✓ " : ""}{opt}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Submit Action Buttons */}
-          <div className="flex gap-2.5 pt-3 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="flex-1 min-h-[46px] rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-extrabold cursor-pointer transition-colors"
-            >
-              Kembali
-            </button>
+          <div className="space-y-2 pt-3 border-t border-slate-100">
             <button
               type="submit"
               disabled={!canSubmit || submitting || loadingProducts || loadingBatches}
-              className="flex-1 min-h-[46px] rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold shadow-sm active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="w-full min-h-[52px] rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold shadow-sm active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Save className="w-4 h-4 text-emerald-400" />
-              <span>
-                {submitting
-                  ? "Menyimpan..."
-                  : isVerifyMode
-                  ? "Simpan & Verifikasi"
-                  : "Simpan ke Sheet"}
-              </span>
+              <span>{submitting ? "Menyimpan..." : "Simpan & Scan Berikutnya"}</span>
             </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => void doSubmit("batch")}
+                disabled={!canSubmit || submitting}
+                className="min-h-[46px] rounded-2xl bg-teal-50 border border-teal-300 text-teal-900 text-xs font-extrabold disabled:opacity-50 active:scale-[0.98]"
+              >
+                Simpan & Batch Lain
+              </button>
+              {isVerifyMode ? (
+                <button
+                  type="button"
+                  onClick={() => void doSubmit("list")}
+                  disabled={!canSubmit || submitting}
+                  className="min-h-[46px] rounded-2xl bg-slate-100 border border-slate-200 text-slate-800 text-xs font-extrabold disabled:opacity-50 active:scale-[0.98]"
+                >
+                  Simpan & Ke Daftar SJ
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate("/")}
+                  className="min-h-[46px] rounded-2xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-extrabold"
+                >
+                  Kembali
+                </button>
+              )}
+            </div>
+            {isVerifyMode && (
+              <button
+                type="button"
+                onClick={() => navigate("/")}
+                className="w-full min-h-[40px] text-xs font-bold text-slate-500"
+              >
+                Batal / Kembali
+              </button>
+            )}
           </div>
         </div>
       </form>

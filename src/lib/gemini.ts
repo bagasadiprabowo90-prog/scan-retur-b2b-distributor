@@ -328,6 +328,38 @@ async function parseSingleFile(
   };
 }
 
+// Gabungkan hasil baca SJ tambahan (halaman lanjutan) ke hasil yang sudah ada.
+// SKU yang sama dijumlahkan; nama toko / No. SJ yang sudah ada dipertahankan.
+export function mergeSJResults(
+  base: ExtractedSJResult,
+  extra: ExtractedSJResult
+): ExtractedSJResult {
+  const map = new Map<string, ExtractedSJItem>();
+  for (const it of [...base.items, ...extra.items]) {
+    const key = normalizeSkuKey(it.sku, it.product, it.barcode);
+    const existing = map.get(key);
+    if (existing) {
+      existing.claimQty += it.claimQty;
+      if (it.matchScore > existing.matchScore) {
+        existing.product = it.product;
+        existing.barcode = it.barcode;
+        existing.matchScore = it.matchScore;
+        existing.matchConfidence = it.matchConfidence;
+        existing.matchedFromMaster = it.matchedFromMaster;
+      }
+    } else {
+      map.set(key, { ...it });
+    }
+  }
+  return {
+    ok: true,
+    storeName: base.storeName || extra.storeName || "",
+    noSJ: base.noSJ || extra.noSJ || "",
+    items: Array.from(map.values()),
+    pageCount: (base.pageCount || 1) + (extra.pageCount || 1),
+  };
+}
+
 // ============================================================
 // PARSE SJ DENGAN DUKUNGAN MULTI-GAMBAR / MULTI-HALAMAN
 // Menggabungkan beberapa foto SJ dan menjumlahkan klaimnya.

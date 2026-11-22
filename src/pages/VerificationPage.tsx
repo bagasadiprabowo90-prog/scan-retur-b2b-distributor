@@ -41,6 +41,7 @@ import {
 } from "../lib/api";
 import {
   parseSJWithGemini,
+  mergeSJResults,
   type ExtractedSJResult,
 } from "../lib/gemini";
 import {
@@ -56,6 +57,9 @@ import {
   deleteReconReport,
   removeScannedItemFromSession,
   getSessionStoreConflict,
+  getDistriHistory,
+  saveDistriHistory,
+  updateSessionMeta,
   getTodayReceiveDate,
   formatWhatsAppSummary,
   type ReconcileItem,
@@ -93,6 +97,28 @@ export default function VerificationPage() {
   const [aiPreviewOpen, setAiPreviewOpen] = useState(false);
   const [aiExtractedData, setAiExtractedData] = useState<ExtractedSJResult | null>(null);
   const [aiApplyMode, setAiApplyMode] = useState<"replace" | "add">("replace");
+  const [aiStoreName, setAiStoreName] = useState("");
+  const [aiNoSJ, setAiNoSJ] = useState("");
+  const [aiFiles, setAiFiles] = useState<File[]>([]);
+  const appendPageRef = useRef(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameNoSJ, setRenameNoSJ] = useState("");
+  const [distriHistory] = useState<string[]>(getDistriHistory);
+  const aiPreviewUrls = useMemo(
+    () =>
+      aiFiles.map((f) => ({
+        url: URL.createObjectURL(f),
+        isImage: f.type.startsWith("image/"),
+      })),
+    [aiFiles]
+  );
+  useEffect(
+    () => () => {
+      aiPreviewUrls.forEach((u) => URL.revokeObjectURL(u.url));
+    },
+    [aiPreviewUrls]
+  );
   const [mappingItemIndex, setMappingItemIndex] = useState<number | null>(null);
   const [mappingSearch, setMappingSearch] = useState("");
   const [requireMappingConfirm, setRequireMappingConfirm] = useState(false);
@@ -214,6 +240,9 @@ export default function VerificationPage() {
         : "Membaca lembar SJ..."
     );
 
+    const appending = appendPageRef.current && !!aiExtractedData;
+    appendPageRef.current = false;
+
     try {
       const result = await parseSJWithGemini(files, products, (_cur, _total, msg) => {
         setAiProgressText(msg);
@@ -254,10 +283,23 @@ export default function VerificationPage() {
         return;
       }
 
-      setAiExtractedData(result);
-      setAiApplyMode("replace");
-      setRequireMappingConfirm(false);
-      setAiPreviewOpen(true);
+      if (appending && aiExtractedData) {
+        // Halaman lanjutan: digabung ke preview, SKU yang sama dijumlahkan
+        setAiExtractedData(mergeSJResults(aiExtractedData, result));
+        setAiFiles((prev) => [...prev, ...files]);
+        if (!aiStoreName && result.storeName) setAiStoreName(result.storeName);
+        if (!aiNoSJ && result.noSJ) setAiNoSJ(result.noSJ);
+        showToast("success", `Halaman ditambahkan. ${result.items.length} baris digabung ke daftar.`);
+      } else {
+        setAiExtractedData(result);
+        setAiFiles(files);
+        setAiStoreName(result.storeName || "");
+        setAiNoSJ(result.noSJ || "");
+        const hasClaims = !!session && Object.keys(session.claims).length > 0;
+        setAiApplyMode(hasClaims ? "add" : "replace");
+        setRequireMappingConfirm(false);
+        setAiPreviewOpen(true);
+      }
     } catch (err: any) {
       console.error("Gagal memproses file SJ:", err);
       showToast("error", err?.message || "Terjadi kesalahan saat memproses file SJ.");
@@ -306,10 +348,16 @@ export default function VerificationPage() {
       return;
     }
 
+    const storeNameInput = aiStoreName.trim();
+    if (!storeNameInput) {
+      showToast("error", "Isi Nama Distributor / Toko dulu (SJ tidak mencantumkannya).");
+      return;
+    }
+
     let currentSession = session || getActiveSession();
     if (!currentSession) {
-      const storeName = aiExtractedData.storeName || "Toko Retur (dari SJ)";
-      const noSJ = aiExtractedData.noSJ || "";
+      const storeName = storeNameInput;
+      const noSJ = aiNoSJ.trim();
       const defaultSheet = user?.displayName === "Dimas" ? "Dimas" : "Bagas";
       currentSession = startStoreSession(
         storeName,
@@ -318,14 +366,15 @@ export default function VerificationPage() {
         getTodayReceiveDate()
       );
       setSession(currentSession);
-    } else if (
-      aiExtractedData.storeName &&
-      getSessionStoreConflict(aiExtractedData.storeName)
-    ) {
+    } else if (getSessionStoreConflict(storeNameInput)) {
       setStoreConflictModalOpen(true);
       return;
     }
 
+    saveDistriHistory(storeNameInput);
+    if (aiNoSJ.trim() && !(currentSession.noSJ || "").trim()) {
+      updateSessionMeta({ noSJ: aiNoSJ });
+    }
     applyClaimItems(aiExtractedData.items, aiApplyMode);
     try {
       localStorage.setItem("scan-retur-flow-mode", "verify");
@@ -727,6 +776,17 @@ export default function VerificationPage() {
                     <h3 className="text-sm font-black text-slate-900 mt-1.5 leading-snug break-words">
                       {session.storeName}
                     </h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRenameValue(session.storeName);
+                        setRenameNoSJ(session.noSJ || "");
+                        setRenameOpen(true);
+                      }}
+                      className="mt-1 text-xs font-bold text-teal-700 underline min-h-[28px]"
+                    >
+                      Ubah nama distributor / No. SJ
+                    </button>
                     <p className="text-xs text-slate-500 font-medium mt-0.5">
                       {session.receiveDate || "Hari Ini"} · Target: <strong className="text-slate-700">Sheet {session.targetSheet}</strong>
                     </p>
@@ -1490,209 +1550,314 @@ export default function VerificationPage() {
         </div>
       )}
 
-      {/* MODAL: PREVIEW HASIL EKSTRAKSI AI VISION */}
+      {/* MODAL: PREVIEW HASIL EKSTRAKSI AI VISION (bottom sheet, ramah HP) */}
       {aiPreviewOpen && aiExtractedData && (() => {
         const unmappedCount = aiExtractedData.items.filter(
           (it) => it.matchConfidence === "unmatched" || it.matchConfidence === "low"
         ).length;
+        const sessionHasClaims = !!session && Object.keys(session.claims).length > 0;
+        const rows = aiExtractedData.items
+          .map((it, idx) => ({ it, idx }))
+          .sort((a, b) => {
+            const rank = (c: string) => (c === "unmatched" ? 0 : c === "low" ? 1 : 2);
+            return rank(a.it.matchConfidence) - rank(b.it.matchConfidence);
+          });
+        const updateQty = (idx: number, qty: number) => {
+          const updated = aiExtractedData.items.map((x, i) =>
+            i === idx ? { ...x, claimQty: Math.max(0, qty) } : x
+          );
+          setAiExtractedData({ ...aiExtractedData, items: updated });
+        };
+        const removeRow = (idx: number) => {
+          setAiExtractedData({
+            ...aiExtractedData,
+            items: aiExtractedData.items.filter((_, i) => i !== idx),
+          });
+        };
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-sm">
-            <div className="card max-w-md w-full p-4 space-y-3 bg-white/95 animate-scale-in max-h-[85vh] flex flex-col">
-              <div className="flex items-center justify-between pb-2 border-b border-stone-100 shrink-0">
-                <h3 className="text-sm font-bold text-stone-900">
-                  Hasil Baca Lembar SJ
-                </h3>
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/50 backdrop-blur-sm">
+            <div className="bg-white w-full sm:max-w-md h-[92dvh] sm:h-auto sm:max-h-[85vh] rounded-t-3xl sm:rounded-3xl flex flex-col animate-scale-in">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
+                <h3 className="text-base font-bold text-stone-900">Hasil Baca Lembar SJ</h3>
                 <button
                   type="button"
                   onClick={() => setAiPreviewOpen(false)}
-                  className="text-stone-400 hover:text-stone-600 text-lg leading-none"
+                  className="w-10 h-10 -mr-2 flex items-center justify-center text-stone-500 text-2xl leading-none"
+                  aria-label="Tutup"
                 >
                   ×
                 </button>
               </div>
 
-              <div className="text-xs text-stone-600 bg-stone-50 border border-stone-200 rounded-xl p-2.5 shrink-0 space-y-1">
-                {aiExtractedData.storeName && (
-                  <p><strong>Toko terdeteksi:</strong> {aiExtractedData.storeName}</p>
-                )}
-                {aiExtractedData.noSJ && (
-                  <p><strong>No. SJ terdeteksi:</strong> {aiExtractedData.noSJ}</p>
-                )}
-                <p className="text-stone-900 font-bold">
-                  {aiExtractedData.pageCount && aiExtractedData.pageCount > 1
-                    ? `${aiExtractedData.pageCount} halaman digabung · `
-                    : ""}
-                  Ditemukan {aiExtractedData.items.length} produk pada lembar kertas.
-                </p>
-              </div>
-
-              {/* Warning jika ada produk yang belum cocok / low confidence */}
-              {unmappedCount > 0 && (
-                <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-2.5 text-xs space-y-1 shrink-0">
-                  <div className="flex items-center gap-1.5 font-bold">
-                    <span>Ada {unmappedCount} produk perlu dicek / dipetakan</span>
-                  </div>
-                  <p className="text-xs text-amber-800 leading-relaxed">
-                    Produk bertanda kuning/merah belum cocok persis dengan Master. Klik <strong>"Petakan"</strong> agar fisik scan nantinya cocok dan tidak muncul selisih dobel.
-                  </p>
-                </div>
-              )}
-
-              {/* List Items Extracted */}
-              <div className="overflow-y-auto flex-1 divide-y divide-stone-100 border border-stone-200 rounded-xl p-1 space-y-1">
-                {aiExtractedData.items.map((it, idx) => {
-                  const isUnmatched = it.matchConfidence === "unmatched";
-                  const isLow = it.matchConfidence === "low";
-                  const isExact = it.matchConfidence === "exact";
-
-                  return (
-                    <div
-                      key={idx}
-                      className={`p-2 rounded-lg flex items-start justify-between gap-2 text-xs border ${
-                        isUnmatched
-                          ? "bg-red-50/60 border-red-200"
-                          : isLow
-                          ? "bg-amber-50/60 border-amber-200"
-                          : "bg-white border-stone-100"
+              <div className="overflow-y-auto flex-1 px-4 space-y-3 pb-3">
+                {/* Distributor & No SJ (editable) */}
+                <div className="space-y-2 bg-stone-50 border border-stone-200 rounded-2xl p-3">
+                  <label className="block">
+                    <span className="text-xs font-bold text-stone-600">
+                      Nama Distributor / Toko <span className="text-red-600">*</span>
+                    </span>
+                    <input
+                      type="text"
+                      list="distri-suggestions"
+                      value={aiStoreName}
+                      onChange={(e) => setAiStoreName(e.target.value)}
+                      placeholder="Isi manual bila tidak ada di SJ"
+                      className={`mt-1 w-full min-h-[44px] px-3 rounded-xl border text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-slate-300 ${
+                        aiStoreName.trim() ? "border-stone-300" : "border-red-400 bg-red-50/40"
                       }`}
-                    >
-                      <div className="min-w-0 pr-2 flex-1 space-y-0.5">
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {isExact && (
-                            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
-                              ✓ Master Eksak
-                            </span>
+                    />
+                    <datalist id="distri-suggestions">
+                      {distriHistory.map((d) => (
+                        <option key={d} value={d} />
+                      ))}
+                    </datalist>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold text-stone-600">No. SJ (opsional)</span>
+                    <input
+                      type="text"
+                      value={aiNoSJ}
+                      onChange={(e) => setAiNoSJ(e.target.value)}
+                      className="mt-1 w-full min-h-[44px] px-3 rounded-xl border border-stone-300 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    />
+                  </label>
+                  {!aiExtractedData.storeName && (
+                    <p className="text-xs text-amber-700 font-medium">
+                      AI tidak menemukan nama distributor di SJ — isi manual atau pilih dari riwayat.
+                    </p>
+                  )}
+                </div>
+
+                {/* Halaman & tambah halaman */}
+                <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3 space-y-2">
+                  <p className="text-sm text-stone-900 font-bold">
+                    {aiExtractedData.pageCount && aiExtractedData.pageCount > 1
+                      ? `${aiExtractedData.pageCount} halaman digabung · `
+                      : ""}
+                    {aiExtractedData.items.length} produk terbaca
+                  </p>
+                  <p className="text-xs text-stone-600 leading-snug">
+                    Halaman SJ digabung otomatis: klaim SKU yang sama dijumlahkan.
+                  </p>
+                  {aiPreviewUrls.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {aiPreviewUrls.map((u, i) => (
+                        <a
+                          key={u.url}
+                          href={u.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0 w-16 h-16 rounded-xl border border-stone-300 bg-white overflow-hidden flex items-center justify-center text-xs font-bold text-stone-500"
+                          title={`Lihat halaman ${i + 1}`}
+                        >
+                          {u.isImage ? (
+                            <img src={u.url} alt={`Halaman ${i + 1}`} className="w-full h-full object-cover" />
+                          ) : (
+                            "PDF"
                           )}
-                          {!isExact && !isLow && !isUnmatched && (
-                            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
-                              ✓ Cocok ({Math.round((it.matchScore || 1) * 100)}%)
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    disabled={aiLoading}
+                    onClick={() => {
+                      appendPageRef.current = true;
+                      fileInputRef.current?.click();
+                    }}
+                    className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-800 flex items-center justify-center gap-2 active:scale-[0.99]"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {aiLoading ? aiProgressText || "Membaca..." : "Tambah halaman SJ"}
+                  </button>
+                </div>
+
+                {unmappedCount > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-3 text-xs space-y-1">
+                    <p className="font-bold text-sm">{unmappedCount} produk perlu dicek / dipetakan</p>
+                    <p className="leading-relaxed">
+                      Bandingkan dengan foto SJ. Tap <strong>Petakan</strong> agar SKU cocok dengan Master dan tidak muncul selisih ganda.
+                    </p>
+                  </div>
+                )}
+
+                {/* Daftar item */}
+                <div className="space-y-2">
+                  {rows.map(({ it, idx }) => {
+                    const isUnmatched = it.matchConfidence === "unmatched";
+                    const isLow = it.matchConfidence === "low";
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-2xl border space-y-2 ${
+                          isUnmatched
+                            ? "bg-red-50/60 border-red-200"
+                            : isLow
+                            ? "bg-amber-50/60 border-amber-200"
+                            : "bg-white border-stone-200"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-md text-xs font-bold ${
+                                isUnmatched
+                                  ? "bg-red-100 text-red-700"
+                                  : isLow
+                                  ? "bg-amber-100 text-amber-900"
+                                  : "bg-emerald-100 text-emerald-800"
+                              }`}
+                            >
+                              {isUnmatched
+                                ? "Tidak di Master"
+                                : isLow
+                                ? `Perlu dicek (${Math.round(it.matchScore * 100)}%)`
+                                : "✓ Cocok Master"}
                             </span>
-                          )}
-                          {isLow && (
-                            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-900">
-                              Perlu Dicek ({Math.round(it.matchScore * 100)}%)
-                            </span>
-                          )}
-                          {isUnmatched && (
-                            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700">
-                              Tidak di Master
-                            </span>
-                          )}
+                            <p className="text-sm font-bold text-stone-900 leading-snug break-words">{it.product}</p>
+                            <p className="text-xs text-stone-500 font-mono">SKU: {it.sku || "-"}</p>
+                            {it.rawProduct && it.rawProduct.toLowerCase() !== it.product.toLowerCase() && (
+                              <p className="text-xs text-stone-500 break-words">
+                                Teks SJ: <em>"{it.rawProduct}"</em>
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeRow(idx)}
+                            className="w-10 h-10 shrink-0 -mr-1 -mt-1 flex items-center justify-center text-stone-400 hover:text-red-600"
+                            aria-label="Hapus baris"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
 
-                        <span className="font-bold text-stone-900 block leading-snug break-words">
-                          {it.product}
-                        </span>
-
-                        {it.rawProduct && it.rawProduct.toLowerCase() !== it.product.toLowerCase() && (
-                          <span className="text-xs text-stone-500 block break-words">
-                            Teks SJ: <em>"{it.rawProduct}"</em>
-                          </span>
-                        )}
-
-                        <div className="flex items-center gap-2 pt-0.5">
-                          <span className="text-xs text-stone-400 font-mono">
-                            SKU: {it.sku || "-"}
-                          </span>
+                        <div className="flex items-center justify-between gap-2">
                           <button
                             type="button"
                             onClick={() => {
                               setMappingItemIndex(idx);
                               setMappingSearch(it.rawProduct || it.product);
                             }}
-                            className="text-xs font-bold text-teal-700 hover:text-teal-900 underline"
+                            className={`min-h-[44px] px-3 rounded-xl text-sm font-bold border ${
+                              isUnmatched || isLow
+                                ? "bg-teal-700 text-white border-teal-700"
+                                : "bg-white text-teal-800 border-teal-300"
+                            }`}
                           >
-                            {isUnmatched || isLow ? "Petakan..." : "Ubah..."}
+                            {isUnmatched || isLow ? "Petakan" : "Ubah produk"}
                           </button>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => updateQty(idx, it.claimQty - 1)}
+                              className="w-11 h-11 rounded-xl bg-stone-100 border border-stone-300 flex items-center justify-center active:scale-95"
+                              aria-label="Kurangi"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              min="0"
+                              value={it.claimQty}
+                              onChange={(e) => updateQty(idx, Number(e.target.value) || 0)}
+                              className="w-14 h-11 text-center text-base font-black text-stone-900 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => updateQty(idx, it.claimQty + 1)}
+                              className="w-11 h-11 rounded-xl bg-stone-100 border border-stone-300 flex items-center justify-center active:scale-95"
+                              aria-label="Tambah"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-
-                      <div className="shrink-0 flex items-center gap-1 pt-1">
-                        <span className="text-xs text-stone-400 font-bold">Klaim:</span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min="1"
-                          value={it.claimQty}
-                          onChange={(e) => {
-                            const val = Math.max(0, Number(e.target.value) || 0);
-                            const updated = [...aiExtractedData.items];
-                            updated[idx].claimQty = val;
-                            setAiExtractedData({ ...aiExtractedData, items: updated });
-                          }}
-                          className="w-14 text-center text-xs font-bold text-stone-900 border border-stone-300 rounded-lg py-1 focus:outline-none"
-                        />
-                        <span className="text-xs text-stone-500 font-semibold">pcs</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {session && Object.keys(session.claims).length > 0 && (
-                <div className="shrink-0 grid grid-cols-2 gap-1.5 text-xs font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setAiApplyMode("replace")}
-                    className={`py-1.5 rounded-full border ${
-                      aiApplyMode === "replace"
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-white text-stone-600 border-stone-300"
-                    }`}
-                  >
-                    Ganti klaim SKU ini
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAiApplyMode("add")}
-                    className={`py-1.5 rounded-full border ${
-                      aiApplyMode === "add"
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-white text-stone-600 border-stone-300"
-                    }`}
-                  >
-                    Tambah (SJ lanjutan)
-                  </button>
+                    );
+                  })}
+                  {aiExtractedData.items.length === 0 && (
+                    <p className="text-center text-xs text-stone-400 py-4">Semua baris dihapus. Tambah halaman SJ atau batal.</p>
+                  )}
                 </div>
-              )}
 
-              {/* Konfirmasi jika masih ada item low/unmatched */}
-              {requireMappingConfirm && (
-                <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs space-y-1 shrink-0">
-                  <p className="font-bold text-red-800">
-                    Masih ada {unmappedCount} produk belum dipetakan.
-                  </p>
-                  <p className="text-xs text-red-600 leading-snug">
-                    Produk tanpa SKU master berisiko membuat selisih palsu saat barang fisik di-scan.
-                  </p>
-                  <div className="pt-1">
+                {sessionHasClaims && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-bold text-stone-600">Sesi ini sudah punya klaim SJ. Hasil baca ini:</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setAiApplyMode("add")}
+                        className={`min-h-[44px] rounded-xl border ${
+                          aiApplyMode === "add"
+                            ? "bg-slate-900 text-white border-slate-900"
+                            : "bg-white text-stone-700 border-stone-300"
+                        }`}
+                      >
+                        Tambah ke klaim
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAiApplyMode("replace")}
+                        className={`min-h-[44px] rounded-xl border ${
+                          aiApplyMode === "replace"
+                            ? "bg-slate-900 text-white border-slate-900"
+                            : "bg-white text-stone-700 border-stone-300"
+                        }`}
+                      >
+                        Ganti klaim SKU ini
+                      </button>
+                    </div>
+                    <p className="text-xs text-stone-500 leading-snug">
+                      {aiApplyMode === "add"
+                        ? "Untuk lembar SJ lanjutan: qty dijumlahkan dengan klaim yang sudah ada (mis. 6 + 6 = 12)."
+                        : "Untuk SJ yang salah baca / dibaca ulang: klaim SKU yang sama ditimpa qty baru."}
+                    </p>
+                  </div>
+                )}
+
+                {requireMappingConfirm && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-xs space-y-1">
+                    <p className="font-bold text-red-800 text-sm">Masih ada {unmappedCount} produk belum dipetakan.</p>
+                    <p className="text-red-600 leading-snug">
+                      Produk tanpa SKU master berisiko membuat selisih palsu saat barang fisik di-scan.
+                    </p>
                     <button
                       type="button"
                       onClick={() => handleApplyAiClaims(true)}
-                      className="w-full btn-outline py-1.5 text-xs font-bold text-red-700 border-red-300 hover:bg-red-100"
+                      className="w-full min-h-[44px] mt-1 rounded-xl border border-red-300 text-sm font-bold text-red-700 hover:bg-red-100"
                     >
                       Tetap Terapkan Tanpa Mapping
                     </button>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              <div className="flex gap-2 pt-2 border-t border-stone-100 shrink-0">
+              {/* Footer sticky */}
+              <div
+                className="flex gap-2 px-4 pt-3 border-t border-stone-100 shrink-0"
+                style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+              >
                 <button
                   type="button"
                   onClick={() => {
                     setAiPreviewOpen(false);
                     setRequireMappingConfirm(false);
                   }}
-                  className="flex-1 btn-outline py-2 text-xs font-bold"
+                  className="flex-1 min-h-[48px] rounded-xl border border-stone-300 text-sm font-bold text-stone-700"
                 >
                   Batal
                 </button>
                 <button
                   type="button"
+                  disabled={aiExtractedData.items.length === 0}
                   onClick={() => handleApplyAiClaims(false)}
-                  className="flex-1 btn-primary py-2 text-xs font-bold"
+                  className="flex-[2] min-h-[48px] rounded-xl bg-slate-900 text-white text-sm font-bold disabled:opacity-40"
                 >
                   Terapkan ke Rekonsiliasi
                 </button>
@@ -1701,6 +1866,78 @@ export default function VerificationPage() {
           </div>
         );
       })()}
+
+      {/* MODAL: UBAH NAMA DISTRIBUTOR / NO SJ SESI AKTIF */}
+      {renameOpen && session && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/50 backdrop-blur-sm">
+          <div
+            className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-4 space-y-3"
+            style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+          >
+            <h3 className="text-base font-bold text-stone-900">Ubah data sesi</h3>
+            <label className="block">
+              <span className="text-xs font-bold text-stone-600">Nama Distributor / Toko</span>
+              <input
+                type="text"
+                list="distri-suggestions-rename"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                className="mt-1 w-full min-h-[44px] px-3 rounded-xl border border-stone-300 text-sm font-semibold"
+              />
+              <datalist id="distri-suggestions-rename">
+                {distriHistory.map((d) => (
+                  <option key={d} value={d} />
+                ))}
+              </datalist>
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold text-stone-600">No. SJ</span>
+              <input
+                type="text"
+                value={renameNoSJ}
+                onChange={(e) => setRenameNoSJ(e.target.value)}
+                className="mt-1 w-full min-h-[44px] px-3 rounded-xl border border-stone-300 text-sm font-semibold"
+              />
+            </label>
+            {session.items.length > 0 && (
+              <p className="text-xs text-amber-700 leading-snug">
+                Sudah ada {session.items.length} scan fisik, jadi nama distributor tidak bisa diubah (baris di Sheet memakai nama lama). No. SJ tetap bisa diubah.
+              </p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setRenameOpen(false)}
+                className="flex-1 min-h-[48px] rounded-xl border border-stone-300 text-sm font-bold text-stone-700"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const nameChanged =
+                    renameValue.trim().toLowerCase() !== session.storeName.trim().toLowerCase();
+                  const res = updateSessionMeta({
+                    storeName: nameChanged ? renameValue : undefined,
+                    noSJ: renameNoSJ,
+                  });
+                  if (!res.ok) {
+                    showToast("error", res.error);
+                    return;
+                  }
+                  if (nameChanged) saveDistriHistory(renameValue);
+                  refreshSession();
+                  setRenameOpen(false);
+                  showToast("success", "Data sesi diperbarui.");
+                }}
+                className="flex-[2] min-h-[48px] rounded-xl bg-slate-900 text-white text-sm font-bold"
+              >
+                Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: MANUAL MAPPING MASTER PRODUCT */}
       {mappingItemIndex !== null && aiExtractedData && (
@@ -1902,7 +2139,7 @@ export default function VerificationPage() {
             </h3>
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-left text-amber-900 space-y-1">
               <p>📍 <strong>Sesi Aktif:</strong> {session?.storeName}</p>
-              <p>📄 <strong>Toko di Surat Jalan:</strong> {aiExtractedData.storeName}</p>
+              <p>📄 <strong>Toko di Surat Jalan:</strong> {aiStoreName}</p>
               <p className="text-xs text-amber-800 pt-1">
                 Surat Jalan yang Anda baca terindikasi milik toko yang berbeda dari sesi scan yang sedang berjalan.
               </p>
@@ -1913,8 +2150,8 @@ export default function VerificationPage() {
                 onClick={() => {
                   const defaultSheet = user?.displayName === "Dimas" ? "Dimas" : "Bagas";
                   const newSession = startStoreSession(
-                    aiExtractedData.storeName || "Toko Retur",
-                    aiExtractedData.noSJ || "",
+                    aiStoreName.trim() || "Toko Retur",
+                    aiNoSJ.trim(),
                     defaultSheet,
                     getTodayReceiveDate()
                   );
